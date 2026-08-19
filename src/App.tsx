@@ -110,11 +110,13 @@ const CHECKLIST_PEGADO: ItemChecklist[] = [
 ];
 
 interface Hallazgo {
-  puntoId: number;
+  id: string;
+  puntoId?: number;
+  esExtra?: boolean;
   hallazgo: string;
   accion: string;
   responsable: string;
-  fecha: string;
+  fechaCierre: string;
 }
 
 export const App: React.FC = () => {
@@ -125,9 +127,11 @@ export const App: React.FC = () => {
   const [auditor, setAuditor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   const [respuestas, setRespuestas] = useState<Record<number, 'SI' | 'NO' | null>>({});
-  const [hallazgos, setHallazgos] = useState<Record<number, Hallazgo>>({});
+  const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     const q = query(collection(db, 'evaluaciones_proceso'), orderBy('createdAt', 'desc'));
@@ -143,37 +147,65 @@ export const App: React.FC = () => {
 
   const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
     setRespuestas((prev) => ({ ...prev, [puntoId]: valor }));
-    if (valor === 'NO' && !hallazgos[puntoId]) {
+    const key = `punto_${puntoId}`;
+
+    if (valor === 'NO' && !hallazgos[key]) {
       const item = CHECKLIST_PEGADO.find((i) => i.id === puntoId);
       setHallazgos((prev) => ({
         ...prev,
-        [puntoId]: {
+        [key]: {
+          id: key,
           puntoId,
+          esExtra: false,
           hallazgo: `Desviación en: ${item?.queObservar || ''}`,
           accion: '',
           responsable: '',
-          fecha: new Date().toISOString().split('T')[0]
+          fechaCierre: todayStr
         }
       }));
-    } else if (valor === 'SI') {
+    } else if (valor === 'SI' && hallazgos[key]) {
       setHallazgos((prev) => {
         const copy = { ...prev };
-        delete copy[puntoId];
+        delete copy[key];
         return copy;
       });
     }
   };
 
-  const handleHallazgoChange = (puntoId: number, campo: keyof Hallazgo, valor: string) => {
+  const handleAddHallazgoExtra = () => {
+    const extraId = `extra_${Date.now()}`;
     setHallazgos((prev) => ({
       ...prev,
-      [puntoId]: { ...prev[puntoId], [campo]: valor }
+      [extraId]: {
+        id: extraId,
+        esExtra: true,
+        hallazgo: '',
+        accion: '',
+        responsable: '',
+        fechaCierre: todayStr
+      }
+    }));
+  };
+
+  const handleRemoveHallazgoExtra = (key: string) => {
+    setHallazgos((prev) => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+  };
+
+  const handleHallazgoChange = (key: string, campo: keyof Hallazgo, valor: string) => {
+    setHallazgos((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], [campo]: valor }
     }));
   };
 
   const totalRespondidos = Object.values(respuestas).filter((v) => v !== null).length;
   const totalSi = Object.values(respuestas).filter((v) => v === 'SI').length;
   const totalNo = Object.values(respuestas).filter((v) => v === 'NO').length;
+  const listaHallazgos = Object.values(hallazgos);
   const cumplimiento = totalRespondidos > 0 ? Math.round((totalSi / CHECKLIST_PEGADO.length) * 100) : 0;
 
   const handleGuardarEvaluacion = async () => {
@@ -199,8 +231,8 @@ export const App: React.FC = () => {
         totalSi,
         totalNo,
         respuestas,
-        hallazgos: Object.values(hallazgos),
-        estadoFinal: totalNo === 0 ? 'APROBADO' : 'CON_HALLAZGOS',
+        hallazgos: listaHallazgos,
+        estadoFinal: listaHallazgos.length === 0 ? 'APROBADO' : 'CON_HALLAZGOS',
         createdAt: serverTimestamp()
       });
 
@@ -221,7 +253,7 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS OFICIAL */}
+      {/* HEADER GLASS */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.75rem 1.5rem', background: 'rgba(255,255,255,0.88)',
@@ -261,7 +293,7 @@ export const App: React.FC = () => {
         {/* 1. VISTA LAUNCHER */}
         {vista === 'LAUNCHER' && (
           <div>
-            {/* Tarjeta Métricas Resumen */}
+            {/* Tarjeta Métricas */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '1.5rem' }}>
               <div style={STYLES.metricCard}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Total Auditorías</div>
@@ -289,7 +321,7 @@ export const App: React.FC = () => {
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Módulo Operativo</div>
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>⚙️ Validación de Proceso</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Validación de Proceso</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
                   Checklists de arranque, control de parámetros, solvente, mangas y liberación de tiro.
                 </p>
@@ -304,7 +336,7 @@ export const App: React.FC = () => {
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Módulo de Calidad</div>
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>🧹 Condiciones y 5S</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Condiciones y 5S</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
                   Auditoría de área limpia, estantes correctos, despeje de línea y orden de herramentales.
                 </p>
@@ -355,7 +387,7 @@ export const App: React.FC = () => {
                       </span>
                       {esPegadora && <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>Plantilla Lista</span>}
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: '13px', color: '#0D1A2E' }}>{maq.nombre}</div>
+                    <div style={{ fontWeight: 600, fontSize: '13px', color: '#0D1A2E', textAlign: 'left' }}>{maq.nombre}</div>
                   </div>
                 );
               })}
@@ -386,14 +418,14 @@ export const App: React.FC = () => {
                   <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
                     {item.tipo}
                   </span>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: '#0D1A2E', marginTop: '6px' }}>{item.nombre}</div>
+                  <div style={{ fontWeight: 600, fontSize: '13px', color: '#0D1A2E', marginTop: '6px', textAlign: 'left' }}>{item.nombre}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN OFICIAL DE PEGADO */}
+        {/* 4. VISTA EVALUACIÓN OFICIAL DE PEGADO */}
         {vista === 'EVALUACION_PEGADO' && (
           <div>
             {/* Header del Formulario */}
@@ -404,7 +436,7 @@ export const App: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
+                <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
                   <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>Formato F1-PR-PA-03 · 16 Puntos Críticos</div>
                 </div>
@@ -418,7 +450,7 @@ export const App: React.FC = () => {
               </div>
 
               {/* Formulario de Entrada */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem', textAlign: 'left' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Orden de Trabajo (OP):</label>
                   <input
@@ -465,7 +497,7 @@ export const App: React.FC = () => {
                   return (
                     <React.Fragment key={item.id}>
                       {showHeader && (
-                        <div style={{ background: '#E8EEF8', color: '#002060', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', marginTop: idx === 0 ? '0' : '14px' }}>
+                        <div style={{ background: '#E8EEF8', color: '#002060', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', marginTop: idx === 0 ? '0' : '14px', textAlign: 'left' }}>
                           {item.seccion}
                         </div>
                       )}
@@ -476,13 +508,13 @@ export const App: React.FC = () => {
                         background: resp === 'NO' ? '#F9E8EB' : resp === 'SI' ? '#E0F2EC' : 'rgba(255,255,255,0.85)',
                         gap: '12px', flexWrap: 'wrap'
                       }}>
-                        <div style={{ flex: '1 1 300px' }}>
+                        <div style={{ flex: '1 1 300px', textAlign: 'left' }}>
                           <div style={{ fontSize: '12.5px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
                             <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
                             {item.queObservar}
                           </div>
                           <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                            🔍 <strong>Verificación:</strong> {item.comoVerifica}
+                            <strong>Verificación:</strong> {item.comoVerifica}
                           </div>
                         </div>
 
@@ -519,49 +551,119 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Hallazgos Obligatorios */}
-            {totalNo > 0 && (
-              <div style={{ ...STYLES.glassCard, border: '1.5px solid #C8102E', background: '#F9E8EB' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid rgba(200,16,46,0.2)' }}>
-                  <div style={{ width: '3px', height: '18px', background: '#C8102E', borderRadius: '2px' }}></div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                    Hallazgos y Acciones Correctivas ({totalNo})
+            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
+            <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '3px', height: '18px', background: listaHallazgos.length > 0 ? '#C8102E' : '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: listaHallazgos.length > 0 ? '#7A0B1D' : '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                    Hallazgos y Acciones Correctivas ({listaHallazgos.length})
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {Object.values(hallazgos).map((h) => (
-                    <div key={h.puntoId} style={{ background: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', marginBottom: '6px' }}>
-                        Punto #{h.puntoId}: {CHECKLIST_PEGADO.find((i) => i.id === h.puntoId)?.queObservar}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Acción Correctiva Inmediata:</label>
-                          <input
-                            type="text"
-                            placeholder="Acción realizada..."
-                            value={h.accion}
-                            onChange={(e) => handleHallazgoChange(h.puntoId, 'accion', e.target.value)}
-                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
-                          <input
-                            type="text"
-                            placeholder="Nombre del responsable"
-                            value={h.responsable}
-                            onChange={(e) => handleHallazgoChange(h.puntoId, 'responsable', e.target.value)}
-                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={handleAddHallazgoExtra}
+                  style={{
+                    background: '#003580', color: '#ffffff', border: 'none',
+                    padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Agregar Hallazgo Extra
+                </button>
               </div>
-            )}
+
+              {listaHallazgos.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#5A6A80', textAlign: 'center', padding: '12px' }}>
+                  No hay hallazgos registrados. Si una pregunta se marca como "NO" o agregas un hallazgo extra, aparecerá aquí.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {listaHallazgos.map((h) => {
+                    const itemCheck = h.puntoId ? CHECKLIST_PEGADO.find((i) => i.id === h.puntoId) : null;
+                    return (
+                      <div key={h.id} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
+                            {h.esExtra ? (
+                              '⚠️ Hallazgo Extra / Fuera de Checklist'
+                            ) : (
+                              `Punto #${h.puntoId}: ${itemCheck?.queObservar}`
+                            )}
+                          </div>
+                          {h.esExtra && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveHallazgoExtra(h.id)}
+                              style={{ background: 'none', border: 'none', color: '#C8102E', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              ✕ Eliminar
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Campo descripción si es Extra */}
+                        {h.esExtra && (
+                          <div style={{ marginBottom: '8px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
+                            <input
+                              type="text"
+                              placeholder="Describe la desviación observada..."
+                              value={h.hallazgo}
+                              onChange={(e) => handleHallazgoChange(h.id, 'hallazgo', e.target.value)}
+                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
+                            />
+                          </div>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Acción Correctiva Inmediata:</label>
+                            <input
+                              type="text"
+                              placeholder="Acción realizada..."
+                              value={h.accion}
+                              onChange={(e) => handleHallazgoChange(h.id, 'accion', e.target.value)}
+                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
+                            <input
+                              type="text"
+                              placeholder="Nombre del responsable"
+                              value={h.responsable}
+                              onChange={(e) => handleHallazgoChange(h.id, 'responsable', e.target.value)}
+                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>
+                              Fecha de Cierre:
+                            </label>
+                            <input
+                              type="date"
+                              value={h.fechaCierre}
+                              readOnly={!h.esExtra}
+                              onChange={(e) => handleHallazgoChange(h.id, 'fechaCierre', e.target.value)}
+                              style={{
+                                ...STYLES.input,
+                                fontSize: '12px',
+                                padding: '6px 10px',
+                                background: !h.esExtra ? '#f1f5f9' : '#ffffff',
+                                cursor: !h.esExtra ? 'not-allowed' : 'auto'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Acciones de Guardado */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -578,7 +680,7 @@ export const App: React.FC = () => {
                 onClick={handleGuardarEvaluacion}
                 style={{
                   padding: '11px 28px',
-                  background: totalNo === 0 ? '#003580' : '#C8102E',
+                  background: listaHallazgos.length === 0 ? '#003580' : '#C8102E',
                   color: '#ffffff', border: 'none', borderRadius: '8px',
                   fontSize: '13px', fontWeight: 700, letterSpacing: '.02em',
                   cursor: guardando ? 'not-allowed' : 'pointer',
@@ -612,7 +714,7 @@ export const App: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {historial.map((item) => (
                   <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <div>
+                    <div style={{ textAlign: 'left' }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
                         <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
                         <span style={{
@@ -633,7 +735,7 @@ export const App: React.FC = () => {
                         {item.cumplimiento}%
                       </div>
                       <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                        {item.totalSi} SÍ / {item.totalNo} NO
+                        {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
                       </div>
                     </div>
                   </div>
@@ -645,7 +747,7 @@ export const App: React.FC = () => {
 
       </main>
 
-      {/* FOOTER OFICIAL */}
+      {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
         <strong style={{ color: '#003580' }}>IMPREDIMEX</strong> — Impresión y Diseño de México S.A. de C.V. &nbsp;·&nbsp; Sistema de Control Operativo &nbsp;·&nbsp; Planta Industrial
       </footer>
