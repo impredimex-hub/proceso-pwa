@@ -91,7 +91,7 @@ interface ItemChecklist {
   pideOTyOC?: boolean;
 }
 
-// CHECKLIST PEGADORAS (PROCESO)
+// CHECKLIST PEGADORAS
 const CHECKLIST_PEGADO: ItemChecklist[] = [
   { id: 1, seccion: 'A · SOLVENTE Y APORTE (raíz del sellado abierto)', queObservar: 'El solvente montado corresponde al sustrato del pedido', comoVerifica: 'Comparar etiqueta del bote vs. sustrato de la ficha; lote anotado en reporte' },
   { id: 2, seccion: 'A · SOLVENTE Y APORTE (raíz del sellado abierto)', queObservar: 'El operador realizó y registró la prueba de aporte', comoVerifica: 'Pedir el cálculo: mL ÷ velocidad = 0.015' },
@@ -111,7 +111,7 @@ const CHECKLIST_PEGADO: ItemChecklist[] = [
   { id: 16, seccion: 'D · VALIDACIÓN Y LIBERACIÓN', queObservar: 'Reporte de producción sin espacios en blanco ni tachaduras; ancho plano y solvente registrados hora por hora', comoVerifica: 'Revisar F1-PR-PA-03' }
 ];
 
-// CHECKLIST 5S DIARIO (20 PUNTOS)
+// CHECKLIST 5S DIARIO
 const CHECKLIST_5S_DIARIO: ItemChecklist[] = [
   { id: 1, seccion: '1. Orden y 5S', queObservar: 'Todas las herramientas se encuentran en su lugar asignado.', pideOTyOC: true },
   { id: 2, seccion: '1. Orden y 5S', queObservar: 'No existen materiales, rollos, tarimas o contenedores fuera de su ubicación definida.', pideOTyOC: true },
@@ -269,7 +269,6 @@ export const App: React.FC = () => {
   const totalNo = Object.values(respuestas).filter((v) => v === 'NO').length;
   const listaHallazgos = Object.values(hallazgos);
 
-  // Cumplimiento Proceso vs 5S
   const totalPreguntas = vista === 'EVALUACION_5S_DIARIO' ? CHECKLIST_5S_DIARIO.length : (esProcesoPegado ? CHECKLIST_PEGADO.length : 1);
   const cumplimiento = totalRespondidos > 0 ? Math.round((totalSi / totalPreguntas) * 100) : (listaHallazgos.length === 0 ? 100 : 80);
 
@@ -621,7 +620,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 3. VISTA SELECCIÓN 5S (SELECTOR DIARIO / SEMANAL Y ÁREAS) */}
+        {/* 3. VISTA SELECCIÓN 5S */}
         {vista === 'MODULO_5S' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1.2rem 1.4rem' }}>
@@ -635,7 +634,6 @@ export const App: React.FC = () => {
                 </button>
               </div>
 
-              {/* Sub-selector Diario / Semanal */}
               <div style={{ display: 'flex', gap: '8px', maxWidth: '380px' }}>
                 <button
                   type="button"
@@ -706,7 +704,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN: 5S DIARIO (20 PUNTOS CON OT Y OC EN 1-18) */}
+        {/* 4. VISTA DE EVALUACIÓN: 5S DIARIO */}
         {vista === 'EVALUACION_5S_DIARIO' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -821,7 +819,6 @@ export const App: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Campos adicionales OT y OC para puntos del 1 al 18 */}
                         {item.pideOTyOC && (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(0,32,96,0.1)' }}>
                             <div>
@@ -851,7 +848,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* SECCIÓN HALLAZGOS Y ACCIONES 5S */}
+            {/* SECCIÓN HALLAZGOS 5S */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -996,7 +993,7 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'gap', gap: '12px' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
                   <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
@@ -1736,7 +1733,7 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAuditoriaEditando(null)}
-                style={{ padding: '8px 16px', background: 'transparent', border: '1.5px solid rgba(0,32,96,0.12)', color: '#5A6A80', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
               >
                 Cancelar
               </button>
