@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/firebase';
-import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
 const STYLES = {
@@ -117,10 +117,12 @@ interface Hallazgo {
   accion: string;
   responsable: string;
   fechaCierre: string;
+  estadoSeguimiento?: 'PENDIENTE' | 'EN_PROCESO' | 'CERRADO';
 }
 
 export const App: React.FC = () => {
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION_PEGADO' | 'HISTORIAL'>('LAUNCHER');
+  const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
@@ -160,7 +162,8 @@ export const App: React.FC = () => {
           hallazgo: `Desviación en: ${item?.queObservar || ''}`,
           accion: '',
           responsable: '',
-          fechaCierre: todayStr
+          fechaCierre: todayStr,
+          estadoSeguimiento: 'PENDIENTE'
         }
       }));
     } else if (valor === 'SI' && hallazgos[key]) {
@@ -182,7 +185,8 @@ export const App: React.FC = () => {
         hallazgo: '',
         accion: '',
         responsable: '',
-        fechaCierre: todayStr
+        fechaCierre: todayStr,
+        estadoSeguimiento: 'PENDIENTE'
       }
     }));
   };
@@ -230,6 +234,7 @@ export const App: React.FC = () => {
         cumplimiento,
         totalSi,
         totalNo,
+        fechaAuditoria: todayStr,
         respuestas,
         hallazgos: listaHallazgos,
         estadoFinal: listaHallazgos.length === 0 ? 'APROBADO' : 'CON_HALLAZGOS',
@@ -249,6 +254,43 @@ export const App: React.FC = () => {
       setGuardando(false);
     }
   };
+
+  // Actualizar estado de seguimiento de un hallazgo desde el Gantt
+  const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: string) => {
+    try {
+      const docEncontrado = historial.find((h) => h.id === docId);
+      if (!docEncontrado || !docEncontrado.hallazgos) return;
+
+      const nuevosHallazgos = [...docEncontrado.hallazgos];
+      const siguienteEstado =
+        estadoActual === 'PENDIENTE' || !estadoActual ? 'EN_PROCESO' :
+        estadoActual === 'EN_PROCESO' ? 'CERRADO' : 'PENDIENTE';
+
+      nuevosHallazgos[hallazgoIdx] = {
+        ...nuevosHallazgos[hallazgoIdx],
+        estadoSeguimiento: siguienteEstado
+      };
+
+      const docRef = doc(db, 'evaluaciones_proceso', docId);
+      await updateDoc(docRef, { hallazgos: nuevosHallazgos });
+    } catch (error) {
+      console.error('Error al actualizar estado en Gantt:', error);
+    }
+  };
+
+  // Obtener lista plana unificada de hallazgos para el Gantt
+  const hallazgosUnificados = historial.flatMap((auditoria) => {
+    if (!auditoria.hallazgos || !Array.isArray(auditoria.hallazgos)) return [];
+    return auditoria.hallazgos.map((h: Hallazgo, idx: number) => ({
+      ...h,
+      docId: auditoria.id,
+      hallazgoIdx: idx,
+      maquinaNombre: auditoria.maquinaNombre,
+      ordenTrabajo: auditoria.ordenTrabajo,
+      auditor: auditoria.auditor,
+      fechaAuditoria: auditoria.fechaAuditoria || todayStr,
+    }));
+  });
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
@@ -278,22 +320,21 @@ export const App: React.FC = () => {
               ← Tablero
             </button>
           )}
-          <button onClick={() => setVista('HISTORIAL')} style={{
+          <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('GANTT'); }} style={{
             background: '#003580', color: '#ffffff', border: 'none',
             padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
           }}>
-            Historial ({historial.length})
+            Histórico & Gantt ({hallazgosUnificados.length})
           </button>
         </div>
       </header>
 
       {/* CONTENEDOR PRINCIPAL */}
-      <main style={{ maxWidth: '980px', margin: '0 auto', padding: '1.2rem 1rem 3rem' }}>
+      <main style={{ maxWidth: '1060px', margin: '0 auto', padding: '1.2rem 1rem 3rem' }}>
 
         {/* 1. VISTA LAUNCHER */}
         {vista === 'LAUNCHER' && (
           <div>
-            {/* Tarjeta Métricas */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '1.5rem' }}>
               <div style={STYLES.metricCard}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Total Auditorías</div>
@@ -301,21 +342,21 @@ export const App: React.FC = () => {
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Registros globales</div>
               </div>
               <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Máquinas Activas</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>26</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En planta</div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Hallazgos Totales</div>
+                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>{hallazgosUnificados.length}</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En plan de acción</div>
               </div>
               <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Áreas 5S</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>33</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Puntos de control</div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Acciones Pendientes</div>
+                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>
+                  {hallazgosUnificados.filter((h) => h.estadoSeguimiento !== 'CERRADO').length}
+                </div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Por cerrar</div>
               </div>
             </div>
 
-            {/* Módulos Launcher */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               
-              {/* Tarjeta Proceso */}
               <div onClick={() => setVista('MODULO_PROCESO')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -330,7 +371,6 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
-              {/* Tarjeta 5S */}
               <div onClick={() => setVista('MODULO_5S')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -428,7 +468,6 @@ export const App: React.FC = () => {
         {/* 4. VISTA EVALUACIÓN OFICIAL DE PEGADO */}
         {vista === 'EVALUACION_PEGADO' && (
           <div>
-            {/* Header del Formulario */}
             <div style={STYLES.glassCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -449,7 +488,6 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Formulario de Entrada */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem', textAlign: 'left' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Orden de Trabajo (OP):</label>
@@ -482,7 +520,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Checklist Items */}
+            {/* Checklist */}
             <div style={STYLES.glassCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -551,7 +589,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
+            {/* SECCIÓN HALLAZGOS */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -604,7 +642,6 @@ export const App: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Campo descripción si es Extra */}
                         {h.esExtra && (
                           <div style={{ marginBottom: '8px' }}>
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
@@ -665,7 +702,7 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            {/* Acciones de Guardado */}
+            {/* Acciones */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -693,55 +730,172 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 5. VISTA HISTORIAL */}
+        {/* 5. VISTA HISTORIAL & GANTT UNIFICADO */}
         {vista === 'HISTORIAL' && (
           <div>
-            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Encabezado y Selector de Subvistas */}
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Historial de Auditorías</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Registros sincronizados con Firebase en tiempo real</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico Operativo y Plan de Acción</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Consolidación de auditorías y seguimiento de implementación</div>
               </div>
-              <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                Volver
-              </button>
+
+              {/* Botones de Pestaña Historial */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={() => setSubVistaHistorial('GANTT')}
+                  style={{
+                    background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
+                    color: subVistaHistorial === 'GANTT' ? '#ffffff' : '#003580',
+                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
+                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Plan de Acción / Gantt ({hallazgosUnificados.length})
+                </button>
+                <button
+                  onClick={() => setSubVistaHistorial('AUDITORIAS')}
+                  style={{
+                    background: subVistaHistorial === 'AUDITORIAS' ? '#003580' : 'transparent',
+                    color: subVistaHistorial === 'AUDITORIAS' ? '#ffffff' : '#003580',
+                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
+                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Auditorías ({historial.length})
+                </button>
+                <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                  Cerrar
+                </button>
+              </div>
             </div>
 
-            {historial.length === 0 ? (
-              <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                Sin registros guardados aún.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {historial.map((item) => (
-                  <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
-                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
-                        <span style={{
-                          fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                          background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
-                          color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
-                        }}>
-                          {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                        OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                        {item.cumplimiento}%
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                        {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
-                      </div>
-                    </div>
+            {/* A. SUBVISTA GANTT / PLAN DE ACCIÓN */}
+            {subVistaHistorial === 'GANTT' && (
+              <div>
+                {hallazgosUnificados.length === 0 ? (
+                  <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
+                    No hay hallazgos registrados. Todo el proceso se encuentra en 100% de cumplimiento.
                   </div>
-                ))}
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {hallazgosUnificados.map((item, idx) => {
+                      const estatus = item.estadoSeguimiento || 'PENDIENTE';
+                      return (
+                        <div key={`${item.docId}_${idx}`} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px 18px', textAlign: 'left' }}>
+                          
+                          {/* Fila superior: Máquina, OP y Botón de Estado interactivo */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '3px 8px', borderRadius: '6px' }}>
+                                {item.maquinaNombre}
+                              </span>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#5A6A80' }}>
+                                OP: <strong>{item.ordenTrabajo || 'S/N'}</strong>
+                              </span>
+                            </div>
+
+                            {/* Botón de cambio de estado de seguimiento */}
+                            <button
+                              onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
+                              style={{
+                                padding: '4px 12px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                background:
+                                  estatus === 'CERRADO' ? '#E0F2EC' :
+                                  estatus === 'EN_PROCESO' ? '#E8EEF8' : '#FDF0D8',
+                                color:
+                                  estatus === 'CERRADO' ? '#085041' :
+                                  estatus === 'EN_PROCESO' ? '#002060' : '#7A4500'
+                              }}
+                              title="Haz clic para cambiar estado (PENDIENTE → EN PROCESO → CERRADO)"
+                            >
+                              ● {estatus.replace('_', ' ')}
+                            </button>
+                          </div>
+
+                          {/* Descripción y Acción Correctiva */}
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0D1A2E', marginBottom: '4px' }}>
+                            {item.hallazgo}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#5A6A80', marginBottom: '10px' }}>
+                            <strong>Acción / Seguimiento:</strong> {item.accion || 'Sin acción documentada'} · <strong>Resp:</strong> {item.responsable || 'No asignado'}
+                          </div>
+
+                          {/* Barra Visual tipo Gantt */}
+                          <div style={{ background: '#f1f5f9', borderRadius: '8px', padding: '8px 12px', border: '1px solid rgba(0,32,96,0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#8A9AB0', marginBottom: '4px', fontWeight: 600 }}>
+                              <span>Detección: {item.fechaAuditoria}</span>
+                              <span>Compromiso / Cierre: {item.fechaCierre}</span>
+                            </div>
+                            <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  height: '100%',
+                                  borderRadius: '4px',
+                                  width: estatus === 'CERRADO' ? '100%' : estatus === 'EN_PROCESO' ? '60%' : '20%',
+                                  background:
+                                    estatus === 'CERRADO' ? '#0F7A55' :
+                                    estatus === 'EN_PROCESO' ? '#003580' : '#D4840A'
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* B. SUBVISTA AUDITORÍAS GENERALES */}
+            {subVistaHistorial === 'AUDITORIAS' && (
+              <div>
+                {historial.length === 0 ? (
+                  <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
+                    Sin auditorías guardadas aún.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {historial.map((item) => (
+                      <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
+                            <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
+                            <span style={{
+                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
+                              background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
+                              color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
+                            }}>
+                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#5A6A80' }}>
+                            OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                            {item.cumplimiento}%
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
+                            {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
 
@@ -749,7 +903,7 @@ export const App: React.FC = () => {
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
-        <strong style={{ color: '#003580' }}>IMPREDIMEX</strong> — Impresión y Diseño de México S.A. de C.V. &nbsp;·&nbsp; Sistema de Control Operativo &nbsp;·&nbsp; Planta Industrial
+        <strong style={{ color: '#003580' }}>IMPREDIMEX</strong> — Impresión y Diseño de México S.A. de C.V. &nbsp;·&nbsp; Sistema de Control Operativo &nbsp;·&nbsp; Planta Industrial[cite: 2]
       </footer>
     </div>
   );
