@@ -131,10 +131,11 @@ interface Hallazgo {
 }
 
 export const App: React.FC = () => {
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION_PEGADO' | 'HISTORIAL'>('LAUNCHER');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL'>('LAUNCHER');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
+  // Formulario Evaluación
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
@@ -152,6 +153,7 @@ export const App: React.FC = () => {
   const [buscandoGantt, setBuscandoGantt] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const tieneChecklistOficial = maquinaSeleccionada?.tipo === 'Pegado';
 
   useEffect(() => {
     const q = query(collection(db, 'evaluaciones_proceso'), orderBy('createdAt', 'desc'));
@@ -228,14 +230,19 @@ export const App: React.FC = () => {
   const totalSi = Object.values(respuestas).filter((v) => v === 'SI').length;
   const totalNo = Object.values(respuestas).filter((v) => v === 'NO').length;
   const listaHallazgos = Object.values(hallazgos);
-  const cumplimiento = totalRespondidos > 0 ? Math.round((totalSi / CHECKLIST_PEGADO.length) * 100) : 0;
+
+  // Cálculo de cumplimiento dinámico
+  const cumplimiento = tieneChecklistOficial
+    ? totalRespondidos > 0 ? Math.round((totalSi / CHECKLIST_PEGADO.length) * 100) : 0
+    : listaHallazgos.length === 0 ? 100 : 80;
 
   const handleGuardarEvaluacion = async () => {
     if (!auditor.trim() || !ordenTrabajo.trim()) {
       alert('Por favor ingrese la Orden de Trabajo y el Nombre del Auditor.');
       return;
     }
-    if (totalRespondidos < CHECKLIST_PEGADO.length) {
+
+    if (tieneChecklistOficial && totalRespondidos < CHECKLIST_PEGADO.length) {
       alert(`Faltan responder ${CHECKLIST_PEGADO.length - totalRespondidos} puntos del checklist.`);
       return;
     }
@@ -250,12 +257,12 @@ export const App: React.FC = () => {
         auditor: auditor.trim(),
         turno,
         cumplimiento,
-        totalSi,
-        totalNo,
+        totalSi: tieneChecklistOficial ? totalSi : (listaHallazgos.length === 0 ? 1 : 0),
+        totalNo: tieneChecklistOficial ? totalNo : listaHallazgos.length,
         fechaAuditoria: todayStr,
-        respuestas,
+        respuestas: tieneChecklistOficial ? respuestas : {},
         hallazgos: listaHallazgos,
-        estadoFinal: listaHallazgos.length === 0 ? 'APROBADO' : 'CON_HALLAZGOS',
+        estadoFinal: (tieneChecklistOficial ? totalNo === 0 : listaHallazgos.length === 0) ? 'APROBADO' : 'CON_HALLAZGOS',
         createdAt: serverTimestamp()
       });
 
@@ -477,13 +484,13 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 2. VISTA SELECCIÓN PROCESO */}
+        {/* 2. VISTA SELECCIÓN PROCESO (TODAS LAS MÁQUINAS DISPONIBLES) */}
         {vista === 'MODULO_PROCESO' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Validación de Proceso y Arranque</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el equipo para aplicar el checklist de liberación</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el equipo para iniciar la auditoría o registrar hallazgos</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver
@@ -498,8 +505,7 @@ export const App: React.FC = () => {
                     key={maq.id}
                     onClick={() => {
                       setMaquinaSeleccionada(maq);
-                      if (esPegadora) setVista('EVALUACION_PEGADO');
-                      else alert(`Checklist para ${maq.nombre} se integrará a continuación.`);
+                      setVista('EVALUACION');
                     }}
                     style={{
                       ...STYLES.glassCard,
@@ -513,7 +519,11 @@ export const App: React.FC = () => {
                       <span style={{ fontSize: '10px', fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 8px', borderRadius: '10px' }}>
                         {maq.tipo}
                       </span>
-                      {esPegadora && <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>Plantilla Lista</span>}
+                      {esPegadora ? (
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>Checklist 16 Ptos</span>
+                      ) : (
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 6px', borderRadius: '4px' }}>Hallazgos Extra</span>
+                      )}
                     </div>
                     <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', textAlign: 'left' }}>{maq.nombre}</div>
                   </div>
@@ -553,27 +563,36 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA EVALUACIÓN PEGADO */}
-        {vista === 'EVALUACION_PEGADO' && (
+        {/* 4. VISTA DE AUDITORÍA (UNIFICADA PARA TODAS LAS MÁQUINAS) */}
+        {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Plan de Auditoría Técnica de Pegado</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                  Auditoría Operativa de Proceso
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
-                  <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>Formato F1-PR-PA-03 · 16 Puntos Críticos[cite: 1]</div>
-                </div>
-                <div style={{ textAlign: 'right', background: '#E8EEF8', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(0,53,128,0.2)' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Cumplimiento</div>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: totalNo > 0 ? '#C8102E' : '#0F7A55' }}>
-                    {cumplimiento}%
+                  <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
+                    {tieneChecklistOficial
+                      ? 'Plan de Auditoría Técnica de Pegado (F1-PR-PA-03)'
+                      : 'Plantilla de Verificación Técnica en Configuración'}
                   </div>
-                  <div style={{ fontSize: '10px', color: '#5A6A80' }}>{totalRespondidos} de 16 evaluados</div>
                 </div>
+
+                {tieneChecklistOficial && (
+                  <div style={{ textAlign: 'right', background: '#E8EEF8', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(0,53,128,0.2)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Cumplimiento</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: totalNo > 0 ? '#C8102E' : '#0F7A55' }}>
+                      {cumplimiento}%
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#5A6A80' }}>{totalRespondidos} de 16 evaluados</div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem', textAlign: 'left' }}>
@@ -608,76 +627,88 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Checklist */}
-            <div style={STYLES.glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
-                <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Puntos de Inspección en Piso</div>
-              </div>
+            {/* Checklist Exclusivo para Pegadoras */}
+            {tieneChecklistOficial ? (
+              <div style={STYLES.glassCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                  <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Puntos de Inspección en Piso</div>
+                </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {CHECKLIST_PEGADO.map((item, idx) => {
-                  const resp = respuestas[item.id];
-                  const showHeader = idx === 0 || CHECKLIST_PEGADO[idx - 1].seccion !== item.seccion;
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {CHECKLIST_PEGADO.map((item, idx) => {
+                    const resp = respuestas[item.id];
+                    const showHeader = idx === 0 || CHECKLIST_PEGADO[idx - 1].seccion !== item.seccion;
 
-                  return (
-                    <React.Fragment key={item.id}>
-                      {showHeader && (
-                        <div style={{ background: '#E8EEF8', color: '#002060', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', marginTop: idx === 0 ? '0' : '14px', textAlign: 'left' }}>
-                          {item.seccion}
-                        </div>
-                      )}
-                      <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '10px 14px', borderRadius: '8px',
-                        border: resp === 'NO' ? '1.5px solid #C8102E' : '1.5px solid rgba(0,32,96,0.07)',
-                        background: resp === 'NO' ? '#F9E8EB' : resp === 'SI' ? '#E0F2EC' : 'rgba(255,255,255,0.85)',
-                        gap: '12px', flexWrap: 'wrap'
-                      }}>
-                        <div style={{ flex: '1 1 300px', textAlign: 'left' }}>
-                          <div style={{ fontSize: '12.5px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
-                            <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
-                            {item.queObservar}
+                    return (
+                      <React.Fragment key={item.id}>
+                        {showHeader && (
+                          <div style={{ background: '#E8EEF8', color: '#002060', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', marginTop: idx === 0 ? '0' : '14px', textAlign: 'left' }}>
+                            {item.seccion}
                           </div>
-                          <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                            <strong>Verificación:</strong> {item.comoVerifica}
+                        )}
+                        <div style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '10px 14px', borderRadius: '8px',
+                          border: resp === 'NO' ? '1.5px solid #C8102E' : '1.5px solid rgba(0,32,96,0.07)',
+                          background: resp === 'NO' ? '#F9E8EB' : resp === 'SI' ? '#E0F2EC' : 'rgba(255,255,255,0.85)',
+                          gap: '12px', flexWrap: 'wrap'
+                        }}>
+                          <div style={{ flex: '1 1 300px', textAlign: 'left' }}>
+                            <div style={{ fontSize: '12.5px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
+                              <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
+                              {item.queObservar}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
+                              <strong>Verificación:</strong> {item.comoVerifica}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleRespuesta(item.id, 'SI')}
+                              style={{
+                                padding: '6px 14px', borderRadius: '6px', border: 'none',
+                                fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                                background: resp === 'SI' ? '#0F7A55' : 'rgba(0,32,96,0.06)',
+                                color: resp === 'SI' ? '#ffffff' : '#5A6A80'
+                              }}
+                            >
+                              ✓ SÍ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRespuesta(item.id, 'NO')}
+                              style={{
+                                padding: '6px 14px', borderRadius: '6px', border: 'none',
+                                fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                                background: resp === 'NO' ? '#C8102E' : 'rgba(0,32,96,0.06)',
+                                color: resp === 'NO' ? '#ffffff' : '#5A6A80'
+                              }}
+                            >
+                              ✕ NO
+                            </button>
                           </div>
                         </div>
-
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleRespuesta(item.id, 'SI')}
-                            style={{
-                              padding: '6px 14px', borderRadius: '6px', border: 'none',
-                              fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                              background: resp === 'SI' ? '#0F7A55' : 'rgba(0,32,96,0.06)',
-                              color: resp === 'SI' ? '#ffffff' : '#5A6A80'
-                            }}
-                          >
-                            ✓ SÍ
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRespuesta(item.id, 'NO')}
-                            style={{
-                              padding: '6px 14px', borderRadius: '6px', border: 'none',
-                              fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                              background: resp === 'NO' ? '#C8102E' : 'rgba(0,32,96,0.06)',
-                              color: resp === 'NO' ? '#ffffff' : '#5A6A80'
-                            }}
-                          >
-                            ✕ NO
-                          </button>
-                        </div>
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Mensaje amigable para el resto de máquinas */
+              <div style={{ ...STYLES.glassCard, textAlign: 'left', padding: '16px 20px', background: '#f8fafc' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+                  Lista de Verificación Específica en Proceso de Alta
+                </div>
+                <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
+                  Los puntos de validación técnica para <strong>{maquinaSeleccionada?.nombre}</strong> se incorporarán próximamente. Mientras tanto, puedes documentar cualquier desviación u observación operativa usando el botón <strong>"+ Agregar Hallazgo Extra"</strong> a continuación.
+                </div>
+              </div>
+            )}
 
-            {/* SECCIÓN HALLAZGOS */}
+            {/* SECCIÓN HALLAZGOS Y ACCIONES (SIEMPRE DISPONIBLE) */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -692,8 +723,8 @@ export const App: React.FC = () => {
                   onClick={handleAddHallazgoExtra}
                   style={{
                     background: '#003580', color: '#ffffff', border: 'none',
-                    padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                    cursor: 'pointer'
+                    padding: '6px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                    cursor: 'pointer', letterSpacing: '.02em'
                   }}
                 >
                   + Agregar Hallazgo Extra
@@ -701,7 +732,7 @@ export const App: React.FC = () => {
               </div>
 
               {listaHallazgos.length === 0 ? (
-                <div style={{ fontSize: '12px', color: '#5A6A80', textAlign: 'center', padding: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#5A6A80', textAlign: 'center', padding: '14px 10px' }}>
                   No hay hallazgos registrados. Si una pregunta se marca como "NO" o agregas un hallazgo extra, aparecerá aquí.
                 </div>
               ) : (
@@ -989,7 +1020,6 @@ export const App: React.FC = () => {
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
                           <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '120px' }} rowSpan={2}>Cumplimiento</th>
 
-                          {/* Encabezados Semanales */}
                           <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
                             Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
                           </th>
