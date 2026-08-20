@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, getDocs, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
 const STYLES = {
@@ -31,7 +31,7 @@ const STYLES = {
     borderRadius: '8px',
     background: 'rgba(255, 255, 255, 0.85)',
     color: '#0D1A2E',
-    fontSize: '14px',
+    fontSize: '13px',
     width: '100%',
     boxSizing: 'border-box' as const,
     outline: 'none',
@@ -109,6 +109,8 @@ const CHECKLIST_PEGADO: ItemChecklist[] = [
   { id: 16, seccion: 'D · VALIDACIÓN Y LIBERACIÓN', queObservar: 'Reporte de producción sin espacios en blanco ni tachaduras; ancho plano y solvente registrados hora por hora', comoVerifica: 'Revisar F1-PR-PA-03' }
 ];
 
+type EstadoCumplimiento = 'PENDIENTE' | 'TERMINADO' | 'PENDIENTE_ATRASADO';
+
 interface Hallazgo {
   id: string;
   puntoId?: number;
@@ -117,7 +119,7 @@ interface Hallazgo {
   accion: string;
   responsable: string;
   fechaCierre: string;
-  estadoSeguimiento?: 'PENDIENTE' | 'EN_PROCESO' | 'CERRADO';
+  estadoSeguimiento?: EstadoCumplimiento;
 }
 
 export const App: React.FC = () => {
@@ -125,6 +127,7 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
+  // Formulario Evaluación
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
@@ -132,6 +135,14 @@ export const App: React.FC = () => {
   const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
+
+  // Filtros del Gantt (Control bajo demanda)
+  const [filtroMaquina, setFiltroMaquina] = useState('');
+  const [filtroMes, setFiltroMes] = useState('');
+  const [filtroDia, setFiltroDia] = useState('');
+  const [filtroCumplimiento, setFiltroCumplimiento] = useState('');
+  const [hallazgosGantt, setHallazgosGantt] = useState<any[] | null>(null);
+  const [buscandoGantt, setBuscandoGantt] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -255,44 +266,112 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: string) => {
+  // Consulta bajo demanda a Firebase Firestore para el Gantt
+  const handleConsultarGantt = async () => {
+    setBuscandoGantt(true);
     try {
-      const docEncontrado = historial.find((h) => h.id === docId);
-      if (!docEncontrado || !docEncontrado.hallazgos) return;
+      let qConstraint = query(collection(db, 'evaluaciones_proceso'));
+      if (filtroMaquina) {
+        qConstraint = query(collection(db, 'evaluaciones_proceso'), where('maquinaNombre', '==', filtroMaquina));
+      }
 
-      const nuevosHallazgos = [...docEncontrado.hallazgos];
-      const siguienteEstado =
-        estadoActual === 'PENDIENTE' || !estadoActual ? 'EN_PROCESO' :
-        estadoActual === 'EN_PROCESO' ? 'CERRADO' : 'PENDIENTE';
+      const snap = await getDocs(qConstraint);
+      let resultados: any[] = [];
 
-      nuevosHallazgos[hallazgoIdx] = {
-        ...nuevosHallazgos[hallazgoIdx],
-        estadoSeguimiento: siguienteEstado
-      };
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.hallazgos && Array.isArray(data.hallazgos)) {
+          data.hallazgos.forEach((h: Hallazgo, idx: number) => {
+            const fAuditoria = data.fechaAuditoria || todayStr;
+            const fFin = h.fechaCierre || todayStr;
+            const estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
 
-      const docRef = doc(db, 'evaluaciones_proceso', docId);
-      await updateDoc(docRef, { hallazgos: nuevosHallazgos });
+            // Filtrar por Mes
+            if (filtroMes) {
+              const mesAuditoria = fAuditoria.split('-')[1];
+              if (mesAuditoria !== filtroMes) return;
+            }
+
+            // Filtrar por Día
+            if (filtroDia) {
+              const diaAuditoria = fAuditoria.split('-')[2];
+              if (diaAuditoria !== filtroDia.padStart(2, '0')) return;
+            }
+
+            // Filtrar por Cumplimiento
+            if (filtroCumplimiento && estatus !== filtroCumplimiento) {
+              return;
+            }
+
+            resultados.push({
+              ...h,
+              docId: docSnap.id,
+              hallazgoIdx: idx,
+              maquinaNombre: data.maquinaNombre,
+              ordenTrabajo: data.ordenTrabajo,
+              auditor: data.auditor,
+              fechaAuditoria: fAuditoria,
+              fechaInicio: fAuditoria,
+              fechaFin: fFin,
+              estadoSeguimiento: estatus
+            });
+          });
+        }
+      });
+
+      setHallazgosGantt(resultados);
     } catch (error) {
-      console.error('Error al actualizar estado en Gantt:', error);
+      console.error('Error al consultar Gantt:', error);
+      alert('Error al consultar datos en Firebase.');
+    } finally {
+      setBuscandoGantt(false);
     }
   };
 
-  // Planificar lista unificada de hallazgos para la tabla Gantt
-  const hallazgosUnificados = historial.flatMap((auditoria) => {
-    if (!auditoria.hallazgos || !Array.isArray(auditoria.hallazgos)) return [];
-    return auditoria.hallazgos.map((h: Hallazgo, idx: number) => ({
-      ...h,
-      docId: auditoria.id,
-      hallazgoIdx: idx,
-      maquinaNombre: auditoria.maquinaNombre,
-      ordenTrabajo: auditoria.ordenTrabajo,
-      auditor: auditoria.auditor,
-      fechaInicio: auditoria.fechaAuditoria || todayStr,
-      fechaFin: h.fechaCierre || todayStr,
-    }));
-  });
+  const handleLimpiarFiltrosGantt = () => {
+    setFiltroMaquina('');
+    setFiltroMes('');
+    setFiltroDia('');
+    setFiltroCumplimiento('');
+    setHallazgosGantt(null);
+  };
 
-  // Generar columnas de días (2 semanas a partir de hoy) para la cuadrícula del Gantt
+  // Alternar Estatus: PENDIENTE → TERMINADO → PENDIENTE ATRASADO
+  const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
+    try {
+      let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
+      if (estadoActual === 'PENDIENTE' || !estadoActual) nuevoEstado = 'TERMINADO';
+      else if (estadoActual === 'TERMINADO') nuevoEstado = 'PENDIENTE_ATRASADO';
+      else if (estadoActual === 'PENDIENTE_ATRASADO') nuevoEstado = 'PENDIENTE';
+
+      // Actualizar localmente la vista activa del Gantt
+      setHallazgosGantt((prev) => {
+        if (!prev) return prev;
+        return prev.map((item) => {
+          if (item.docId === docId && item.hallazgoIdx === hallazgoIdx) {
+            return { ...item, estadoSeguimiento: nuevoEstado };
+          }
+          return item;
+        });
+      });
+
+      // Persistir en Firebase
+      const docEncontrado = historial.find((h) => h.id === docId);
+      if (docEncontrado && docEncontrado.hallazgos) {
+        const nuevosHallazgos = [...docEncontrado.hallazgos];
+        nuevosHallazgos[hallazgoIdx] = {
+          ...nuevosHallazgos[hallazgoIdx],
+          estadoSeguimiento: nuevoEstado
+        };
+        const docRef = doc(db, 'evaluaciones_proceso', docId);
+        await updateDoc(docRef, { hallazgos: nuevosHallazgos });
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+    }
+  };
+
+  // Generar columnas de 14 días para la cuadrícula del Gantt
   const diasGantt = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -338,13 +417,13 @@ export const App: React.FC = () => {
             background: '#003580', color: '#ffffff', border: 'none',
             padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
           }}>
-            Histórico & Gantt ({hallazgosUnificados.length})
+            Histórico & Gantt
           </button>
         </div>
       </header>
 
       {/* CONTENEDOR PRINCIPAL */}
-      <main style={{ maxWidth: '1180px', margin: '0 auto', padding: '1.2rem 1rem 3rem' }}>
+      <main style={{ maxWidth: '1220px', margin: '0 auto', padding: '1.2rem 1rem 3rem' }}>
 
         {/* 1. VISTA LAUNCHER */}
         {vista === 'LAUNCHER' && (
@@ -356,16 +435,14 @@ export const App: React.FC = () => {
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Registros globales</div>
               </div>
               <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Hallazgos Totales</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>{hallazgosUnificados.length}</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En tabla Gantt</div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Máquinas Activas</div>
+                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>26</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En planta</div>
               </div>
               <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Acciones Pendientes</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>
-                  {hallazgosUnificados.filter((h) => h.estadoSeguimiento !== 'CERRADO').length}
-                </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Por cerrar</div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Áreas 5S</div>
+                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>33</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Puntos de control</div>
               </div>
             </div>
 
@@ -742,14 +819,14 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 5. VISTA HISTORIAL & GANTT FORMATO TABLA */}
+        {/* 5. VISTA HISTORIAL & GANTT */}
         {vista === 'HISTORIAL' && (
           <div>
             {/* Header del Historial */}
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico y Cronograma Gantt</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Consolidación y seguimiento interactivo de actividades y hallazgos</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Consolidación bajo demanda y seguimiento de actividades</div>
               </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -762,7 +839,7 @@ export const App: React.FC = () => {
                     fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  Tabla Gantt ({hallazgosUnificados.length})
+                  Tabla Gantt
                 </button>
                 <button
                   onClick={() => setSubVistaHistorial('AUDITORIAS')}
@@ -781,146 +858,269 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* A. TABLA GANTT INTEGRADA */}
+            {/* A. TABLA GANTT BAJO DEMANDA */}
             {subVistaHistorial === 'GANTT' && (
-              <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
-                {hallazgosUnificados.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    No hay hallazgos pendientes. Todo el proceso operativo se encuentra conforme.
+              <div>
+                {/* Panel de Filtros para Ahorro de Ancho de Banda */}
+                <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Filtros de Búsqueda para Cronograma
                   </div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                    <thead>
-                      {/* Fila 1: Encabezados y Rango de Semanas */}
-                      <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
-                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '30px' }} rowSpan={2}>#</th>
-                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Actividad / Hallazgo</th>
-                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '120px' }} rowSpan={2}>Responsable</th>
-                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '75px' }} rowSpan={2}>Inicio</th>
-                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '75px' }} rowSpan={2}>Fin</th>
-                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '45px' }} rowSpan={2}>Días</th>
-                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '110px' }} rowSpan={2}>Cumplimiento</th>
 
-                        {/* Encabezado Semana 1 */}
-                        <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
-                          Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
-                        </th>
-                        {/* Encabezado Semana 2 */}
-                        <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#1A4D9A', fontSize: '11px', fontWeight: 700 }}>
-                          Semana 2 ({diasGantt[7].mesNum}/{diasGantt[7].diaNum})
-                        </th>
-                      </tr>
-
-                      {/* Fila 2: Letras de días (L M MI J V S D) */}
-                      <tr style={{ background: '#003580', color: '#ffffff', textAlign: 'center' }}>
-                        {diasGantt.map((d, i) => (
-                          <th key={i} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>
-                            {d.letra}
-                          </th>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Máquina:</label>
+                      <select value={filtroMaquina} onChange={(e) => setFiltroMaquina(e.target.value)} style={STYLES.input}>
+                        <option value="">Todas las máquinas</option>
+                        {CATALOGO.map((m) => (
+                          <option key={m.id} value={m.nombre}>{m.nombre}</option>
                         ))}
-                      </tr>
-                    </thead>
+                      </select>
+                    </div>
 
-                    <tbody>
-                      {hallazgosUnificados.map((item, idx) => {
-                        const estatus = item.estadoSeguimiento || 'PENDIENTE';
-                        
-                        // Cálculo de días entre inicio y fin
-                        const dIni = new Date(item.fechaInicio);
-                        const dFin = new Date(item.fechaFin);
-                        const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
-                        const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Mes:</label>
+                      <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} style={STYLES.input}>
+                        <option value="">Todos los meses</option>
+                        <option value="01">Enero</option>
+                        <option value="02">Febrero</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Mayo</option>
+                        <option value="06">Junio</option>
+                        <option value="07">Julio</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                      </select>
+                    </div>
 
-                        return (
-                          <tr key={`${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
-                            {/* # */}
-                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>
-                              {idx + 1}
-                            </td>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Día (1–31):</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="Ej. 20"
+                        value={filtroDia}
+                        onChange={(e) => setFiltroDia(e.target.value)}
+                        style={STYLES.input}
+                      />
+                    </div>
 
-                            {/* Actividad / Hallazgo */}
-                            <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
-                              <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
-                              <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                                {item.maquinaNombre} · OP: {item.ordenTrabajo || 'S/N'}
-                              </div>
-                            </td>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Cumplimiento:</label>
+                      <select value={filtroCumplimiento} onChange={(e) => setFiltroCumplimiento(e.target.value)} style={STYLES.input}>
+                        <option value="">Todos los estados</option>
+                        <option value="PENDIENTE">PENDIENTE</option>
+                        <option value="TERMINADO">TERMINADO</option>
+                        <option value="PENDIENTE_ATRASADO">PENDIENTE ATRASADO</option>
+                      </select>
+                    </div>
 
-                            {/* Responsable */}
-                            <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>
-                              {item.responsable || 'No asignado'}
-                            </td>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={handleConsultarGantt}
+                        disabled={buscandoGantt}
+                        style={{
+                          flex: 2,
+                          background: '#003580',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: buscandoGantt ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {buscandoGantt ? 'Consultando…' : '🔍 Consultar Gantt'}
+                      </button>
+                      {hallazgosGantt !== null && (
+                        <button
+                          type="button"
+                          onClick={handleLimpiarFiltrosGantt}
+                          style={{
+                            flex: 1,
+                            background: 'transparent',
+                            border: '1px solid rgba(0,32,96,0.12)',
+                            color: '#5A6A80',
+                            padding: '8px 8px',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-                            {/* Inicio */}
-                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
-                              {item.fechaInicio}
-                            </td>
+                {/* Contenido Tabla Gantt */}
+                <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
+                  {hallazgosGantt === null ? (
+                    <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+                        Cronograma en Espera
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#5A6A80' }}>
+                        Aplica los filtros requeridos y presiona <strong>"Consultar Gantt"</strong> para cargar los datos desde la nube.
+                      </div>
+                    </div>
+                  ) : hallazgosGantt.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
+                      No se encontraron hallazgos con los filtros seleccionados.
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                      <thead>
+                        <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
+                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '28px' }} rowSpan={2}>#</th>
+                          <th style={{ padding: '8px 8px', border: '1px solid #1A4D9A', width: '85px' }} rowSpan={2}>Fecha Auditoría</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '140px' }} rowSpan={2}>Máquina</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Actividad / Hallazgo</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '110px' }} rowSpan={2}>Responsable</th>
+                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
+                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
+                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '120px' }} rowSpan={2}>Cumplimiento</th>
 
-                            {/* Fin */}
-                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
-                              {item.fechaFin}
-                            </td>
+                          {/* Encabezados Semanales */}
+                          <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
+                            Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
+                          </th>
+                          <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#1A4D9A', fontSize: '11px', fontWeight: 700 }}>
+                            Semana 2 ({diasGantt[7].mesNum}/{diasGantt[7].diaNum})
+                          </th>
+                        </tr>
 
-                            {/* Días */}
-                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#002060' }}>
-                              {diasTotal}
-                            </td>
+                        <tr style={{ background: '#003580', color: '#ffffff', textAlign: 'center' }}>
+                          {diasGantt.map((d, i) => (
+                            <th key={i} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>
+                              {d.letra}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
 
-                            {/* Cumplimiento / Botón Estado Interactivo */}
-                            <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
-                              <button
-                                onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
-                                style={{
-                                  padding: '3px 8px',
-                                  borderRadius: '10px',
-                                  border: 'none',
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  width: '100%',
-                                  background:
-                                    estatus === 'CERRADO' ? '#E0F2EC' :
-                                    estatus === 'EN_PROCESO' ? '#E8EEF8' : '#FDF0D8',
-                                  color:
-                                    estatus === 'CERRADO' ? '#085041' :
-                                    estatus === 'EN_PROCESO' ? '#002060' : '#7A4500'
-                                }}
-                                title="Haz clic para alternar: PENDIENTE → EN PROCESO → CERRADO"
-                              >
-                                {estatus.replace('_', ' ')}
-                              </button>
-                            </td>
+                      <tbody>
+                        {hallazgosGantt.map((item, idx) => {
+                          const estatus: EstadoCumplimiento = item.estadoSeguimiento || 'PENDIENTE';
+                          
+                          const dIni = new Date(item.fechaInicio);
+                          const dFin = new Date(item.fechaFin);
+                          const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
+                          const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-                            {/* Celdas del Diagrama Gantt */}
-                            {diasGantt.map((diaCol, dIdx) => {
-                              const celdaEnRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
-                              let bgCelda = 'transparent';
+                          return (
+                            <tr key={`${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
+                              {/* # */}
+                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>
+                                {idx + 1}
+                              </td>
 
-                              if (celdaEnRango) {
-                                bgCelda =
-                                  estatus === 'CERRADO' ? '#0F7A55' :
-                                  estatus === 'EN_PROCESO' ? '#003580' : '#0284c7';
-                              }
+                              {/* Fecha de Realización */}
+                              <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#002060', fontWeight: 600 }}>
+                                {item.fechaAuditoria}
+                              </td>
 
-                              return (
-                                <td
-                                  key={dIdx}
+                              {/* Máquina */}
+                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
+                                <span style={{ fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                                  {item.maquinaNombre}
+                                </span>
+                              </td>
+
+                              {/* Actividad / Hallazgo */}
+                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
+                                <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
+                                <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
+                                  OP: {item.ordenTrabajo || 'S/N'} · {item.accion || 'Sin acción'}
+                                </div>
+                              </td>
+
+                              {/* Responsable */}
+                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>
+                                {item.responsable || 'No asignado'}
+                              </td>
+
+                              {/* Inicio */}
+                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
+                                {item.fechaInicio}
+                              </td>
+
+                              {/* Fin */}
+                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
+                                {item.fechaFin}
+                              </td>
+
+                              {/* Días */}
+                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#002060' }}>
+                                {diasTotal}
+                              </td>
+
+                              {/* Cumplimiento Interactivo */}
+                              <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
+                                <button
+                                  onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
                                   style={{
-                                    border: '1px solid rgba(0,32,96,0.06)',
-                                    background: bgCelda,
-                                    padding: 0,
-                                    height: '24px'
+                                    padding: '4px 8px',
+                                    borderRadius: '10px',
+                                    border: 'none',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    width: '100%',
+                                    background:
+                                      estatus === 'TERMINADO' ? '#E0F2EC' :
+                                      estatus === 'PENDIENTE_ATRASADO' ? '#F9E8EB' : '#FDF0D8',
+                                    color:
+                                      estatus === 'TERMINADO' ? '#085041' :
+                                      estatus === 'PENDIENTE_ATRASADO' ? '#7A0B1D' : '#7A4500'
                                   }}
-                                  title={`${diaCol.iso} - ${estatus}`}
-                                ></td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                                  title="Haz clic para alternar: PENDIENTE → TERMINADO → PENDIENTE ATRASADO"
+                                >
+                                  {estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}
+                                </button>
+                              </td>
+
+                              {/* Celdas Gantt */}
+                              {diasGantt.map((diaCol, dIdx) => {
+                                const celdaEnRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
+                                let bgCelda = 'transparent';
+
+                                if (celdaEnRango) {
+                                  bgCelda =
+                                    estatus === 'TERMINADO' ? '#0F7A55' :
+                                    estatus === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#D4840A';
+                                }
+
+                                return (
+                                  <td
+                                    key={dIdx}
+                                    style={{
+                                      border: '1px solid rgba(0,32,96,0.06)',
+                                      background: bgCelda,
+                                      padding: 0,
+                                      height: '24px'
+                                    }}
+                                    title={`${diaCol.iso} - ${estatus}`}
+                                  ></td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
             )}
 
@@ -947,7 +1147,7 @@ export const App: React.FC = () => {
                             </span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                            OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
+                            Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
                           </div>
                         </div>
 
