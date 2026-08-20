@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, getDocs, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
-const STYLES: Record<string, React.CSSProperties> = {
+const STYLES = {
   glassCard: {
     background: 'rgba(255, 255, 255, 0.88)',
     backdropFilter: 'blur(16px)',
@@ -33,12 +33,12 @@ const STYLES: Record<string, React.CSSProperties> = {
     color: '#0D1A2E',
     fontSize: '13px',
     width: '100%',
-    boxSizing: 'border-box',
+    boxSizing: 'border-box' as const,
     outline: 'none',
   }
 };
 
-// --- CATÁLOGO DE MÁQUINAS Y ÁREAS ---
+// --- CATÁLOGO DE MÁQUINAS Y ÁREAS CON NOMENCLATURA REAL ---
 interface Maquina {
   id: string;
   nombre: string;
@@ -48,32 +48,40 @@ interface Maquina {
 }
 
 const CATALOGO: Maquina[] = [
+  // Flexografía
   { id: 'FL1', nombre: 'FL1 (Flexográfica 1)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL2', nombre: 'FL2 (Flexográfica 2)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL3', nombre: 'FL3 (Flexográfica 3)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL4', nombre: 'FL4 (Flexográfica 4)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
+  // Rotograbado
   { id: 'RT5', nombre: 'RT5 (Rotograbado 5)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
   { id: 'RT6', nombre: 'RT6 (Rotograbado 6)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
   { id: 'RT7', nombre: 'RT7 (Rotograbado 7)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
+  // Laminado, Depuración Impresión y Digital
   { id: 'LAM1', nombre: 'LAM1 (Laminadora)', tipo: 'Laminado', moduloProceso: true, modulo5S: true },
   { id: 'DEP1', nombre: 'DEP1 (Depuradora Impresión)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'ZEI1', nombre: 'ZEI1 (Impresora Digital)', tipo: 'Digital', moduloProceso: true, modulo5S: true },
   { id: 'OME1', nombre: 'OME1 (Suajadora)', tipo: 'Suajado', moduloProceso: true, modulo5S: true },
+  // Refilado
   { id: 'REF1', nombre: 'REF1 (Refiladora 1)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'REF2', nombre: 'REF2 (Refiladora 2)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'REF3', nombre: 'REF3 (Refiladora 3)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
+  // Pegadoras
   { id: 'PEG1', nombre: 'PEG1 (Pegadora 1)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
   { id: 'PEG2', nombre: 'PEG2 (Pegadora 2)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
+  // Revisadoras
   { id: 'REV1', nombre: 'REV1 (Revisadora 1)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV2', nombre: 'REV2 (Revisadora 2)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV3', nombre: 'REV3 (Revisadora 3)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV4', nombre: 'REV4 (Revisadora 4)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV6', nombre: 'REV6 (Revisadora 6)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV8', nombre: 'REV8 (Revisadora 8)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  // Depuración Etiquetas y Corte
   { id: 'DEP2', nombre: 'DEP2 (Depuración Etiquetas)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR3', nombre: 'COR3 (Cortadora 3)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
+  // Áreas Auxiliares y Soporte
   { id: 'area-tintas', nombre: 'Área de Tintas', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-banos', nombre: 'Baños de Producción', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-mp', nombre: 'Almacén Materia Prima', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
@@ -83,16 +91,16 @@ const CATALOGO: Maquina[] = [
   { id: 'area-cal', nombre: 'Laboratorio Calidad', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true }
 ];
 
+const FAMILIAS_MAQUINAS = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
+
 interface ItemChecklist {
   id: number;
   seccion: string;
   queObservar: string;
-  comoVerifica?: string;
-  pideOTyOC?: boolean;
+  comoVerifica: string;
 }
 
-// CHECKLIST PEGADORAS
-const CHECKLIST_PEGADO: ItemChecklist[] = [
+const CHECKLIST_BASE_PEGADO: ItemChecklist[] = [
   { id: 1, seccion: 'A · SOLVENTE Y APORTE (raíz del sellado abierto)', queObservar: 'El solvente montado corresponde al sustrato del pedido', comoVerifica: 'Comparar etiqueta del bote vs. sustrato de la ficha; lote anotado en reporte' },
   { id: 2, seccion: 'A · SOLVENTE Y APORTE (raíz del sellado abierto)', queObservar: 'El operador realizó y registró la prueba de aporte', comoVerifica: 'Pedir el cálculo: mL ÷ velocidad = 0.015' },
   { id: 3, seccion: 'A · SOLVENTE Y APORTE (raíz del sellado abierto)', queObservar: 'La aguja fue calibrada en el arranque / tras romperse el material', comoVerifica: 'Preguntar cuándo la calibró; chorro recto y continuo' },
@@ -111,30 +119,6 @@ const CHECKLIST_PEGADO: ItemChecklist[] = [
   { id: 16, seccion: 'D · VALIDACIÓN Y LIBERACIÓN', queObservar: 'Reporte de producción sin espacios en blanco ni tachaduras; ancho plano y solvente registrados hora por hora', comoVerifica: 'Revisar F1-PR-PA-03' }
 ];
 
-// CHECKLIST 5S DIARIO
-const CHECKLIST_5S_DIARIO: ItemChecklist[] = [
-  { id: 1, seccion: '1. Orden y 5S', queObservar: 'Todas las herramientas se encuentran en su lugar asignado.', pideOTyOC: true },
-  { id: 2, seccion: '1. Orden y 5S', queObservar: 'No existen materiales, rollos, tarimas o contenedores fuera de su ubicación definida.', pideOTyOC: true },
-  { id: 3, seccion: '1. Orden y 5S', queObservar: 'Pasillos, accesos y zonas de operación se encuentran despejados.', pideOTyOC: true },
-  { id: 4, seccion: '1. Orden y 5S', queObservar: 'El área de trabajo se encuentra ordenada y libre de objetos innecesarios.', pideOTyOC: true },
-  { id: 5, seccion: '1. Orden y 5S', queObservar: 'No existen objetos sin lugar asignado o almacenados de manera provisional.', pideOTyOC: true },
-  { id: 6, seccion: '2. Limpieza', queObservar: 'El área y la máquina se encuentran limpias.', pideOTyOC: true },
-  { id: 7, seccion: '2. Limpieza', queObservar: 'No existen derrames de tinta, solvente, aceite, agua u otros productos.', pideOTyOC: true },
-  { id: 8, seccion: '2. Limpieza', queObservar: 'No existe acumulación de papel, película, tinta, adhesivo o residuos alrededor de la máquina.', pideOTyOC: true },
-  { id: 9, seccion: '2. Limpieza', queObservar: 'Los residuos y scrap se encuentran correctamente depositados e identificados.', pideOTyOC: true },
-  { id: 10, seccion: '3. Condición de máquina', queObservar: 'La máquina no presenta daños físicos visibles que puedan afectar su operación.', pideOTyOC: true },
-  { id: 11, seccion: '3. Condición de máquina', queObservar: 'No existen reparaciones temporales, improvisaciones o soluciones provisionales.', pideOTyOC: true },
-  { id: 12, seccion: '3. Condición de máquina', queObservar: 'No existen fugas de aceite, aire, agua, tinta o solvente.', pideOTyOC: true },
-  { id: 13, seccion: '3. Condición de máquina', queObservar: 'No existen cables, mangueras o conexiones dañadas, expuestas o improvisadas.', pideOTyOC: true },
-  { id: 14, seccion: '3. Condición de máquina', queObservar: 'Guardas, cubiertas y protecciones de seguridad se encuentran instaladas y en buen estado.', pideOTyOC: true },
-  { id: 15, seccion: '3. Condición de máquina', queObservar: 'No existen ruidos, vibraciones, calentamientos u otras condiciones anormales evidentes.', pideOTyOC: true },
-  { id: 16, seccion: '4. Seguridad', queObservar: 'El paro de emergencia se encuentra accesible y sin obstrucciones.', pideOTyOC: true },
-  { id: 17, seccion: '4. Seguridad', queObservar: 'Extintores, rutas de evacuación y equipos de emergencia se encuentran libres.', pideOTyOC: true },
-  { id: 18, seccion: '4. Seguridad', queObservar: 'No existen condiciones que representen riesgo inmediato de atrapamiento, corte, golpe, incendio o derrame.', pideOTyOC: true },
-  { id: 19, seccion: '5. Calidad y operación', queObservar: 'Material, producto en proceso, producto terminado y scrap se encuentran correctamente identificados y segregados.', pideOTyOC: false },
-  { id: 20, seccion: '5. Calidad y operación', queObservar: 'El personal tiene completamente llenos sus formatos y firmas de validacion.', pideOTyOC: false }
-];
-
 type EstadoCumplimiento = 'PENDIENTE' | 'TERMINADO' | 'PENDIENTE_ATRASADO';
 
 interface Hallazgo {
@@ -149,30 +133,33 @@ interface Hallazgo {
 }
 
 export const App: React.FC = () => {
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION_PROCESO' | 'EVALUACION_5S_DIARIO' | 'HISTORIAL'>('LAUNCHER');
-  const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('AUDITORIAS');
-  const [tipoCheck5S, setTipoCheck5S] = useState<'DIARIO' | 'SEMANAL'>('DIARIO');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS'>('LAUNCHER');
+  const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Formulario General
+  // Almacén dinámico de plantillas por tipo de máquina
+  const [plantillas, setPlantillas] = useState<Record<string, ItemChecklist[]>>({
+    Pegado: CHECKLIST_BASE_PEGADO
+  });
+
+  // Editor de plantillas
+  const [tipoSeleccionadoEditor, setTipoSeleccionadoEditor] = useState<string>('Pegado');
+  const [checklistEnEdicion, setChecklistEnEdicion] = useState<ItemChecklist[]>([]);
+  const [nuevaSeccion, setNuevaSeccion] = useState('');
+  const [nuevoQueObservar, setNuevoQueObservar] = useState('');
+  const [nuevoComoVerifica, setNuevoComoVerifica] = useState('');
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+
+  // Formulario Evaluación
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   const [respuestas, setRespuestas] = useState<Record<number, 'SI' | 'NO' | null>>({});
-  const [datosPunto5S, setDatosPunto5S] = useState<Record<number, { ot?: string; oc?: string }>>({});
   const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
 
-  // Modal Edición
-  const [auditoriaEditando, setAuditoriaEditando] = useState<any | null>(null);
-  const [editOT, setEditOT] = useState('');
-  const [editAuditor, setEditAuditor] = useState('');
-  const [editTurno, setEditTurno] = useState('');
-  const [editHallazgos, setEditHallazgos] = useState<Hallazgo[]>([]);
-  const [actualizando, setActualizando] = useState(false);
-
-  // Filtros Gantt
+  // Filtros del Gantt
   const [filtroMaquina, setFiltroMaquina] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
   const [filtroDia, setFiltroDia] = useState('');
@@ -181,26 +168,55 @@ export const App: React.FC = () => {
   const [buscandoGantt, setBuscandoGantt] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const esProcesoPegado = maquinaSeleccionada?.tipo === 'Pegado';
 
+  // Cargar plantillas y evaluaciones desde Firebase
   useEffect(() => {
+    // 1. Escuchar evaluaciones
     const q = query(collection(db, 'evaluaciones_proceso'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snapshot) => {
+    const unsubAuditorias = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data()
       }));
       setHistorial(docs);
     });
-    return () => unsub();
+
+    // 2. Escuchar plantillas de checklists configuradas
+    const unsubPlantillas = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
+      const dataPlantillas: Record<string, ItemChecklist[]> = {
+        Pegado: CHECKLIST_BASE_PEGADO
+      };
+      snapshot.docs.forEach((d) => {
+        const data = d.data();
+        if (data.items && Array.isArray(data.items)) {
+          dataPlantillas[d.id] = data.items;
+        }
+      });
+      setPlantillas(dataPlantillas);
+    });
+
+    return () => {
+      unsubAuditorias();
+      unsubPlantillas();
+    };
   }, []);
 
-  const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO', checklistActual: ItemChecklist[]) => {
+  // Al abrir el editor o cambiar tipo, cargar preguntas
+  useEffect(() => {
+    const items = plantillas[tipoSeleccionadoEditor] || [];
+    setChecklistEnEdicion(items);
+  }, [tipoSeleccionadoEditor, plantillas, vista]);
+
+  const itemsChecklistActivo = maquinaSeleccionada
+    ? plantillas[maquinaSeleccionada.tipo] || []
+    : [];
+
+  const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
     setRespuestas((prev) => ({ ...prev, [puntoId]: valor }));
     const key = `punto_${puntoId}`;
 
     if (valor === 'NO' && !hallazgos[key]) {
-      const item = checklistActual.find((i) => i.id === puntoId);
+      const item = itemsChecklistActivo.find((i) => i.id === puntoId);
       setHallazgos((prev) => ({
         ...prev,
         [key]: {
@@ -221,16 +237,6 @@ export const App: React.FC = () => {
         return copy;
       });
     }
-  };
-
-  const handleDato5SChange = (puntoId: number, campo: 'ot' | 'oc', valor: string) => {
-    setDatosPunto5S((prev) => ({
-      ...prev,
-      [puntoId]: {
-        ...prev[puntoId],
-        [campo]: valor
-      }
-    }));
   };
 
   const handleAddHallazgoExtra = () => {
@@ -269,29 +275,24 @@ export const App: React.FC = () => {
   const totalNo = Object.values(respuestas).filter((v) => v === 'NO').length;
   const listaHallazgos = Object.values(hallazgos);
 
-  const totalPreguntas = vista === 'EVALUACION_5S_DIARIO' ? CHECKLIST_5S_DIARIO.length : (esProcesoPegado ? CHECKLIST_PEGADO.length : 1);
-  const cumplimiento = totalRespondidos > 0 ? Math.round((totalSi / totalPreguntas) * 100) : (listaHallazgos.length === 0 ? 100 : 80);
+  const cumplimiento = itemsChecklistActivo.length > 0
+    ? totalRespondidos > 0 ? Math.round((totalSi / itemsChecklistActivo.length) * 100) : 0
+    : listaHallazgos.length === 0 ? 100 : 80;
 
   const handleGuardarEvaluacion = async () => {
-    if (!auditor.trim()) {
-      alert('Por favor ingrese el Nombre del Auditor / Supervisor.');
+    if (!auditor.trim() || !ordenTrabajo.trim()) {
+      alert('Por favor ingrese la Orden de Trabajo y el Nombre del Auditor.');
       return;
     }
 
-    if (vista === 'EVALUACION_5S_DIARIO' && totalRespondidos < CHECKLIST_5S_DIARIO.length) {
-      alert(`Faltan responder ${CHECKLIST_5S_DIARIO.length - totalRespondidos} puntos del checklist 5S.`);
-      return;
-    }
-
-    if (vista === 'EVALUACION_PROCESO' && esProcesoPegado && totalRespondidos < CHECKLIST_PEGADO.length) {
-      alert(`Faltan responder ${CHECKLIST_PEGADO.length - totalRespondidos} puntos del checklist de pegado.`);
+    if (itemsChecklistActivo.length > 0 && totalRespondidos < itemsChecklistActivo.length) {
+      alert(`Faltan responder ${itemsChecklistActivo.length - totalRespondidos} puntos del checklist.`);
       return;
     }
 
     setGuardando(true);
     try {
       await addDoc(collection(db, 'evaluaciones_proceso'), {
-        modulo: vista === 'EVALUACION_5S_DIARIO' ? '5S_DIARIO' : 'PROCESO',
         maquinaId: maquinaSeleccionada?.id,
         maquinaNombre: maquinaSeleccionada?.nombre,
         tipoMaquina: maquinaSeleccionada?.tipo,
@@ -299,19 +300,17 @@ export const App: React.FC = () => {
         auditor: auditor.trim(),
         turno,
         cumplimiento,
-        totalSi,
-        totalNo: listaHallazgos.length,
+        totalSi: itemsChecklistActivo.length > 0 ? totalSi : (listaHallazgos.length === 0 ? 1 : 0),
+        totalNo: itemsChecklistActivo.length > 0 ? totalNo : listaHallazgos.length,
         fechaAuditoria: todayStr,
-        respuestas,
-        datosPunto5S: vista === 'EVALUACION_5S_DIARIO' ? datosPunto5S : null,
+        respuestas: itemsChecklistActivo.length > 0 ? respuestas : {},
         hallazgos: listaHallazgos,
-        estadoFinal: listaHallazgos.length === 0 ? 'APROBADO' : 'CON_HALLAZGOS',
+        estadoFinal: (itemsChecklistActivo.length > 0 ? totalNo === 0 : listaHallazgos.length === 0) ? 'APROBADO' : 'CON_HALLAZGOS',
         createdAt: serverTimestamp()
       });
 
-      alert('Evaluación guardada y sincronizada correctamente.');
+      alert('✅ Evaluación guardada y sincronizada correctamente.');
       setRespuestas({});
-      setDatosPunto5S({});
       setHallazgos({});
       setOrdenTrabajo('');
       setAuditor('');
@@ -324,49 +323,56 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleBorrarAuditoria = async (id: string, maquina: string, ot: string) => {
-    if (!window.confirm(`¿Estás seguro de eliminar la auditoría de ${maquina} (OP: ${ot || 'S/N'})?`)) {
+  // --- FUNCIONES DEL EDITOR DE PLANTILLAS ---
+  const handleAgregarPregunta = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
+      alert('Completa la descripción y la forma de verificación.');
       return;
     }
-    try {
-      await deleteDoc(doc(db, 'evaluaciones_proceso', id));
-      if (hallazgosGantt) {
-        setHallazgosGantt(hallazgosGantt.filter((h) => h.docId !== id));
-      }
-    } catch (error) {
-      console.error('Error al borrar:', error);
-      alert('Error al eliminar la auditoría.');
+
+    const nuevoId = checklistEnEdicion.length > 0
+      ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
+      : 1;
+
+    const nuevoItem: ItemChecklist = {
+      id: nuevoId,
+      seccion: nuevaSeccion.trim() || 'GENERAL · PARÁMETROS OPERATIVOS',
+      queObservar: nuevoQueObservar.trim(),
+      comoVerifica: nuevoComoVerifica.trim()
+    };
+
+    setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
+    setNuevoQueObservar('');
+    setNuevoComoVerifica('');
+  };
+
+  const handleEliminarPregunta = (id: number) => {
+    if (confirm('¿Deseas eliminar este punto del checklist?')) {
+      setChecklistEnEdicion((prev) => prev.filter((item) => item.id !== id));
     }
   };
 
-  const handleAbrirEdicion = (item: any) => {
-    setAuditoriaEditando(item);
-    setEditOT(item.ordenTrabajo || '');
-    setEditAuditor(item.auditor || '');
-    setEditTurno(item.turno || 'Matutino (6:00–14:00)');
-    setEditHallazgos(item.hallazgos ? JSON.parse(JSON.stringify(item.hallazgos)) : []);
-  };
-
-  const handleGuardarEdicion = async () => {
-    if (!auditoriaEditando) return;
-    setActualizando(true);
+  const handleGuardarPlantillaEnFirebase = async () => {
+    setGuardandoPlantilla(true);
     try {
-      const docRef = doc(db, 'evaluaciones_proceso', auditoriaEditando.id);
-      await updateDoc(docRef, {
-        ordenTrabajo: editOT.trim(),
-        auditor: editAuditor.trim(),
-        turno: editTurno,
-        hallazgos: editHallazgos
+      const docRef = doc(db, 'plantillas_checklists', tipoSeleccionadoEditor);
+      await setDoc(docRef, {
+        tipo: tipoSeleccionadoEditor,
+        items: checklistEnEdicion,
+        actualizadoEn: serverTimestamp()
       });
-      setAuditoriaEditando(null);
+
+      alert(`✅ Plantilla para "${tipoSeleccionadoEditor}" guardada exitosamente.`);
     } catch (error) {
-      console.error('Error al actualizar auditoría:', error);
-      alert('Error al actualizar.');
+      console.error('Error al guardar plantilla:', error);
+      alert('Error al guardar en Firebase.');
     } finally {
-      setActualizando(false);
+      setGuardandoPlantilla(false);
     }
   };
 
+  // Consultar Gantt bajo demanda
   const handleConsultarGantt = async () => {
     setBuscandoGantt(true);
     try {
@@ -376,7 +382,7 @@ export const App: React.FC = () => {
       }
 
       const snap = await getDocs(qConstraint);
-      const resultados: any[] = [];
+      let resultados: any[] = [];
 
       snap.forEach((docSnap) => {
         const data = docSnap.data();
@@ -506,7 +512,7 @@ export const App: React.FC = () => {
               ← Tablero
             </button>
           )}
-          <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }} style={{
+          <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('GANTT'); }} style={{
             background: '#003580', color: '#ffffff', border: 'none',
             padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
           }}>
@@ -540,6 +546,8 @@ export const App: React.FC = () => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              
+              {/* Tarjeta Proceso */}
               <div onClick={() => setVista('MODULO_PROCESO')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -554,6 +562,7 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
+              {/* Tarjeta 5S */}
               <div onClick={() => setVista('MODULO_5S')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -561,12 +570,28 @@ export const App: React.FC = () => {
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Condiciones y 5S</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
-                  Checklist diario de 20 puntos y auditorías semanales de orden y limpieza.
+                  Auditoría de área limpia, estantes correctos, despeje de línea y orden de herramentales.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
                   33 Áreas y Máquinas
                 </span>
               </div>
+
+              {/* Tarjeta Editor de Formularios */}
+              <div onClick={() => setVista('EDITOR_PLANTILLAS')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                  <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Configuración</div>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Editor de Plantillas y Checklists</div>
+                <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
+                  Agrega, edita o elimina preguntas y secciones para cada familia de máquinas.
+                </p>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
+                  Gestión Dinámica
+                </span>
+              </div>
+
             </div>
           </div>
         )}
@@ -586,28 +611,28 @@ export const App: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
               {CATALOGO.filter((m) => m.moduloProceso).map((maq) => {
-                const esPegadora = maq.tipo === 'Pegado';
+                const totalPreguntas = (plantillas[maq.tipo] || []).length;
                 return (
                   <div
                     key={maq.id}
                     onClick={() => {
                       setMaquinaSeleccionada(maq);
-                      setVista('EVALUACION_PROCESO');
+                      setVista('EVALUACION');
                     }}
                     style={{
                       ...STYLES.glassCard,
                       marginBottom: 0,
                       padding: '14px',
                       cursor: 'pointer',
-                      border: esPegadora ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
+                      border: totalPreguntas > 0 ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <span style={{ fontSize: '10px', fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 8px', borderRadius: '10px' }}>
                         {maq.tipo}
                       </span>
-                      {esPegadora ? (
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>Checklist 16 Ptos</span>
+                      {totalPreguntas > 0 ? (
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>{totalPreguntas} Ptos</span>
                       ) : (
                         <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 6px', borderRadius: '4px' }}>Hallazgos Extra</span>
                       )}
@@ -623,367 +648,35 @@ export const App: React.FC = () => {
         {/* 3. VISTA SELECCIÓN 5S */}
         {vista === 'MODULO_5S' && (
           <div>
-            <div style={{ ...STYLES.glassCard, padding: '1.2rem 1.4rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Condiciones de Equipo y 5S</div>
-                  <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona la modalidad de verificación y el área de trabajo</div>
-                </div>
-                <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                  Volver
-                </button>
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Condiciones de Equipo y 5S</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Auditoría de orden, despeje y limpieza general</div>
               </div>
-
-              <div style={{ display: 'flex', gap: '8px', maxWidth: '380px' }}>
-                <button
-                  type="button"
-                  onClick={() => setTipoCheck5S('DIARIO')}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #003580',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    background: tipoCheck5S === 'DIARIO' ? '#003580' : 'transparent',
-                    color: tipoCheck5S === 'DIARIO' ? '#ffffff' : '#003580'
-                  }}
-                >
-                  Check Diario (20 Ptos)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTipoCheck5S('SEMANAL')}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #003580',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    background: tipoCheck5S === 'SEMANAL' ? '#003580' : 'transparent',
-                    color: tipoCheck5S === 'SEMANAL' ? '#ffffff' : '#003580'
-                  }}
-                >
-                  Check Semanal
-                </button>
-              </div>
-            </div>
-
-            {tipoCheck5S === 'SEMANAL' ? (
-              <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem 1rem' }}>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
-                  Checklist Semanal de 5S
-                </div>
-                <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                  La plantilla semanal se activará en cuanto compartas la matriz de ponderación correspondiente.
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
-                {CATALOGO.filter((m) => m.modulo5S).map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      setMaquinaSeleccionada(item);
-                      setVista('EVALUACION_5S_DIARIO');
-                    }}
-                    style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px', cursor: 'pointer' }}
-                  >
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
-                      {item.tipo}
-                    </span>
-                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', marginTop: '6px', textAlign: 'left' }}>{item.nombre}</div>
-                    <div style={{ fontSize: '11px', color: '#003580', marginTop: '4px', fontWeight: 600 }}>Iniciar 20 Puntos →</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 4. VISTA DE EVALUACIÓN: 5S DIARIO */}
-        {vista === 'EVALUACION_5S_DIARIO' && (
-          <div>
-            <div style={STYLES.glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
-                <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  Checklist Diario de Condiciones y 5S (20 Puntos)
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
-                  <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                    Revisión diaria de orden, limpieza, seguridad y estado de equipo
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right', background: '#E8EEF8', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(0,53,128,0.2)' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Cumplimiento</div>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: totalNo > 0 ? '#C8102E' : '#0F7A55' }}>
-                    {cumplimiento}%
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#5A6A80' }}>{totalRespondidos} de 20 evaluados</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem', textAlign: 'left' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Auditor / Supervisor:</label>
-                  <input
-                    type="text"
-                    placeholder="Nombre completo"
-                    value={auditor}
-                    onChange={(e) => setAuditor(e.target.value)}
-                    style={STYLES.input}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Turno:</label>
-                  <select value={turno} onChange={(e) => setTurno(e.target.value)} style={STYLES.input}>
-                    <option>Matutino (6:00–14:00)</option>
-                    <option>Vespertino (14:00–21:30)</option>
-                    <option>Nocturno (21:30–6:00)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Checklist 20 Puntos 5S */}
-            <div style={STYLES.glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
-                <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  Matriz de Inspección Diaria 5S
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {CHECKLIST_5S_DIARIO.map((item, idx) => {
-                  const resp = respuestas[item.id];
-                  const showHeader = idx === 0 || CHECKLIST_5S_DIARIO[idx - 1].seccion !== item.seccion;
-                  const pData = datosPunto5S[item.id] || {};
-
-                  return (
-                    <React.Fragment key={item.id}>
-                      {showHeader && (
-                        <div style={{ background: '#E8EEF8', color: '#002060', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', marginTop: idx === 0 ? '0' : '14px', textAlign: 'left' }}>
-                          {item.seccion}
-                        </div>
-                      )}
-                      <div style={{
-                        display: 'flex', flexDirection: 'column',
-                        padding: '12px 14px', borderRadius: '8px',
-                        border: resp === 'NO' ? '1.5px solid #C8102E' : '1.5px solid rgba(0,32,96,0.07)',
-                        background: resp === 'NO' ? '#F9E8EB' : resp === 'SI' ? '#E0F2EC' : 'rgba(255,255,255,0.85)',
-                        gap: '10px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                          <div style={{ flex: '1 1 300px', textAlign: 'left' }}>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
-                              <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
-                              {item.queObservar}
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleRespuesta(item.id, 'SI', CHECKLIST_5S_DIARIO)}
-                              style={{
-                                padding: '6px 14px', borderRadius: '6px', border: 'none',
-                                fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                                background: resp === 'SI' ? '#0F7A55' : 'rgba(0,32,96,0.06)',
-                                color: resp === 'SI' ? '#ffffff' : '#5A6A80'
-                              }}
-                            >
-                              ✓ SÍ
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRespuesta(item.id, 'NO', CHECKLIST_5S_DIARIO)}
-                              style={{
-                                padding: '6px 14px', borderRadius: '6px', border: 'none',
-                                fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                                background: resp === 'NO' ? '#C8102E' : 'rgba(0,32,96,0.06)',
-                                color: resp === 'NO' ? '#ffffff' : '#5A6A80'
-                              }}
-                            >
-                              ✕ NO
-                            </button>
-                          </div>
-                        </div>
-
-                        {item.pideOTyOC && (
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(0,32,96,0.1)' }}>
-                            <div>
-                              <input
-                                type="text"
-                                placeholder="OT (Orden de Trabajo opcional)"
-                                value={pData.ot || ''}
-                                onChange={(e) => handleDato5SChange(item.id, 'ot', e.target.value)}
-                                style={{ ...STYLES.input, fontSize: '11px', padding: '5px 8px', background: '#ffffff' }}
-                              />
-                            </div>
-                            <div>
-                              <input
-                                type="text"
-                                placeholder="OC (Orden de Compra opcional)"
-                                value={pData.oc || ''}
-                                onChange={(e) => handleDato5SChange(item.id, 'oc', e.target.value)}
-                                style={{ ...STYLES.input, fontSize: '11px', padding: '5px 8px', background: '#ffffff' }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* SECCIÓN HALLAZGOS 5S */}
-            <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '3px', height: '18px', background: listaHallazgos.length > 0 ? '#C8102E' : '#003580', borderRadius: '2px' }}></div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: listaHallazgos.length > 0 ? '#7A0B1D' : '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                    Hallazgos y Acciones Correctivas 5S ({listaHallazgos.length})
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddHallazgoExtra}
-                  style={{
-                    background: '#003580', color: '#ffffff', border: 'none',
-                    padding: '6px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                    cursor: 'pointer', letterSpacing: '.02em'
-                  }}
-                >
-                  + Agregar Hallazgo Extra
-                </button>
-              </div>
-
-              {listaHallazgos.length === 0 ? (
-                <div style={{ fontSize: '12px', color: '#5A6A80', textAlign: 'center', padding: '14px 10px' }}>
-                  No hay hallazgos registrados. Si una pregunta se marca como "NO" o agregas un hallazgo extra, aparecerá aquí.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {listaHallazgos.map((h) => {
-                    const itemCheck = h.puntoId ? CHECKLIST_5S_DIARIO.find((i) => i.id === h.puntoId) : null;
-                    return (
-                      <div key={h.id} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
-                            {h.esExtra ? 'Hallazgo Extra / Fuera de Checklist 5S' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
-                          </div>
-                          {h.esExtra && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveHallazgoExtra(h.id)}
-                              style={{ background: 'none', border: 'none', color: '#C8102E', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                            >
-                              ✕ Eliminar
-                            </button>
-                          )}
-                        </div>
-
-                        {h.esExtra && (
-                          <div style={{ marginBottom: '8px' }}>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
-                            <input
-                              type="text"
-                              placeholder="Describe la desviación observada..."
-                              value={h.hallazgo}
-                              onChange={(e) => handleHallazgoChange(h.id, 'hallazgo', e.target.value)}
-                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
-                            />
-                          </div>
-                        )}
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Acción Correctiva Inmediata:</label>
-                            <input
-                              type="text"
-                              placeholder="Acción realizada..."
-                              value={h.accion}
-                              onChange={(e) => handleHallazgoChange(h.id, 'accion', e.target.value)}
-                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
-                            <input
-                              type="text"
-                              placeholder="Nombre del responsable"
-                              value={h.responsable}
-                              onChange={(e) => handleHallazgoChange(h.id, 'responsable', e.target.value)}
-                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Fecha de Cierre:</label>
-                            <input
-                              type="date"
-                              value={h.fechaCierre}
-                              readOnly={!h.esExtra}
-                              onChange={(e) => handleHallazgoChange(h.id, 'fechaCierre', e.target.value)}
-                              style={{
-                                ...STYLES.input,
-                                fontSize: '12px',
-                                padding: '6px 10px',
-                                background: !h.esExtra ? '#f1f5f9' : '#ffffff',
-                                cursor: !h.esExtra ? 'not-allowed' : 'auto'
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Acciones */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setVista('MODULO_5S')}
-                style={{ padding: '11px 20px', background: 'transparent', border: '1.5px solid rgba(0,32,96,0.12)', color: '#003580', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Cancelar
+              <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                Volver
               </button>
-              <button
-                type="button"
-                disabled={guardando}
-                onClick={handleGuardarEvaluacion}
-                style={{
-                  padding: '11px 28px',
-                  background: listaHallazgos.length === 0 ? '#003580' : '#C8102E',
-                  color: '#ffffff', border: 'none', borderRadius: '8px',
-                  fontSize: '13px', fontWeight: 700, letterSpacing: '.02em',
-                  cursor: guardando ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 3px 10px rgba(0,53,128,0.35)'
-                }}
-              >
-                {guardando ? 'Guardando en Firebase…' : 'Guardar Auditoría 5S'}
-              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
+              {CATALOGO.filter((m) => m.modulo5S).map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => alert(`Módulo 5S para ${item.nombre} configurándose.`)}
+                  style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
+                    {item.tipo}
+                  </span>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', marginTop: '6px', textAlign: 'left' }}>{item.nombre}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* 5. VISTA DE EVALUACIÓN: PROCESO */}
-        {vista === 'EVALUACION_PROCESO' && (
+        {/* 4. VISTA DE EVALUACIÓN DINÁMICA */}
+        {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
@@ -997,19 +690,17 @@ export const App: React.FC = () => {
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
                   <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                    {esProcesoPegado
-                      ? 'Plan de Auditoría Técnica de Pegado (F1-PR-PA-03)'
-                      : 'Plantilla de Verificación Técnica en Configuración'}
+                    Familia: <strong>{maquinaSeleccionada?.tipo}</strong> · {itemsChecklistActivo.length} Puntos de Validación
                   </div>
                 </div>
 
-                {esProcesoPegado && (
+                {itemsChecklistActivo.length > 0 && (
                   <div style={{ textAlign: 'right', background: '#E8EEF8', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(0,53,128,0.2)' }}>
                     <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Cumplimiento</div>
                     <div style={{ fontSize: '20px', fontWeight: 700, color: totalNo > 0 ? '#C8102E' : '#0F7A55' }}>
                       {cumplimiento}%
                     </div>
-                    <div style={{ fontSize: '10px', color: '#5A6A80' }}>{totalRespondidos} de 16 evaluados</div>
+                    <div style={{ fontSize: '10px', color: '#5A6A80' }}>{totalRespondidos} de {itemsChecklistActivo.length} evaluados</div>
                   </div>
                 )}
               </div>
@@ -1046,7 +737,8 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {esProcesoPegado ? (
+            {/* Checklist Dinámico */}
+            {itemsChecklistActivo.length > 0 ? (
               <div style={STYLES.glassCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -1054,9 +746,9 @@ export const App: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {CHECKLIST_PEGADO.map((item, idx) => {
+                  {itemsChecklistActivo.map((item, idx) => {
                     const resp = respuestas[item.id];
-                    const showHeader = idx === 0 || CHECKLIST_PEGADO[idx - 1].seccion !== item.seccion;
+                    const showHeader = idx === 0 || itemsChecklistActivo[idx - 1].seccion !== item.seccion;
 
                     return (
                       <React.Fragment key={item.id}>
@@ -1085,7 +777,7 @@ export const App: React.FC = () => {
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button
                               type="button"
-                              onClick={() => handleRespuesta(item.id, 'SI', CHECKLIST_PEGADO)}
+                              onClick={() => handleRespuesta(item.id, 'SI')}
                               style={{
                                 padding: '6px 14px', borderRadius: '6px', border: 'none',
                                 fontSize: '12px', fontWeight: 700, cursor: 'pointer',
@@ -1097,7 +789,7 @@ export const App: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleRespuesta(item.id, 'NO', CHECKLIST_PEGADO)}
+                              onClick={() => handleRespuesta(item.id, 'NO')}
                               style={{
                                 padding: '6px 14px', borderRadius: '6px', border: 'none',
                                 fontSize: '12px', fontWeight: 700, cursor: 'pointer',
@@ -1117,15 +809,15 @@ export const App: React.FC = () => {
             ) : (
               <div style={{ ...STYLES.glassCard, textAlign: 'left', padding: '16px 20px', background: '#f8fafc' }}>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
-                  Lista de Verificación Específica en Proceso de Alta
+                  Sin preguntas registradas para {maquinaSeleccionada?.tipo}
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
-                  Los puntos de validación técnica para <strong>{maquinaSeleccionada?.nombre}</strong> se incorporarán próximamente. Mientras tanto, puedes documentar cualquier desviación u observación operativa usando el botón <strong>"+ Agregar Hallazgo Extra"</strong> a continuación.
+                  Puedes agregar las preguntas oficiales para esta familia desde el <strong>Editor de Plantillas</strong> en el menú principal, o registrar observaciones directas con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
                 </div>
               </div>
             )}
 
-            {/* SECCIÓN HALLAZGOS PROCESO */}
+            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1155,12 +847,17 @@ export const App: React.FC = () => {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {listaHallazgos.map((h) => {
-                    const itemCheck = h.puntoId ? CHECKLIST_PEGADO.find((i) => i.id === h.puntoId) : null;
+                    const itemCheck = h.puntoId ? itemsChecklistActivo.find((i) => i.id === h.puntoId) : null;
                     return (
                       <div key={h.id} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
+                        
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
-                            {h.esExtra ? 'Hallazgo Extra / Fuera de Checklist' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
+                            {h.esExtra ? (
+                              '⚠️ Hallazgo Extra / Fuera de Checklist'
+                            ) : (
+                              `Punto #${h.puntoId}: ${itemCheck?.queObservar}`
+                            )}
                           </div>
                           {h.esExtra && (
                             <button
@@ -1208,7 +905,9 @@ export const App: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Fecha de Cierre:</label>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>
+                              Fecha de Cierre:
+                            </label>
                             <input
                               type="date"
                               value={h.fechaCierre}
@@ -1259,6 +958,165 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS */}
+        {vista === 'EDITOR_PLANTILLAS' && (
+          <div>
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Checklists</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configura las preguntas técnicas por familia de máquina</div>
+              </div>
+              <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                Volver al Tablero
+              </button>
+            </div>
+
+            {/* Selector de Familia */}
+            <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
+                Selecciona la Familia de Máquinas a Editar:
+              </label>
+              <select
+                value={tipoSeleccionadoEditor}
+                onChange={(e) => setTipoSeleccionadoEditor(e.target.value)}
+                style={{ ...STYLES.input, maxWidth: '300px', fontWeight: 600 }}
+              >
+                {FAMILIAS_MAQUINAS.map((fam) => (
+                  <option key={fam} value={fam}>{fam}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Formulario Agregar Nueva Pregunta */}
+            <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                  + Agregar Nueva Pregunta a "{tipoSeleccionadoEditor}"
+                </div>
+              </div>
+
+              <form onSubmit={handleAgregarPregunta}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Sección / Categoría:</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. A · SOLVENTE Y APORTE"
+                      value={nuevaSeccion}
+                      onChange={(e) => setNuevaSeccion(e.target.value)}
+                      style={STYLES.input}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Qué observar en piso:</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Presión de aire del tanque en rango"
+                      value={nuevoQueObservar}
+                      onChange={(e) => setNuevoQueObservar(e.target.value)}
+                      style={STYLES.input}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Cómo se verifica:</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Manómetro entre 0.51 y 0.65 MPa"
+                      value={nuevoComoVerifica}
+                      onChange={(e) => setNuevoComoVerifica(e.target.value)}
+                      style={STYLES.input}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    background: '#003580', color: '#ffffff', border: 'none',
+                    padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Agregar Punto a la Lista
+                </button>
+              </form>
+            </div>
+
+            {/* Lista de Preguntas en Edición */}
+            <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                    Preguntas Configuradas ({checklistEnEdicion.length})
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={guardandoPlantilla}
+                  onClick={handleGuardarPlantillaEnFirebase}
+                  style={{
+                    background: '#0F7A55', color: '#ffffff', border: 'none',
+                    padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    cursor: guardandoPlantilla ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 6px rgba(15,122,85,0.3)'
+                  }}
+                >
+                  {guardandoPlantilla ? 'Guardando en la Nube…' : '💾 Guardar Plantilla en Firebase'}
+                </button>
+              </div>
+
+              {checklistEnEdicion.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
+                  No hay preguntas configuradas para esta familia aún. Agrega la primera arriba.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {checklistEnEdicion.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(0,32,96,0.07)',
+                        background: '#ffffff', gap: '10px', flexWrap: 'wrap'
+                      }}
+                    >
+                      <div style={{ flex: '1 1 300px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
+                          {item.seccion}
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
+                          #{item.id} {item.queObservar}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
+                          <strong>Verificación:</strong> {item.comoVerifica}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarPregunta(item.id)}
+                        style={{
+                          background: '#F9E8EB', color: '#C8102E', border: 'none',
+                          padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🗑 Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
         {/* 6. VISTA HISTORIAL & GANTT */}
         {vista === 'HISTORIAL' && (
           <div>
@@ -1270,17 +1128,6 @@ export const App: React.FC = () => {
 
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
-                  onClick={() => setSubVistaHistorial('AUDITORIAS')}
-                  style={{
-                    background: subVistaHistorial === 'AUDITORIAS' ? '#003580' : 'transparent',
-                    color: subVistaHistorial === 'AUDITORIAS' ? '#ffffff' : '#003580',
-                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
-                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                  }}
-                >
-                  Auditorías ({historial.length})
-                </button>
-                <button
                   onClick={() => setSubVistaHistorial('GANTT')}
                   style={{
                     background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
@@ -1291,89 +1138,24 @@ export const App: React.FC = () => {
                 >
                   Tabla Gantt
                 </button>
+                <button
+                  onClick={() => setSubVistaHistorial('AUDITORIAS')}
+                  style={{
+                    background: subVistaHistorial === 'AUDITORIAS' ? '#003580' : 'transparent',
+                    color: subVistaHistorial === 'AUDITORIAS' ? '#ffffff' : '#003580',
+                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
+                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Auditorías ({historial.length})
+                </button>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                   Cerrar
                 </button>
               </div>
             </div>
 
-            {/* A. SUBVISTA AUDITORÍAS GENERALES */}
-            {subVistaHistorial === 'AUDITORIAS' && (
-              <div>
-                {historial.length === 0 ? (
-                  <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    Sin auditorías guardadas aún.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {historial.map((item) => (
-                      <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                        <div style={{ textAlign: 'left', flex: '1 1 320px' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: 700, fontSize: '15px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
-                            <span style={{
-                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                              background: item.modulo === '5S_DIARIO' ? '#E8EEF8' : '#f1f5f9',
-                              color: '#003580'
-                            }}>
-                              {item.modulo === '5S_DIARIO' ? '5S Diario' : 'Proceso'}
-                            </span>
-                            <span style={{
-                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                              background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
-                              color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
-                            }}>
-                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : 'CON HALLAZGOS'}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
-                            Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                              {item.cumplimiento}%
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                              {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              onClick={() => handleAbrirEdicion(item)}
-                              title="Editar auditoría"
-                              style={{
-                                background: '#E8EEF8', border: '1px solid rgba(0,32,96,0.15)', color: '#003580',
-                                width: '34px', height: '34px', borderRadius: '8px', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px'
-                              }}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleBorrarAuditoria(item.id, item.maquinaNombre, item.ordenTrabajo)}
-                              title="Eliminar auditoría"
-                              style={{
-                                background: '#F9E8EB', border: '1px solid rgba(200,16,46,0.2)', color: '#C8102E',
-                                width: '34px', height: '34px', borderRadius: '8px', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px'
-                              }}
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* B. SUBVISTA TABLA GANTT */}
+            {/* A. TABLA GANTT */}
             {subVistaHistorial === 'GANTT' && (
               <div>
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
@@ -1383,9 +1165,9 @@ export const App: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Máquina / Área:</label>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Máquina:</label>
                       <select value={filtroMaquina} onChange={(e) => setFiltroMaquina(e.target.value)} style={STYLES.input}>
-                        <option value="">Todas las áreas y máquinas</option>
+                        <option value="">Todas las máquinas</option>
                         {CATALOGO.map((m) => (
                           <option key={m.id} value={m.nombre}>{m.nombre}</option>
                         ))}
@@ -1440,8 +1222,14 @@ export const App: React.FC = () => {
                         onClick={handleConsultarGantt}
                         disabled={buscandoGantt}
                         style={{
-                          flex: 2, background: '#003580', color: '#ffffff', border: 'none',
-                          padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                          flex: 2,
+                          background: '#003580',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
                           cursor: buscandoGantt ? 'not-allowed' : 'pointer'
                         }}
                       >
@@ -1452,8 +1240,15 @@ export const App: React.FC = () => {
                           type="button"
                           onClick={handleLimpiarFiltrosGantt}
                           style={{
-                            flex: 1, background: 'transparent', border: '1px solid rgba(0,32,96,0.12)',
-                            color: '#5A6A80', padding: '8px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 600, cursor: 'pointer'
+                            flex: 1,
+                            background: 'transparent',
+                            border: '1px solid rgba(0,32,96,0.12)',
+                            color: '#5A6A80',
+                            padding: '8px 8px',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer'
                           }}
                         >
                           Limpiar
@@ -1483,7 +1278,7 @@ export const App: React.FC = () => {
                         <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '28px' }} rowSpan={2}>#</th>
                           <th style={{ padding: '8px 8px', border: '1px solid #1A4D9A', width: '85px' }} rowSpan={2}>Fecha Auditoría</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '130px' }} rowSpan={2}>Máquina / Área</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '130px' }} rowSpan={2}>Máquina</th>
                           <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Actividad / Hallazgo</th>
                           <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '110px' }} rowSpan={2}>Responsable</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
@@ -1613,142 +1408,52 @@ export const App: React.FC = () => {
               </div>
             )}
 
+            {/* B. SUBVISTA AUDITORÍAS GENERALES */}
+            {subVistaHistorial === 'AUDITORIAS' && (
+              <div>
+                {historial.length === 0 ? (
+                  <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
+                    Sin auditorías guardadas aún.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {historial.map((item) => (
+                      <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
+                            <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
+                            <span style={{
+                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
+                              background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
+                              color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
+                            }}>
+                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#5A6A80' }}>
+                            Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                            {item.cumplimiento}%
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
+                            {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
 
       </main>
-
-      {/* MODAL EDITAR AUDITORÍA */}
-      {auditoriaEditando && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0, 32, 96, 0.4)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
-        }}>
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: '16px',
-            border: '1px solid rgba(255, 255, 255, 0.98)',
-            boxShadow: '0 8px 32px rgba(0, 32, 96, 0.2)',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '650px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            textAlign: 'left'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid #E8EEF8', paddingBottom: '10px' }}>
-              <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>
-                  Editar Auditoría: {auditoriaEditando.maquinaNombre}
-                </div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Modificación de parámetros y acciones correctivas</div>
-              </div>
-              <button
-                onClick={() => setAuditoriaEditando(null)}
-                style={{ background: 'none', border: 'none', fontSize: '18px', color: '#8A9AB0', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Orden de Trabajo (OP):</label>
-                <input
-                  type="text"
-                  value={editOT}
-                  onChange={(e) => setEditOT(e.target.value)}
-                  style={STYLES.input}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Auditor:</label>
-                <input
-                  type="text"
-                  value={editAuditor}
-                  onChange={(e) => setEditAuditor(e.target.value)}
-                  style={STYLES.input}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Turno:</label>
-              <select value={editTurno} onChange={(e) => setEditTurno(e.target.value)} style={STYLES.input}>
-                <option>Matutino (6:00–14:00)</option>
-                <option>Vespertino (14:00–21:30)</option>
-                <option>Nocturno (21:30–6:00)</option>
-              </select>
-            </div>
-
-            {/* Edición de Hallazgos */}
-            {editHallazgos.length > 0 && (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '8px' }}>
-                  Hallazgos y Acciones Asociadas ({editHallazgos.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {editHallazgos.map((h, i) => (
-                    <div key={i} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#7A0B1D', marginBottom: '6px' }}>
-                        {h.hallazgo}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '10px', color: '#5A6A80' }}>Acción Correctiva:</label>
-                          <input
-                            type="text"
-                            value={h.accion}
-                            onChange={(e) => {
-                              const copy = [...editHallazgos];
-                              copy[i].accion = e.target.value;
-                              setEditHallazgos(copy);
-                            }}
-                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 8px' }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '10px', color: '#5A6A80' }}>Responsable:</label>
-                          <input
-                            type="text"
-                            value={h.responsable}
-                            onChange={(e) => {
-                              const copy = [...editHallazgos];
-                              copy[i].responsable = e.target.value;
-                              setEditHallazgos(copy);
-                            }}
-                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 8px' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setAuditoriaEditando(null)}
-                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={actualizando}
-                onClick={handleGuardarEdicion}
-                style={{ padding: '8px 20px', background: '#003580', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: actualizando ? 'not-allowed' : 'pointer' }}
-              >
-                {actualizando ? 'Guardando…' : 'Guardar Cambios'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
