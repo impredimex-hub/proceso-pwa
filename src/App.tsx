@@ -38,7 +38,7 @@ const STYLES = {
   }
 };
 
-// --- CATÁLOGO DE MÁQUINAS Y ÁREAS ---
+// --- CATÁLOGO DE MÁQUINAS Y ÁREAS CON NOMENCLATURA REAL ---
 interface Maquina {
   id: string;
   nombre: string;
@@ -48,32 +48,40 @@ interface Maquina {
 }
 
 const CATALOGO: Maquina[] = [
-  { id: 'peg-1', nombre: 'Pegadora de Etiquetas 1', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
-  { id: 'peg-2', nombre: 'Pegadora de Etiquetas 2', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
-  { id: 'flex-1', nombre: 'Flexográfica 1', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
-  { id: 'flex-2', nombre: 'Flexográfica 2', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
-  { id: 'flex-3', nombre: 'Flexográfica 3', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
-  { id: 'flex-4', nombre: 'Flexográfica 4', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
-  { id: 'roto-1', nombre: 'Rotograbado 1', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
-  { id: 'roto-2', nombre: 'Rotograbado 2', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
-  { id: 'roto-3', nombre: 'Rotograbado 3', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
-  { id: 'dig-1', nombre: 'Impresora Digital', tipo: 'Digital', moduloProceso: true, modulo5S: true },
-  { id: 'lam-1', nombre: 'Laminadora', tipo: 'Laminado', moduloProceso: true, modulo5S: true },
-  { id: 'dep-imp', nombre: 'Depuradora de Impresión', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
-  { id: 'suaj-1', nombre: 'Suajadora', tipo: 'Suajado', moduloProceso: true, modulo5S: true },
-  { id: 'ref-1', nombre: 'Refiladora 1', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
-  { id: 'ref-2', nombre: 'Refiladora 2', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
-  { id: 'ref-3', nombre: 'Refiladora 3', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
-  { id: 'rev-1', nombre: 'Revisadora 1', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'rev-2', nombre: 'Revisadora 2', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'rev-3', nombre: 'Revisadora 3', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'rev-4', nombre: 'Revisadora 4', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'rev-5', nombre: 'Revisadora 5', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'rev-6', nombre: 'Revisadora 6', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'dep-etq', nombre: 'Depuradora de Etiquetas', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
-  { id: 'cort-1', nombre: 'Cortadora 1', tipo: 'Corte', moduloProceso: true, modulo5S: true },
-  { id: 'cort-2', nombre: 'Cortadora 2', tipo: 'Corte', moduloProceso: true, modulo5S: true },
-  { id: 'cort-3', nombre: 'Cortadora 3', tipo: 'Corte', moduloProceso: true, modulo5S: true },
+  // Flexografía
+  { id: 'FL1', nombre: 'FL1 (Flexográfica 1)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
+  { id: 'FL2', nombre: 'FL2 (Flexográfica 2)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
+  { id: 'FL3', nombre: 'FL3 (Flexográfica 3)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
+  { id: 'FL4', nombre: 'FL4 (Flexográfica 4)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
+  // Rotograbado
+  { id: 'RT5', nombre: 'RT5 (Rotograbado 5)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
+  { id: 'RT6', nombre: 'RT6 (Rotograbado 6)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
+  { id: 'RT7', nombre: 'RT7 (Rotograbado 7)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
+  // Laminado, Depuración Impresión y Digital
+  { id: 'LAM1', nombre: 'LAM1 (Laminadora)', tipo: 'Laminado', moduloProceso: true, modulo5S: true },
+  { id: 'DEP1', nombre: 'DEP1 (Depuradora Impresión)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
+  { id: 'ZEI1', nombre: 'ZEI1 (Impresora Digital)', tipo: 'Digital', moduloProceso: true, modulo5S: true },
+  { id: 'OME1', nombre: 'OME1 (Suajadora)', tipo: 'Suajado', moduloProceso: true, modulo5S: true },
+  // Refilado
+  { id: 'REF1', nombre: 'REF1 (Refiladora 1)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
+  { id: 'REF2', nombre: 'REF2 (Refiladora 2)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
+  { id: 'REF3', nombre: 'REF3 (Refiladora 3)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
+  // Pegadoras
+  { id: 'PEG1', nombre: 'PEG1 (Pegadora 1)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
+  { id: 'PEG2', nombre: 'PEG2 (Pegadora 2)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
+  // Revisadoras
+  { id: 'REV1', nombre: 'REV1 (Revisadora 1)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV2', nombre: 'REV2 (Revisadora 2)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV3', nombre: 'REV3 (Revisadora 3)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV4', nombre: 'REV4 (Revisadora 4)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV6', nombre: 'REV6 (Revisadora 6)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV8', nombre: 'REV8 (Revisadora 8)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  // Depuración Etiquetas y Corte
+  { id: 'DEP2', nombre: 'DEP2 (Depuración Etiquetas)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
+  { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
+  { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
+  { id: 'COR3', nombre: 'COR3 (Cortadora 3)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
+  // Áreas Auxiliares y Soporte
   { id: 'area-tintas', nombre: 'Área de Tintas', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-banos', nombre: 'Baños de Producción', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-mp', nombre: 'Almacén Materia Prima', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
@@ -127,7 +135,6 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Formulario Evaluación
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
@@ -136,7 +143,7 @@ export const App: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
 
-  // Filtros del Gantt (Control bajo demanda)
+  // Filtros del Gantt
   const [filtroMaquina, setFiltroMaquina] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
   const [filtroDia, setFiltroDia] = useState('');
@@ -266,7 +273,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Consulta bajo demanda a Firebase Firestore para el Gantt
   const handleConsultarGantt = async () => {
     setBuscandoGantt(true);
     try {
@@ -286,19 +292,16 @@ export const App: React.FC = () => {
             const fFin = h.fechaCierre || todayStr;
             const estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
 
-            // Filtrar por Mes
             if (filtroMes) {
               const mesAuditoria = fAuditoria.split('-')[1];
               if (mesAuditoria !== filtroMes) return;
             }
 
-            // Filtrar por Día
             if (filtroDia) {
               const diaAuditoria = fAuditoria.split('-')[2];
               if (diaAuditoria !== filtroDia.padStart(2, '0')) return;
             }
 
-            // Filtrar por Cumplimiento
             if (filtroCumplimiento && estatus !== filtroCumplimiento) {
               return;
             }
@@ -336,7 +339,6 @@ export const App: React.FC = () => {
     setHallazgosGantt(null);
   };
 
-  // Alternar Estatus: PENDIENTE → TERMINADO → PENDIENTE ATRASADO
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
@@ -344,7 +346,6 @@ export const App: React.FC = () => {
       else if (estadoActual === 'TERMINADO') nuevoEstado = 'PENDIENTE_ATRASADO';
       else if (estadoActual === 'PENDIENTE_ATRASADO') nuevoEstado = 'PENDIENTE';
 
-      // Actualizar localmente la vista activa del Gantt
       setHallazgosGantt((prev) => {
         if (!prev) return prev;
         return prev.map((item) => {
@@ -355,7 +356,6 @@ export const App: React.FC = () => {
         });
       });
 
-      // Persistir en Firebase
       const docEncontrado = historial.find((h) => h.id === docId);
       if (docEncontrado && docEncontrado.hallazgos) {
         const nuevosHallazgos = [...docEncontrado.hallazgos];
@@ -371,7 +371,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Generar columnas de 14 días para la cuadrícula del Gantt
   const diasGantt = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -437,7 +436,7 @@ export const App: React.FC = () => {
               <div style={STYLES.metricCard}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Máquinas Activas</div>
                 <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>26</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En planta</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En catálogo</div>
               </div>
               <div style={STYLES.metricCard}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Áreas 5S</div>
@@ -516,7 +515,7 @@ export const App: React.FC = () => {
                       </span>
                       {esPegadora && <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>Plantilla Lista</span>}
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: '13px', color: '#0D1A2E', textAlign: 'left' }}>{maq.nombre}</div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', textAlign: 'left' }}>{maq.nombre}</div>
                   </div>
                 );
               })}
@@ -547,7 +546,7 @@ export const App: React.FC = () => {
                   <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
                     {item.tipo}
                   </span>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: '#0D1A2E', marginTop: '6px', textAlign: 'left' }}>{item.nombre}</div>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', marginTop: '6px', textAlign: 'left' }}>{item.nombre}</div>
                 </div>
               ))}
             </div>
@@ -566,7 +565,7 @@ export const App: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
-                  <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>Formato F1-PR-PA-03 · 16 Puntos Críticos</div>
+                  <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>Formato F1-PR-PA-03 · 16 Puntos Críticos[cite: 1]</div>
                 </div>
                 <div style={{ textAlign: 'right', background: '#E8EEF8', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(0,53,128,0.2)' }}>
                   <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Cumplimiento</div>
@@ -822,7 +821,6 @@ export const App: React.FC = () => {
         {/* 5. VISTA HISTORIAL & GANTT */}
         {vista === 'HISTORIAL' && (
           <div>
-            {/* Header del Historial */}
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico y Cronograma Gantt</div>
@@ -858,10 +856,10 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* A. TABLA GANTT BAJO DEMANDA */}
+            {/* A. TABLA GANTT */}
             {subVistaHistorial === 'GANTT' && (
               <div>
-                {/* Panel de Filtros para Ahorro de Ancho de Banda */}
+                {/* Panel de Filtros */}
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
                     Filtros de Búsqueda para Cronograma
@@ -983,7 +981,7 @@ export const App: React.FC = () => {
                         <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '28px' }} rowSpan={2}>#</th>
                           <th style={{ padding: '8px 8px', border: '1px solid #1A4D9A', width: '85px' }} rowSpan={2}>Fecha Auditoría</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '140px' }} rowSpan={2}>Máquina</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '130px' }} rowSpan={2}>Máquina</th>
                           <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Actividad / Hallazgo</th>
                           <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '110px' }} rowSpan={2}>Responsable</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
@@ -1020,24 +1018,20 @@ export const App: React.FC = () => {
 
                           return (
                             <tr key={`${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
-                              {/* # */}
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>
                                 {idx + 1}
                               </td>
 
-                              {/* Fecha de Realización */}
                               <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#002060', fontWeight: 600 }}>
                                 {item.fechaAuditoria}
                               </td>
 
-                              {/* Máquina */}
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
                                 <span style={{ fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
                                   {item.maquinaNombre}
                                 </span>
                               </td>
 
-                              {/* Actividad / Hallazgo */}
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
                                 <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
                                 <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
@@ -1045,27 +1039,22 @@ export const App: React.FC = () => {
                                 </div>
                               </td>
 
-                              {/* Responsable */}
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>
                                 {item.responsable || 'No asignado'}
                               </td>
 
-                              {/* Inicio */}
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
                                 {item.fechaInicio}
                               </td>
 
-                              {/* Fin */}
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
                                 {item.fechaFin}
                               </td>
 
-                              {/* Días */}
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#002060' }}>
                                 {diasTotal}
                               </td>
 
-                              {/* Cumplimiento Interactivo */}
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
@@ -1090,7 +1079,6 @@ export const App: React.FC = () => {
                                 </button>
                               </td>
 
-                              {/* Celdas Gantt */}
                               {diasGantt.map((diaCol, dIdx) => {
                                 const celdaEnRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
                                 let bgCelda = 'transparent';
