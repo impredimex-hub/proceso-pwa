@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, doc, getDocs, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
 const STYLES = {
@@ -132,7 +132,7 @@ interface Hallazgo {
 
 export const App: React.FC = () => {
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL'>('LAUNCHER');
-  const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
+  const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('AUDITORIAS');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   // Formulario Evaluación
@@ -143,6 +143,14 @@ export const App: React.FC = () => {
   const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
+
+  // Modal Edición de Auditoría
+  const [auditoriaEditando, setAuditoriaEditando] = useState<any | null>(null);
+  const [editOT, setEditOT] = useState('');
+  const [editAuditor, setEditAuditor] = useState('');
+  const [editTurno, setEditTurno] = useState('');
+  const [editHallazgos, setEditHallazgos] = useState<Hallazgo[]>([]);
+  const [actualizando, setActualizando] = useState(false);
 
   // Filtros del Gantt
   const [filtroMaquina, setFiltroMaquina] = useState('');
@@ -231,7 +239,6 @@ export const App: React.FC = () => {
   const totalNo = Object.values(respuestas).filter((v) => v === 'NO').length;
   const listaHallazgos = Object.values(hallazgos);
 
-  // Cálculo de cumplimiento dinámico
   const cumplimiento = tieneChecklistOficial
     ? totalRespondidos > 0 ? Math.round((totalSi / CHECKLIST_PEGADO.length) * 100) : 0
     : listaHallazgos.length === 0 ? 100 : 80;
@@ -277,6 +284,53 @@ export const App: React.FC = () => {
       alert('Error al guardar en Firebase.');
     } finally {
       setGuardando(false);
+    }
+  };
+
+  // --- BORRAR AUDITORÍA ---
+  const handleBorrarAuditoria = async (id: string, maquina: string, ot: string) => {
+    if (!window.confirm(`¿Estás seguro de eliminar la auditoría de ${maquina} (OP: ${ot || 'S/N'})? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'evaluaciones_proceso', id));
+      // Si está en el Gantt, removerlo
+      if (hallazgosGantt) {
+        setHallazgosGantt(hallazgosGantt.filter((h) => h.docId !== id));
+      }
+    } catch (error) {
+      console.error('Error al borrar:', error);
+      alert('Error al eliminar la auditoría.');
+    }
+  };
+
+  // --- EDITAR AUDITORÍA (ABRIR MODAL) ---
+  const handleAbrirEdicion = (item: any) => {
+    setAuditoriaEditando(item);
+    setEditOT(item.ordenTrabajo || '');
+    setEditAuditor(item.auditor || '');
+    setEditTurno(item.turno || 'Matutino (6:00–14:00)');
+    setEditHallazgos(item.hallazgos ? JSON.parse(JSON.stringify(item.hallazgos)) : []);
+  };
+
+  // --- GUARDAR CAMBIOS DE EDICIÓN ---
+  const handleGuardarEdicion = async () => {
+    if (!auditoriaEditando) return;
+    setActualizando(true);
+    try {
+      const docRef = doc(db, 'evaluaciones_proceso', auditoriaEditando.id);
+      await updateDoc(docRef, {
+        ordenTrabajo: editOT.trim(),
+        auditor: editAuditor.trim(),
+        turno: editTurno,
+        hallazgos: editHallazgos
+      });
+      setAuditoriaEditando(null);
+    } catch (error) {
+      console.error('Error al actualizar auditoría:', error);
+      alert('Error al actualizar.');
+    } finally {
+      setActualizando(false);
     }
   };
 
@@ -419,7 +473,7 @@ export const App: React.FC = () => {
               ← Tablero
             </button>
           )}
-          <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('GANTT'); }} style={{
+          <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }} style={{
             background: '#003580', color: '#ffffff', border: 'none',
             padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
           }}>
@@ -484,7 +538,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 2. VISTA SELECCIÓN PROCESO (TODAS LAS MÁQUINAS DISPONIBLES) */}
+        {/* 2. VISTA SELECCIÓN PROCESO */}
         {vista === 'MODULO_PROCESO' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -563,7 +617,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE AUDITORÍA (UNIFICADA PARA TODAS LAS MÁQUINAS) */}
+        {/* 4. VISTA DE AUDITORÍA */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -697,7 +751,6 @@ export const App: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* Mensaje amigable para el resto de máquinas */
               <div style={{ ...STYLES.glassCard, textAlign: 'left', padding: '16px 20px', background: '#f8fafc' }}>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
                   Lista de Verificación Específica en Proceso de Alta
@@ -708,7 +761,7 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* SECCIÓN HALLAZGOS Y ACCIONES (SIEMPRE DISPONIBLE) */}
+            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -860,17 +913,6 @@ export const App: React.FC = () => {
 
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
-                  onClick={() => setSubVistaHistorial('GANTT')}
-                  style={{
-                    background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
-                    color: subVistaHistorial === 'GANTT' ? '#ffffff' : '#003580',
-                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
-                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                  }}
-                >
-                  Tabla Gantt
-                </button>
-                <button
                   onClick={() => setSubVistaHistorial('AUDITORIAS')}
                   style={{
                     background: subVistaHistorial === 'AUDITORIAS' ? '#003580' : 'transparent',
@@ -881,13 +923,111 @@ export const App: React.FC = () => {
                 >
                   Auditorías ({historial.length})
                 </button>
+                <button
+                  onClick={() => setSubVistaHistorial('GANTT')}
+                  style={{
+                    background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
+                    color: subVistaHistorial === 'GANTT' ? '#ffffff' : '#003580',
+                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
+                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Tabla Gantt
+                </button>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                   Cerrar
                 </button>
               </div>
             </div>
 
-            {/* A. TABLA GANTT */}
+            {/* A. SUBVISTA AUDITORÍAS GENERALES (CON BOTONES EDITAR Y BORRAR) */}
+            {subVistaHistorial === 'AUDITORIAS' && (
+              <div>
+                {historial.length === 0 ? (
+                  <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
+                    Sin auditorías guardadas aún.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {historial.map((item) => (
+                      <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ textAlign: 'left', flex: '1 1 320px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontWeight: 700, fontSize: '15px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
+                            <span style={{
+                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
+                              background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
+                              color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
+                            }}>
+                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
+                            Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
+                          </div>
+                        </div>
+
+                        {/* Columna Derecha: Cumplimiento y Acciones */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                              {item.cumplimiento}%
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
+                              {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
+                            </div>
+                          </div>
+
+                          {/* Botones Editar y Borrar */}
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleAbrirEdicion(item)}
+                              title="Editar auditoría"
+                              style={{
+                                background: '#E8EEF8',
+                                border: '1px solid rgba(0,32,96,0.15)',
+                                color: '#003580',
+                                width: '34px',
+                                height: '34px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '15px'
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleBorrarAuditoria(item.id, item.maquinaNombre, item.ordenTrabajo)}
+                              title="Eliminar auditoría"
+                              style={{
+                                background: '#F9E8EB',
+                                border: '1px solid rgba(200,16,46,0.2)',
+                                color: '#C8102E',
+                                width: '34px',
+                                height: '34px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '15px'
+                              }}
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* B. SUBVISTA TABLA GANTT */}
             {subVistaHistorial === 'GANTT' && (
               <div>
                 {/* Panel de Filtros */}
@@ -1142,52 +1282,142 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* B. SUBVISTA AUDITORÍAS GENERALES */}
-            {subVistaHistorial === 'AUDITORIAS' && (
-              <div>
-                {historial.length === 0 ? (
-                  <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    Sin auditorías guardadas aún.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {historial.map((item) => (
-                      <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
-                            <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
-                            <span style={{
-                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                              background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
-                              color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
-                            }}>
-                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                            Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · OP: <strong>{item.ordenTrabajo || 'S/N'}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
-                          </div>
-                        </div>
-
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                            {item.cumplimiento}%
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                            {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
           </div>
         )}
 
       </main>
+
+      {/* MODAL EDITAR AUDITORÍA */}
+      {auditoriaEditando && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0, 32, 96, 0.4)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.98)',
+            boxShadow: '0 8px 32px rgba(0, 32, 96, 0.2)',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '650px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            textAlign: 'left'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid #E8EEF8', paddingBottom: '10px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>
+                  Editar Auditoría: {auditoriaEditando.maquinaNombre}
+                </div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Modificación de parámetros y acciones correctivas</div>
+              </div>
+              <button
+                onClick={() => setAuditoriaEditando(null)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', color: '#8A9AB0', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Orden de Trabajo (OP):</label>
+                <input
+                  type="text"
+                  value={editOT}
+                  onChange={(e) => setEditOT(e.target.value)}
+                  style={STYLES.input}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Auditor:</label>
+                <input
+                  type="text"
+                  value={editAuditor}
+                  onChange={(e) => setEditAuditor(e.target.value)}
+                  style={STYLES.input}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Turno:</label>
+              <select value={editTurno} onChange={(e) => setEditTurno(e.target.value)} style={STYLES.input}>
+                <option>Matutino (6:00–14:00)</option>
+                <option>Vespertino (14:00–21:30)</option>
+                <option>Nocturno (21:30–6:00)</option>
+              </select>
+            </div>
+
+            {/* Edición de Hallazgos */}
+            {editHallazgos.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '8px' }}>
+                  Hallazgos y Acciones Asociadas ({editHallazgos.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {editHallazgos.map((h, i) => (
+                    <div key={i} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#7A0B1D', marginBottom: '6px' }}>
+                        {h.hallazgo}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '10px', color: '#5A6A80' }}>Acción Correctiva:</label>
+                          <input
+                            type="text"
+                            value={h.accion}
+                            onChange={(e) => {
+                              const copy = [...editHallazgos];
+                              copy[i].accion = e.target.value;
+                              setEditHallazgos(copy);
+                            }}
+                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 8px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '10px', color: '#5A6A80' }}>Responsable:</label>
+                          <input
+                            type="text"
+                            value={h.responsable}
+                            onChange={(e) => {
+                              const copy = [...editHallazgos];
+                              copy[i].responsable = e.target.value;
+                              setEditHallazgos(copy);
+                            }}
+                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 8px' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setAuditoriaEditando(null)}
+                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={actualizando}
+                onClick={handleGuardarEdicion}
+                style={{ padding: '8px 20px', background: '#003580', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: actualizando ? 'not-allowed' : 'pointer' }}
+              >
+                {actualizando ? 'Guardando…' : 'Guardar Cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
