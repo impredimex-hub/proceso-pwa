@@ -3,7 +3,7 @@ import { db } from './services/firebase';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
-const STYLES = {
+const STYLES: Record<string, React.CSSProperties> = {
   glassCard: {
     background: 'rgba(255, 255, 255, 0.88)',
     backdropFilter: 'blur(16px)',
@@ -33,7 +33,7 @@ const STYLES = {
     color: '#0D1A2E',
     fontSize: '13px',
     width: '100%',
-    boxSizing: 'border-box' as const,
+    boxSizing: 'border-box',
     outline: 'none',
   }
 };
@@ -309,7 +309,7 @@ export const App: React.FC = () => {
         createdAt: serverTimestamp()
       });
 
-      alert('✅ Evaluación guardada y sincronizada correctamente.');
+      alert('Evaluación guardada y sincronizada correctamente.');
       setRespuestas({});
       setDatosPunto5S({});
       setHallazgos({});
@@ -376,7 +376,7 @@ export const App: React.FC = () => {
       }
 
       const snap = await getDocs(qConstraint);
-      let resultados: any[] = [];
+      const resultados: any[] = [];
 
       snap.forEach((docSnap) => {
         const data = docSnap.data();
@@ -650,7 +650,7 @@ export const App: React.FC = () => {
                     color: tipoCheck5S === 'DIARIO' ? '#ffffff' : '#003580'
                   }}
                 >
-                  📅 Check Diario (20 Ptos)
+                  Check Diario (20 Ptos)
                 </button>
                 <button
                   type="button"
@@ -667,7 +667,7 @@ export const App: React.FC = () => {
                     color: tipoCheck5S === 'SEMANAL' ? '#ffffff' : '#003580'
                   }}
                 >
-                  📊 Check Semanal
+                  Check Semanal
                 </button>
               </div>
             </div>
@@ -883,7 +883,7 @@ export const App: React.FC = () => {
                       <div key={h.id} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
-                            {h.esExtra ? '⚠️ Hallazgo Extra / Fuera de Checklist 5S' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
+                            {h.esExtra ? 'Hallazgo Extra / Fuera de Checklist 5S' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
                           </div>
                           {h.esExtra && (
                             <button
@@ -993,12 +993,12 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'gap', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
                   <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
                     {esProcesoPegado
-                      ? 'Plan de Auditoría Técnica de Pegado (F1-PR-PA-03)'[cite: 1]
+                      ? 'Plan de Auditoría Técnica de Pegado (F1-PR-PA-03)'
                       : 'Plantilla de Verificación Técnica en Configuración'}
                   </div>
                 </div>
@@ -1160,7 +1160,7 @@ export const App: React.FC = () => {
                       <div key={h.id} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
-                            {h.esExtra ? '⚠️ Hallazgo Extra / Fuera de Checklist' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
+                            {h.esExtra ? 'Hallazgo Extra / Fuera de Checklist' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
                           </div>
                           {h.esExtra && (
                             <button
@@ -1323,7 +1323,7 @@ export const App: React.FC = () => {
                               background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
                               color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
                             }}>
-                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : 'CON HALLAZGOS'}
                             </span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
