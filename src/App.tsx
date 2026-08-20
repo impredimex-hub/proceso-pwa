@@ -38,7 +38,7 @@ const STYLES = {
   }
 };
 
-// --- CATÁLOGO DE MÁQUINAS Y ÁREAS CON NOMENCLATURA REAL ---
+// --- CATÁLOGO DE MÁQUINAS Y ÁREAS ---
 interface Maquina {
   id: string;
   nombre: string;
@@ -137,7 +137,7 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Almacén dinámico de plantillas por tipo de máquina
+  // Almacén dinámico de plantillas
   const [plantillas, setPlantillas] = useState<Record<string, ItemChecklist[]>>({
     Pegado: CHECKLIST_BASE_PEGADO
   });
@@ -145,6 +145,7 @@ export const App: React.FC = () => {
   // Editor de plantillas
   const [tipoSeleccionadoEditor, setTipoSeleccionadoEditor] = useState<string>('Pegado');
   const [checklistEnEdicion, setChecklistEnEdicion] = useState<ItemChecklist[]>([]);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nuevaSeccion, setNuevaSeccion] = useState('');
   const [nuevoQueObservar, setNuevoQueObservar] = useState('');
   const [nuevoComoVerifica, setNuevoComoVerifica] = useState('');
@@ -169,9 +170,7 @@ export const App: React.FC = () => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Cargar plantillas y evaluaciones desde Firebase
   useEffect(() => {
-    // 1. Escuchar evaluaciones
     const q = query(collection(db, 'evaluaciones_proceso'), orderBy('createdAt', 'desc'));
     const unsubAuditorias = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => ({
@@ -181,7 +180,6 @@ export const App: React.FC = () => {
       setHistorial(docs);
     });
 
-    // 2. Escuchar plantillas de checklists configuradas
     const unsubPlantillas = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataPlantillas: Record<string, ItemChecklist[]> = {
         Pegado: CHECKLIST_BASE_PEGADO
@@ -201,10 +199,10 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Al abrir el editor o cambiar tipo, cargar preguntas
   useEffect(() => {
     const items = plantillas[tipoSeleccionadoEditor] || [];
     setChecklistEnEdicion(items);
+    cancelarEdicionPregunta();
   }, [tipoSeleccionadoEditor, plantillas, vista]);
 
   const itemsChecklistActivo = maquinaSeleccionada
@@ -324,25 +322,57 @@ export const App: React.FC = () => {
   };
 
   // --- FUNCIONES DEL EDITOR DE PLANTILLAS ---
-  const handleAgregarPregunta = (e: React.FormEvent) => {
+  const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
       alert('Completa la descripción y la forma de verificación.');
       return;
     }
 
-    const nuevoId = checklistEnEdicion.length > 0
-      ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
-      : 1;
+    if (editandoId !== null) {
+      // Modificar existente
+      setChecklistEnEdicion((prev) =>
+        prev.map((item) =>
+          item.id === editandoId
+            ? {
+                ...item,
+                seccion: nuevaSeccion.trim() || item.seccion,
+                queObservar: nuevoQueObservar.trim(),
+                comoVerifica: nuevoComoVerifica.trim()
+              }
+            : item
+        )
+      );
+      cancelarEdicionPregunta();
+    } else {
+      // Agregar nueva
+      const nuevoId = checklistEnEdicion.length > 0
+        ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
+        : 1;
 
-    const nuevoItem: ItemChecklist = {
-      id: nuevoId,
-      seccion: nuevaSeccion.trim() || 'GENERAL · PARÁMETROS OPERATIVOS',
-      queObservar: nuevoQueObservar.trim(),
-      comoVerifica: nuevoComoVerifica.trim()
-    };
+      const nuevoItem: ItemChecklist = {
+        id: nuevoId,
+        seccion: nuevaSeccion.trim() || 'GENERAL · PARÁMETROS OPERATIVOS',
+        queObservar: nuevoQueObservar.trim(),
+        comoVerifica: nuevoComoVerifica.trim()
+      };
 
-    setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
+      setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
+      setNuevoQueObservar('');
+      setNuevoComoVerifica('');
+    }
+  };
+
+  const iniciarEdicionPregunta = (item: ItemChecklist) => {
+    setEditandoId(item.id);
+    setNuevaSeccion(item.seccion);
+    setNuevoQueObservar(item.queObservar);
+    setNuevoComoVerifica(item.comoVerifica);
+  };
+
+  const cancelarEdicionPregunta = () => {
+    setEditandoId(null);
+    setNuevaSeccion('');
     setNuevoQueObservar('');
     setNuevoComoVerifica('');
   };
@@ -350,6 +380,7 @@ export const App: React.FC = () => {
   const handleEliminarPregunta = (id: number) => {
     if (confirm('¿Deseas eliminar este punto del checklist?')) {
       setChecklistEnEdicion((prev) => prev.filter((item) => item.id !== id));
+      if (editandoId === id) cancelarEdicionPregunta();
     }
   };
 
@@ -585,7 +616,7 @@ export const App: React.FC = () => {
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Editor de Plantillas y Checklists</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
-                  Agrega, edita o elimina preguntas y secciones para cada familia de máquinas.
+                  Agrega, modifica o elimina preguntas y secciones para cada familia de máquinas.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
                   Gestión Dinámica
@@ -958,13 +989,13 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS */}
+        {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS (CON MODIFICAR ACTIVO) */}
         {vista === 'EDITOR_PLANTILLAS' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Checklists</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configura las preguntas técnicas por familia de máquina</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configura, modifica o elimina preguntas técnicas por familia de máquina</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver al Tablero
@@ -987,16 +1018,18 @@ export const App: React.FC = () => {
               </select>
             </div>
 
-            {/* Formulario Agregar Nueva Pregunta */}
-            <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
+            {/* Formulario Agregar / Modificar Pregunta */}
+            <div style={{ ...STYLES.glassCard, textAlign: 'left', border: editandoId !== null ? '1.5px solid #003580' : '1px solid rgba(255, 255, 255, 0.98)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
-                <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                <div style={{ width: '3px', height: '18px', background: editandoId !== null ? '#16a34a' : '#003580', borderRadius: '2px' }}></div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  + Agregar Nueva Pregunta a "{tipoSeleccionadoEditor}"
+                  {editandoId !== null
+                    ? `✏️ Modificar Punto #${editandoId} en "${tipoSeleccionadoEditor}"`
+                    : `+ Agregar Nueva Pregunta a "${tipoSeleccionadoEditor}"`}
                 </div>
               </div>
 
-              <form onSubmit={handleAgregarPregunta}>
+              <form onSubmit={handleGuardarOEditarPregunta}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Sección / Categoría:</label>
@@ -1032,20 +1065,45 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  style={{
-                    background: '#003580', color: '#ffffff', border: 'none',
-                    padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  + Agregar Punto a la Lista
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="submit"
+                    style={{
+                      background: editandoId !== null ? '#0F7A55' : '#003580',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 18px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Punto a la Lista'}
+                  </button>
+                  {editandoId !== null && (
+                    <button
+                      type="button"
+                      onClick={cancelarEdicionPregunta}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(0,32,96,0.12)',
+                        color: '#5A6A80',
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancelar Edición
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
 
-            {/* Lista de Preguntas en Edición */}
+            {/* Lista de Preguntas Configuradas */}
             <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1076,40 +1134,57 @@ export const App: React.FC = () => {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {checklistEnEdicion.map((item) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(0,32,96,0.07)',
-                        background: '#ffffff', gap: '10px', flexWrap: 'wrap'
-                      }}
-                    >
-                      <div style={{ flex: '1 1 300px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
-                          {item.seccion}
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
-                          #{item.id} {item.queObservar}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                          <strong>Verificación:</strong> {item.comoVerifica}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleEliminarPregunta(item.id)}
+                  {checklistEnEdicion.map((item) => {
+                    const estaSiendoEditado = editandoId === item.id;
+                    return (
+                      <div
+                        key={item.id}
                         style={{
-                          background: '#F9E8EB', color: '#C8102E', border: 'none',
-                          padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                          cursor: 'pointer'
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '10px 14px', borderRadius: '8px',
+                          border: estaSiendoEditado ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
+                          background: estaSiendoEditado ? '#E8EEF8' : '#ffffff', gap: '10px', flexWrap: 'wrap'
                         }}
                       >
-                        🗑 Eliminar
-                      </button>
-                    </div>
-                  ))}
+                        <div style={{ flex: '1 1 300px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
+                            {item.seccion}
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
+                            #{item.id} {item.queObservar}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
+                            <strong>Verificación:</strong> {item.comoVerifica}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => iniciarEdicionPregunta(item)}
+                            style={{
+                              background: '#E8EEF8', color: '#002060', border: 'none',
+                              padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEliminarPregunta(item.id)}
+                            style={{
+                              background: '#F9E8EB', color: '#C8102E', border: 'none',
+                              padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑 Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
