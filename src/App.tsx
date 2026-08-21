@@ -48,40 +48,32 @@ interface Maquina {
 }
 
 const CATALOGO: Maquina[] = [
-  // Flexografía
   { id: 'FL1', nombre: 'FL1 (Flexográfica 1)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL2', nombre: 'FL2 (Flexográfica 2)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL3', nombre: 'FL3 (Flexográfica 3)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL4', nombre: 'FL4 (Flexográfica 4)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
-  // Rotograbado
   { id: 'RT5', nombre: 'RT5 (Rotograbado 5)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
   { id: 'RT6', nombre: 'RT6 (Rotograbado 6)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
   { id: 'RT7', nombre: 'RT7 (Rotograbado 7)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
-  // Laminado, Depuración Impresión y Digital
   { id: 'LAM1', nombre: 'LAM1 (Laminadora)', tipo: 'Laminado', moduloProceso: true, modulo5S: true },
   { id: 'DEP1', nombre: 'DEP1 (Depuradora Impresión)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'ZEI1', nombre: 'ZEI1 (Impresora Digital)', tipo: 'Digital', moduloProceso: true, modulo5S: true },
   { id: 'OME1', nombre: 'OME1 (Suajadora)', tipo: 'Suajado', moduloProceso: true, modulo5S: true },
-  // Refilado
   { id: 'REF1', nombre: 'REF1 (Refiladora 1)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'REF2', nombre: 'REF2 (Refiladora 2)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'REF3', nombre: 'REF3 (Refiladora 3)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
-  // Pegadoras
   { id: 'PEG1', nombre: 'PEG1 (Pegadora 1)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
   { id: 'PEG2', nombre: 'PEG2 (Pegadora 2)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
-  // Revisadoras
   { id: 'REV1', nombre: 'REV1 (Revisadora 1)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV2', nombre: 'REV2 (Revisadora 2)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV3', nombre: 'REV3 (Revisadora 3)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV4', nombre: 'REV4 (Revisadora 4)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV6', nombre: 'REV6 (Revisadora 6)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV8', nombre: 'REV8 (Revisadora 8)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  // Depuración Etiquetas y Corte
   { id: 'DEP2', nombre: 'DEP2 (Depuración Etiquetas)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR3', nombre: 'COR3 (Cortadora 3)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
-  // Áreas Auxiliares y Soporte
   { id: 'area-tintas', nombre: 'Área de Tintas', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-banos', nombre: 'Baños de Producción', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-mp', nombre: 'Almacén Materia Prima', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
@@ -91,7 +83,8 @@ const CATALOGO: Maquina[] = [
   { id: 'area-cal', nombre: 'Laboratorio Calidad', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true }
 ];
 
-const FAMILIAS_MAQUINAS = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
+const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
+const FAMILIAS_5S = ['Estándar Máquinas 5S', 'Área Auxiliar', 'Almacenes', 'Laboratorio & Calidad', 'Mantenimiento'];
 
 interface ItemChecklist {
   id: number;
@@ -119,6 +112,14 @@ const CHECKLIST_BASE_PEGADO: ItemChecklist[] = [
   { id: 16, seccion: 'D · VALIDACIÓN Y LIBERACIÓN', queObservar: 'Reporte de producción sin espacios en blanco ni tachaduras; ancho plano y solvente registrados hora por hora', comoVerifica: 'Revisar F1-PR-PA-03' }
 ];
 
+const CHECKLIST_BASE_5S: ItemChecklist[] = [
+  { id: 1, seccion: '1S · CLASIFICACIÓN (SEIRI)', queObservar: 'Área libre de objetos innecesarios y fuera de lugar', comoVerifica: 'Inspección visual del perímetro de máquina/área' },
+  { id: 2, seccion: '2S · ORDEN (SEITON)', queObservar: 'Herramentales y aditamentos en su ubicación delimitada', comoVerifica: 'Verificar sombra de herramientas y estantes' },
+  { id: 3, seccion: '3S · LIMPIEZA (SEISO)', queObservar: 'Pisos, tolvas y paneles libres de derrames y polvo', comoVerifica: 'Revisar charolas de contención y piso' },
+  { id: 4, seccion: '4S · ESTANDARIZACIÓN (SEIKETSU)', queObservar: 'Señalética, delimitación y recipientes rotulados', comoVerifica: 'Comprobar rótulos de solventes y residuos' },
+  { id: 5, seccion: '5S · DISCIPLINA (SHITSUKE)', queObservar: 'Equipo de protección personal y bitácora al día', comoVerifica: 'Revisar firma de entrega de turno y uso de EPP' }
+];
+
 type EstadoCumplimiento = 'PENDIENTE' | 'TERMINADO' | 'PENDIENTE_ATRASADO';
 
 interface Hallazgo {
@@ -137,19 +138,27 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Almacén dinámico de plantillas
+  // Plantillas dinámicas en memoria
   const [plantillas, setPlantillas] = useState<Record<string, ItemChecklist[]>>({
-    Pegado: CHECKLIST_BASE_PEGADO
+    'proceso_Pegado': CHECKLIST_BASE_PEGADO,
+    '5s_Estándar Máquinas 5S': CHECKLIST_BASE_5S,
+    '5s_Área Auxiliar': CHECKLIST_BASE_5S
   });
 
   // Editor de plantillas
+  const [moduloEditor, setModuloEditor] = useState<'PROCESO' | '5S'>('PROCESO');
   const [tipoSeleccionadoEditor, setTipoSeleccionadoEditor] = useState<string>('Pegado');
   const [checklistEnEdicion, setChecklistEnEdicion] = useState<ItemChecklist[]>([]);
-  const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nuevaSeccion, setNuevaSeccion] = useState('');
   const [nuevoQueObservar, setNuevoQueObservar] = useState('');
   const [nuevoComoVerifica, setNuevoComoVerifica] = useState('');
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+
+  // Modal para edición de punto existente
+  const [itemParaEditar, setItemParaEditar] = useState<ItemChecklist | null>(null);
+  const [modalSeccion, setModalSeccion] = useState('');
+  const [modalQueObservar, setModalQueObservar] = useState('');
+  const [modalComoVerifica, setModalComoVerifica] = useState('');
 
   // Formulario Evaluación
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
@@ -182,7 +191,9 @@ export const App: React.FC = () => {
 
     const unsubPlantillas = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataPlantillas: Record<string, ItemChecklist[]> = {
-        Pegado: CHECKLIST_BASE_PEGADO
+        'proceso_Pegado': CHECKLIST_BASE_PEGADO,
+        '5s_Estándar Máquinas 5S': CHECKLIST_BASE_5S,
+        '5s_Área Auxiliar': CHECKLIST_BASE_5S
       };
       snapshot.docs.forEach((d) => {
         const data = d.data();
@@ -199,14 +210,21 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  const clavePlantillaEditor = `${moduloEditor === 'PROCESO' ? 'proceso' : '5s'}_${tipoSeleccionadoEditor}`;
+
   useEffect(() => {
-    const items = plantillas[tipoSeleccionadoEditor] || [];
+    const items = plantillas[clavePlantillaEditor] || [];
     setChecklistEnEdicion(items);
-    cancelarEdicionPregunta();
-  }, [tipoSeleccionadoEditor, plantillas, vista]);
+  }, [tipoSeleccionadoEditor, moduloEditor, plantillas, vista]);
+
+  // Obtener items activos para la máquina seleccionada
+  const esEvaluacion5S = vista === 'MODULO_5S';
+  const claveMaquinaActual = esEvaluacion5S
+    ? `5s_${maquinaSeleccionada?.tipo === 'Área Auxiliar' ? 'Área Auxiliar' : 'Estándar Máquinas 5S'}`
+    : `proceso_${maquinaSeleccionada?.tipo}`;
 
   const itemsChecklistActivo = maquinaSeleccionada
-    ? plantillas[maquinaSeleccionada.tipo] || []
+    ? plantillas[claveMaquinaActual] || []
     : [];
 
   const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
@@ -279,7 +297,7 @@ export const App: React.FC = () => {
 
   const handleGuardarEvaluacion = async () => {
     if (!auditor.trim() || !ordenTrabajo.trim()) {
-      alert('Por favor ingrese la Orden de Trabajo y el Nombre del Auditor.');
+      alert('Por favor ingrese la Orden de Trabajo / Área y el Nombre del Auditor.');
       return;
     }
 
@@ -294,6 +312,7 @@ export const App: React.FC = () => {
         maquinaId: maquinaSeleccionada?.id,
         maquinaNombre: maquinaSeleccionada?.nombre,
         tipoMaquina: maquinaSeleccionada?.tipo,
+        modulo: esEvaluacion5S ? '5S' : 'PROCESO',
         ordenTrabajo: ordenTrabajo.trim(),
         auditor: auditor.trim(),
         turno,
@@ -321,74 +340,74 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- FUNCIONES DEL EDITOR DE PLANTILLAS ---
-  const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
+  // --- EDITOR DE PLANTILLAS ---
+  const handleAgregarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
       alert('Completa la descripción y la forma de verificación.');
       return;
     }
 
-    if (editandoId !== null) {
-      // Modificar existente
-      setChecklistEnEdicion((prev) =>
-        prev.map((item) =>
-          item.id === editandoId
-            ? {
-                ...item,
-                seccion: nuevaSeccion.trim() || item.seccion,
-                queObservar: nuevoQueObservar.trim(),
-                comoVerifica: nuevoComoVerifica.trim()
-              }
-            : item
-        )
-      );
-      cancelarEdicionPregunta();
-    } else {
-      // Agregar nueva
-      const nuevoId = checklistEnEdicion.length > 0
-        ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
-        : 1;
+    const nuevoId = checklistEnEdicion.length > 0
+      ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
+      : 1;
 
-      const nuevoItem: ItemChecklist = {
-        id: nuevoId,
-        seccion: nuevaSeccion.trim() || 'GENERAL · PARÁMETROS OPERATIVOS',
-        queObservar: nuevoQueObservar.trim(),
-        comoVerifica: nuevoComoVerifica.trim()
-      };
+    const nuevoItem: ItemChecklist = {
+      id: nuevoId,
+      seccion: nuevaSeccion.trim() || (moduloEditor === '5S' ? '1S · CLASIFICACIÓN' : 'GENERAL · PARÁMETROS OPERATIVOS'),
+      queObservar: nuevoQueObservar.trim(),
+      comoVerifica: nuevoComoVerifica.trim()
+    };
 
-      setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
-      setNuevoQueObservar('');
-      setNuevoComoVerifica('');
-    }
-  };
-
-  const iniciarEdicionPregunta = (item: ItemChecklist) => {
-    setEditandoId(item.id);
-    setNuevaSeccion(item.seccion);
-    setNuevoQueObservar(item.queObservar);
-    setNuevoComoVerifica(item.comoVerifica);
-  };
-
-  const cancelarEdicionPregunta = () => {
-    setEditandoId(null);
-    setNuevaSeccion('');
+    setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
     setNuevoQueObservar('');
     setNuevoComoVerifica('');
+  };
+
+  // Abrir Modal de Edición
+  const handleAbrirModalEditar = (item: ItemChecklist) => {
+    setItemParaEditar(item);
+    setModalSeccion(item.seccion);
+    setModalQueObservar(item.queObservar);
+    setModalComoVerifica(item.comoVerifica);
+  };
+
+  // Guardar Cambios del Modal
+  const handleGuardarCambiosModal = () => {
+    if (!itemParaEditar) return;
+    if (!modalQueObservar.trim() || !modalComoVerifica.trim()) {
+      alert('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    setChecklistEnEdicion((prev) =>
+      prev.map((i) =>
+        i.id === itemParaEditar.id
+          ? {
+              ...i,
+              seccion: modalSeccion.trim() || i.seccion,
+              queObservar: modalQueObservar.trim(),
+              comoVerifica: modalComoVerifica.trim()
+            }
+          : i
+      )
+    );
+
+    setItemParaEditar(null);
   };
 
   const handleEliminarPregunta = (id: number) => {
     if (confirm('¿Deseas eliminar este punto del checklist?')) {
       setChecklistEnEdicion((prev) => prev.filter((item) => item.id !== id));
-      if (editandoId === id) cancelarEdicionPregunta();
     }
   };
 
   const handleGuardarPlantillaEnFirebase = async () => {
     setGuardandoPlantilla(true);
     try {
-      const docRef = doc(db, 'plantillas_checklists', tipoSeleccionadoEditor);
+      const docRef = doc(db, 'plantillas_checklists', clavePlantillaEditor);
       await setDoc(docRef, {
+        modulo: moduloEditor,
         tipo: tipoSeleccionadoEditor,
         items: checklistEnEdicion,
         actualizadoEn: serverTimestamp()
@@ -616,7 +635,7 @@ export const App: React.FC = () => {
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Editor de Plantillas y Checklists</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
-                  Agrega, modifica o elimina preguntas y secciones para cada familia de máquinas.
+                  Agrega, modifica o elimina preguntas para Proceso y Condiciones 5S.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
                   Gestión Dinámica
@@ -642,7 +661,7 @@ export const App: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
               {CATALOGO.filter((m) => m.moduloProceso).map((maq) => {
-                const totalPreguntas = (plantillas[maq.tipo] || []).length;
+                const totalPreguntas = (plantillas[`proceso_${maq.tipo}`] || []).length;
                 return (
                   <div
                     key={maq.id}
@@ -690,18 +709,32 @@ export const App: React.FC = () => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
-              {CATALOGO.filter((m) => m.modulo5S).map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => alert(`Módulo 5S para ${item.nombre} configurándose.`)}
-                  style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px', cursor: 'pointer' }}
-                >
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
-                    {item.tipo}
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', marginTop: '6px', textAlign: 'left' }}>{item.nombre}</div>
-                </div>
-              ))}
+              {CATALOGO.filter((m) => m.modulo5S).map((item) => {
+                const clave5S = `5s_${item.tipo === 'Área Auxiliar' ? 'Área Auxiliar' : 'Estándar Máquinas 5S'}`;
+                const totalPreguntas5S = (plantillas[clave5S] || []).length;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setMaquinaSeleccionada(item);
+                      setVista('EVALUACION');
+                    }}
+                    style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
+                        {item.tipo}
+                      </span>
+                      {totalPreguntas5S > 0 && (
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>
+                          {totalPreguntas5S} Ptos 5S
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', textAlign: 'left' }}>{item.nombre}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -713,7 +746,7 @@ export const App: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  Auditoría Operativa de Proceso
+                  {esEvaluacion5S ? 'Auditoría de Condiciones y 5S' : 'Auditoría Operativa de Proceso'}
                 </div>
               </div>
 
@@ -721,7 +754,7 @@ export const App: React.FC = () => {
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{maquinaSeleccionada?.nombre}</div>
                   <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                    Familia: <strong>{maquinaSeleccionada?.tipo}</strong> · {itemsChecklistActivo.length} Puntos de Validación
+                    Módulo: <strong>{esEvaluacion5S ? '5S / Condiciones' : maquinaSeleccionada?.tipo}</strong> · {itemsChecklistActivo.length} Puntos de Validación
                   </div>
                 </div>
 
@@ -738,10 +771,12 @@ export const App: React.FC = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem', textAlign: 'left' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Orden de Trabajo (OP):</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>
+                    {esEvaluacion5S ? 'Zona / Detalle de Revisión:' : 'Orden de Trabajo (OP):'}
+                  </label>
                   <input
                     type="text"
-                    placeholder="Ej. OP-45920"
+                    placeholder={esEvaluacion5S ? 'Ej. Área Principal' : 'Ej. OP-45920'}
                     value={ordenTrabajo}
                     onChange={(e) => setOrdenTrabajo(e.target.value)}
                     style={STYLES.input}
@@ -773,7 +808,9 @@ export const App: React.FC = () => {
               <div style={STYLES.glassCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Puntos de Inspección en Piso</div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                    {esEvaluacion5S ? 'Puntos de Auditoría 5S' : 'Puntos de Inspección en Piso'}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -840,10 +877,10 @@ export const App: React.FC = () => {
             ) : (
               <div style={{ ...STYLES.glassCard, textAlign: 'left', padding: '16px 20px', background: '#f8fafc' }}>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
-                  Sin preguntas registradas para {maquinaSeleccionada?.tipo}
+                  Sin preguntas registradas para esta área o equipo
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
-                  Puedes agregar las preguntas oficiales para esta familia desde el <strong>Editor de Plantillas</strong> en el menú principal, o registrar observaciones directas con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
+                  Puedes agregar las preguntas oficiales desde el <strong>Editor de Plantillas</strong> en el menú principal, o registrar observaciones directas con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
                 </div>
               </div>
             )}
@@ -965,7 +1002,7 @@ export const App: React.FC = () => {
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
-                onClick={() => setVista('MODULO_PROCESO')}
+                onClick={() => setVista(esEvaluacion5S ? 'MODULO_5S' : 'MODULO_PROCESO')}
                 style={{ padding: '11px 20px', background: 'transparent', border: '1.5px solid rgba(0,32,96,0.12)', color: '#003580', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
               >
                 Cancelar
@@ -989,53 +1026,84 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS (CON MODIFICAR ACTIVO) */}
+        {/* 5. VISTA EDITOR DE PLANTILLAS (CON SELECCIÓN 5S Y PROCESO) */}
         {vista === 'EDITOR_PLANTILLAS' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Checklists</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configura, modifica o elimina preguntas técnicas por familia de máquina</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configura preguntas técnicas de Proceso y Condiciones 5S</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver al Tablero
               </button>
             </div>
 
-            {/* Selector de Familia */}
+            {/* Selector de Módulo (Proceso vs 5S) */}
             <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                Selecciona la Familia de Máquinas a Editar:
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModuloEditor('PROCESO');
+                    setTipoSeleccionadoEditor('Pegado');
+                  }}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
+                    fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                    background: moduloEditor === 'PROCESO' ? '#003580' : '#E8EEF8',
+                    color: moduloEditor === 'PROCESO' ? '#ffffff' : '#003580'
+                  }}
+                >
+                  ⚙️ Checklists de Proceso Operativo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModuloEditor('5S');
+                    setTipoSeleccionadoEditor('Estándar Máquinas 5S');
+                  }}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
+                    fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                    background: moduloEditor === '5S' ? '#003580' : '#E8EEF8',
+                    color: moduloEditor === '5S' ? '#ffffff' : '#003580'
+                  }}
+                >
+                  🧹 Checklists de Condiciones y 5S
+                </button>
+              </div>
+
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+                Selecciona la Categoría / Familia:
               </label>
               <select
                 value={tipoSeleccionadoEditor}
                 onChange={(e) => setTipoSeleccionadoEditor(e.target.value)}
-                style={{ ...STYLES.input, maxWidth: '300px', fontWeight: 600 }}
+                style={{ ...STYLES.input, maxWidth: '340px', fontWeight: 600 }}
               >
-                {FAMILIAS_MAQUINAS.map((fam) => (
+                {(moduloEditor === 'PROCESO' ? FAMILIAS_PROCESO : FAMILIAS_5S).map((fam) => (
                   <option key={fam} value={fam}>{fam}</option>
                 ))}
               </select>
             </div>
 
-            {/* Formulario Agregar / Modificar Pregunta */}
-            <div style={{ ...STYLES.glassCard, textAlign: 'left', border: editandoId !== null ? '1.5px solid #003580' : '1px solid rgba(255, 255, 255, 0.98)' }}>
+            {/* Formulario Agregar Nueva Pregunta */}
+            <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
-                <div style={{ width: '3px', height: '18px', background: editandoId !== null ? '#16a34a' : '#003580', borderRadius: '2px' }}></div>
+                <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  {editandoId !== null
-                    ? `✏️ Modificar Punto #${editandoId} en "${tipoSeleccionadoEditor}"`
-                    : `+ Agregar Nueva Pregunta a "${tipoSeleccionadoEditor}"`}
+                  + Agregar Nueva Pregunta a "{tipoSeleccionadoEditor}" ({moduloEditor})
                 </div>
               </div>
 
-              <form onSubmit={handleGuardarOEditarPregunta}>
+              <form onSubmit={handleAgregarPregunta}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Sección / Categoría:</label>
                     <input
                       type="text"
-                      placeholder="Ej. A · SOLVENTE Y APORTE"
+                      placeholder={moduloEditor === '5S' ? 'Ej. 1S · CLASIFICACIÓN' : 'Ej. A · SOLVENTE Y APORTE'}
                       value={nuevaSeccion}
                       onChange={(e) => setNuevaSeccion(e.target.value)}
                       style={STYLES.input}
@@ -1046,7 +1114,7 @@ export const App: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Presión de aire del tanque en rango"
+                      placeholder="Ej. Área limpia y delimitada"
                       value={nuevoQueObservar}
                       onChange={(e) => setNuevoQueObservar(e.target.value)}
                       style={STYLES.input}
@@ -1057,7 +1125,7 @@ export const App: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Manómetro entre 0.51 y 0.65 MPa"
+                      placeholder="Ej. Inspección visual de piso y estantes"
                       value={nuevoComoVerifica}
                       onChange={(e) => setNuevoComoVerifica(e.target.value)}
                       style={STYLES.input}
@@ -1065,45 +1133,20 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="submit"
-                    style={{
-                      background: editandoId !== null ? '#0F7A55' : '#003580',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '8px 18px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Punto a la Lista'}
-                  </button>
-                  {editandoId !== null && (
-                    <button
-                      type="button"
-                      onClick={cancelarEdicionPregunta}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid rgba(0,32,96,0.12)',
-                        color: '#5A6A80',
-                        padding: '8px 14px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Cancelar Edición
-                    </button>
-                  )}
-                </div>
+                <button
+                  type="submit"
+                  style={{
+                    background: '#003580', color: '#ffffff', border: 'none',
+                    padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Agregar Punto a la Lista
+                </button>
               </form>
             </div>
 
-            {/* Lista de Preguntas Configuradas */}
+            {/* Lista de Preguntas en Edición */}
             <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1130,65 +1173,139 @@ export const App: React.FC = () => {
 
               {checklistEnEdicion.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                  No hay preguntas configuradas para esta familia aún. Agrega la primera arriba.
+                  No hay preguntas configuradas para esta categoría aún. Agrega la primera arriba.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {checklistEnEdicion.map((item) => {
-                    const estaSiendoEditado = editandoId === item.id;
-                    return (
-                      <div
-                        key={item.id}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '10px 14px', borderRadius: '8px',
-                          border: estaSiendoEditado ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
-                          background: estaSiendoEditado ? '#E8EEF8' : '#ffffff', gap: '10px', flexWrap: 'wrap'
-                        }}
-                      >
-                        <div style={{ flex: '1 1 300px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
-                            {item.seccion}
-                          </div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
-                            #{item.id} {item.queObservar}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                            <strong>Verificación:</strong> {item.comoVerifica}
-                          </div>
+                  {checklistEnEdicion.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', borderRadius: '8px',
+                        border: '1px solid rgba(0,32,96,0.07)',
+                        background: '#ffffff', gap: '10px', flexWrap: 'wrap'
+                      }}
+                    >
+                      <div style={{ flex: '1 1 300px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
+                          {item.seccion}
                         </div>
-
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => iniciarEdicionPregunta(item)}
-                            style={{
-                              background: '#E8EEF8', color: '#002060', border: 'none',
-                              padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarPregunta(item.id)}
-                            style={{
-                              background: '#F9E8EB', color: '#C8102E', border: 'none',
-                              padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            🗑 Eliminar
-                          </button>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
+                          #{item.id} {item.queObservar}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
+                          <strong>Verificación:</strong> {item.comoVerifica}
                         </div>
                       </div>
-                    );
-                  })}
+
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirModalEditar(item)}
+                          style={{
+                            background: '#E8EEF8', color: '#002060', border: 'none',
+                            padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEliminarPregunta(item.id)}
+                          style={{
+                            background: '#F9E8EB', color: '#C8102E', border: 'none',
+                            padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑 Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* MODAL EDITAR PREGUNTA */}
+        {itemParaEditar && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0, 32, 96, 0.45)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+          }}>
+            <div style={{
+              background: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '520px',
+              padding: '24px', boxShadow: '0 20px 40px rgba(0,32,96,0.2)', border: '1px solid rgba(0,32,96,0.1)',
+              textAlign: 'left'
+            }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+                ✏️ Editar Punto #{itemParaEditar.id}
+              </div>
+              <div style={{ fontSize: '11px', color: '#5A6A80', marginBottom: '16px' }}>
+                Familia: <strong>{tipoSeleccionadoEditor}</strong> ({moduloEditor})
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Sección / Categoría:</label>
+                  <input
+                    type="text"
+                    value={modalSeccion}
+                    onChange={(e) => setModalSeccion(e.target.value)}
+                    style={STYLES.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Qué observar en piso:</label>
+                  <input
+                    type="text"
+                    value={modalQueObservar}
+                    onChange={(e) => setModalQueObservar(e.target.value)}
+                    style={STYLES.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Cómo se verifica:</label>
+                  <input
+                    type="text"
+                    value={modalComoVerifica}
+                    onChange={(e) => setModalComoVerifica(e.target.value)}
+                    style={STYLES.input}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setItemParaEditar(null)}
+                  style={{
+                    background: 'transparent', border: '1px solid rgba(0,32,96,0.12)',
+                    color: '#5A6A80', padding: '8px 16px', borderRadius: '8px',
+                    fontSize: '12px', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGuardarCambiosModal}
+                  style={{
+                    background: '#003580', color: '#ffffff', border: 'none',
+                    padding: '8px 20px', borderRadius: '8px', fontSize: '12px',
+                    fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
