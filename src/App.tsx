@@ -26,7 +26,7 @@ const STYLES = {
     color: '#ffffff',
   },
   input: {
-    padding: '8px 12px',
+    padding: '10px 14px',
     border: '1px solid rgba(0, 32, 96, 0.12)',
     borderRadius: '8px',
     background: 'rgba(255, 255, 255, 0.85)',
@@ -120,33 +120,27 @@ const CHECKLIST_BASE_PEGADO: ItemChecklist[] = [
   { id: 16, seccion: 'D · VALIDACIÓN Y LIBERACIÓN', queObservar: 'Reporte de producción sin espacios en blanco ni tachaduras; ancho plano y solvente registrados hora por hora', comoVerifica: 'Revisar F1-PR-PA-03' }
 ];
 
-// --- NUEVO CHECKLIST OFICIAL DE CONDICIONES Y 5S (20 PUNTOS) ---
 const CHECKLIST_OFICIAL_5S: ItemChecklist[] = [
-  // 1. Orden y 5S
   { id: 1, seccion: '1. ORDEN Y 5S', queObservar: 'Todas las herramientas y utensilios se encuentran y tienen lugar asignado', comoVerifica: 'Revisión visual de tableros, mesas y gavetas' },
   { id: 2, seccion: '1. ORDEN Y 5S', queObservar: 'Todos materiales, rollos, tarimas o contenedores se encuentran en su ubicación definida', comoVerifica: 'Verificar delimitaciones en piso y estantes' },
   { id: 3, seccion: '1. ORDEN Y 5S', queObservar: 'Pasillos, accesos y zonas de operación se encuentran despejados', comoVerifica: 'Inspección de líneas peatonales y áreas de maniobra' },
   { id: 4, seccion: '1. ORDEN Y 5S', queObservar: 'El área de trabajo se encuentra ordenada y libre de objetos innecesarios', comoVerifica: 'Revisión de superficies de apoyo y periferia' },
-  // 2. Limpieza
   { id: 5, seccion: '2. LIMPIEZA', queObservar: 'El área y la máquina se encuentran limpias', comoVerifica: 'Inspección de estructura, paneles y piso general' },
   { id: 6, seccion: '2. LIMPIEZA', queObservar: 'Sin derrames de tinta, solvente, aceite, agua u otros productos', comoVerifica: 'Revisar charolas, piso y conexiones de fluidos' },
   { id: 7, seccion: '2. LIMPIEZA', queObservar: 'Sin acumulación de papel, película, tinta, adhesivo o residuos alrededor de la máquina', comoVerifica: 'Inspección de desbobinador, rebobinador y piso' },
   { id: 8, seccion: '2. LIMPIEZA', queObservar: 'Los residuos y merma se encuentran correctamente segregados', comoVerifica: 'Verificar botes identificados y bolsas correspondientes' },
-  // 3. Condición de máquina
-  { id: 9, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'La máquina está sin daños físicos visibles que puedan afectar su operación', comoVerifica: 'Inspección de rodillos, guías y estructura' },
+  { id: 9, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'La máquina esta sin daños físicos visibles que puedan afectar su operación', comoVerifica: 'Inspección de rodillos, guías y estructura' },
   { id: 10, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin reparaciones temporales, improvisaciones o soluciones provisionales', comoVerifica: 'Verificar sujeciones, ensambles y componentes' },
   { id: 11, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin fugas de aceite, aire, agua, tinta o solvente', comoVerifica: 'Revisión de manómetros, mangueras y cilindros' },
   { id: 12, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin cables, mangueras o conexiones dañadas, expuestas o improvisadas', comoVerifica: 'Inspección del cableado eléctrico y neumático' },
   { id: 13, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Guardas, cubiertas y protecciones de seguridad se encuentran instaladas y en buen estado', comoVerifica: 'Verificación física de guardas de protección' },
-  // 4. Seguridad
   { id: 14, seccion: '4. SEGURIDAD', queObservar: 'El paro de emergencia se encuentra accesible y sin obstrucciones', comoVerifica: 'Comprobar acceso libre inmediato al botón de paro' },
   { id: 15, seccion: '4. SEGURIDAD', queObservar: 'Extintores, rutas de evacuación y equipos de emergencia se encuentran despejados', comoVerifica: 'Inspección visual del área circundante' },
   { id: 16, seccion: '4. SEGURIDAD', queObservar: 'Sin condiciones que representen riesgo inmediato de atrapamiento, corte, golpe, incendio o derrame', comoVerifica: 'Evaluación general de riesgos en la estación' },
-  // 5. Infraestructura
-  { id: 17, seccion: '5. INFRAESTRUCTURA', queObservar: 'Sin presencia de goteras en máquina o periferia', comoVerifica: 'Inspección visual de techos e iluminación' },
+  { id: 17, seccion: '5. INFRAESTRUCTURA', queObservar: 'Sin presencia de goteras en maquina o periferia', comoVerifica: 'Inspección visual de techos e iluminación' },
   { id: 18, seccion: '5. INFRAESTRUCTURA', queObservar: 'Piso en condiciones de operación', comoVerifica: 'Verificar piso sin grietas graves ni desniveles riesgosos' },
   { id: 19, seccion: '5. INFRAESTRUCTURA', queObservar: 'Anaqueles y estantes disponibles para la operación', comoVerifica: 'Revisar orden y capacidad en estantería' },
-  { id: 20, seccion: '5. INFRAESTRUCTURA', queObservar: 'Casilleros disponibles para artículos personales', comoVerifica: 'Inspección de gavetas asignadas al personal' }
+  { id: 20, seccion: '5. INFRAESTRUCTURA', queObservar: 'Casilleros disponibles para articulos personales', comoVerifica: 'Inspección de gavetas asignadas al personal' }
 ];
 
 type EstadoCumplimiento = 'PENDIENTE' | 'TERMINADO' | 'PENDIENTE_ATRASADO';
@@ -168,13 +162,17 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('GANTT');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Plantillas dinámicas divididas por módulo
+  // Estados para los selectores dependientes en módulo Proceso y 5S
+  const [filtroProcesoFamilia, setFiltroProcesoFamilia] = useState('');
+  const [filtroProcesoMaquinaId, setFiltroProcesoMaquinaId] = useState('');
+  const [filtro5SFamilia, setFiltro5SFamilia] = useState('');
+  const [filtro5SMaquinaId, setFiltro5SMaquinaId] = useState('');
+
+  // Plantillas dinámicas
   const [plantillasProceso, setPlantillasProceso] = useState<Record<string, ItemChecklist[]>>({
     Pegado: CHECKLIST_BASE_PEGADO
   });
-  const [plantillas5S, setPlantillas5S] = useState<Record<string, ItemChecklist[]>>({
-    'Área Auxiliar': CHECKLIST_OFICIAL_5S
-  });
+  const [plantillas5S, setPlantillas5S] = useState<Record<string, ItemChecklist[]>>({});
 
   // Editor de plantillas
   const [moduloEditor, setModuloEditor] = useState<'PROCESO' | '5S'>('5S');
@@ -195,7 +193,8 @@ export const App: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
 
-  // Filtros del Gantt
+  // Filtros del Gantt (Modificados según requerimiento)
+  const [filtroOrigenGantt, setFiltroOrigenGantt] = useState(''); // '' = Todos, 'PROCESO', '5S'
   const [filtroMaquina, setFiltroMaquina] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
   const [filtroDia, setFiltroDia] = useState('');
@@ -460,7 +459,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Consultar Gantt bajo demanda
+  // Consultar Gantt bajo demanda con filtros actualizados
   const handleConsultarGantt = async () => {
     setBuscandoGantt(true);
     try {
@@ -474,6 +473,13 @@ export const App: React.FC = () => {
 
       snap.forEach((docSnap) => {
         const data = docSnap.data();
+        const tipoAuditoriaDoc = data.tipoAuditoria || 'PROCESO';
+
+        // Filtro por Origen (Proceso vs 5S)
+        if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) {
+          return;
+        }
+
         if (data.hallazgos && Array.isArray(data.hallazgos)) {
           data.hallazgos.forEach((h: Hallazgo, idx: number) => {
             const fAuditoria = data.fechaAuditoria || todayStr;
@@ -498,6 +504,7 @@ export const App: React.FC = () => {
               ...h,
               docId: docSnap.id,
               hallazgoIdx: idx,
+              tipoAuditoria: tipoAuditoriaDoc,
               maquinaNombre: data.maquinaNombre,
               ordenTrabajo: data.ordenTrabajo,
               auditor: data.auditor,
@@ -520,6 +527,7 @@ export const App: React.FC = () => {
   };
 
   const handleLimpiarFiltrosGantt = () => {
+    setFiltroOrigenGantt('');
     setFiltroMaquina('');
     setFiltroMes('');
     setFiltroDia('');
@@ -684,94 +692,164 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 2. VISTA SELECCIÓN PROCESO */}
+        {/* 2. VISTA SELECCIÓN PROCESO (CON FILTROS DEPENDIENTES) */}
         {vista === 'MODULO_PROCESO' && (
           <div>
-            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Validación de Proceso y Arranque</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el equipo para iniciar la auditoría de proceso</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Validación de Proceso y Arranque</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el proceso y la máquina para iniciar la auditoría</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
-              {CATALOGO.filter((m) => m.moduloProceso).map((maq) => {
-                const totalPreguntas = (plantillasProceso[maq.tipo] || (maq.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : [])).length;
-                return (
-                  <div
-                    key={maq.id}
-                    onClick={() => {
-                      setMaquinaSeleccionada(maq);
-                      setTipoAuditoriaActiva('PROCESO');
-                      setVista('EVALUACION');
-                    }}
-                    style={{
-                      ...STYLES.glassCard,
-                      marginBottom: 0,
-                      padding: '14px',
-                      cursor: 'pointer',
-                      border: totalPreguntas > 0 ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
-                    }}
+            <div style={{ ...STYLES.glassCard, maxWidth: '560px', margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
+                  1. Selecciona el Proceso / Familia:
+                </label>
+                <select
+                  value={filtroProcesoFamilia}
+                  onChange={(e) => {
+                    setFiltroProcesoFamilia(e.target.value);
+                    setFiltroProcesoMaquinaId('');
+                  }}
+                  style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
+                >
+                  <option value="">-- Elige un proceso --</option>
+                  {FAMILIAS_PROCESO.map((fam) => (
+                    <option key={fam} value={fam}>{fam}</option>
+                  ))}
+                </select>
+              </div>
+
+              {filtroProcesoFamilia && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
+                    2. Selecciona la Máquina:
+                  </label>
+                  <select
+                    value={filtroProcesoMaquinaId}
+                    onChange={(e) => setFiltroProcesoMaquinaId(e.target.value)}
+                    style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 8px', borderRadius: '10px' }}>
-                        {maq.tipo}
-                      </span>
-                      {totalPreguntas > 0 ? (
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>{totalPreguntas} Ptos</span>
-                      ) : (
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 6px', borderRadius: '4px' }}>Hallazgos Extra</span>
-                      )}
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', textAlign: 'left' }}>{maq.nombre}</div>
-                  </div>
-                );
-              })}
+                    <option value="">-- Elige una máquina --</option>
+                    {CATALOGO.filter((m) => m.moduloProceso && m.tipo === filtroProcesoFamilia).map((m) => (
+                      <option key={m.id} value={m.id}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={!filtroProcesoMaquinaId}
+                onClick={() => {
+                  const m = CATALOGO.find((maq) => maq.id === filtroProcesoMaquinaId);
+                  if (m) {
+                    setMaquinaSeleccionada(m);
+                    setTipoAuditoriaActiva('PROCESO');
+                    setVista('EVALUACION');
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: filtroProcesoMaquinaId ? '#003580' : '#E8EEF8',
+                  color: filtroProcesoMaquinaId ? '#ffffff' : '#8A9AB0',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed',
+                  boxShadow: filtroProcesoMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
+                }}
+              >
+                Iniciar Auditoría de Proceso →
+              </button>
             </div>
           </div>
         )}
 
-        {/* 3. VISTA SELECCIÓN 5S */}
+        {/* 3. VISTA SELECCIÓN 5S (CON FILTROS DEPENDIENTES) */}
         {vista === 'MODULO_5S' && (
           <div>
-            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Condiciones de Equipo y 5S</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona máquina o área auxiliar para auditar orden, limpieza y seguridad</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Condiciones de Equipo y 5S</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el tipo de área/proceso y el equipo a auditar</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
-              {CATALOGO.filter((m) => m.modulo5S).map((item) => {
-                const totalPuntos5S = (plantillas5S[item.tipo] || CHECKLIST_OFICIAL_5S).length;
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      setMaquinaSeleccionada(item);
-                      setTipoAuditoriaActiva('5S');
-                      setVista('EVALUACION');
-                    }}
-                    style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px', cursor: 'pointer', border: '1.5px solid #003580' }}
+            <div style={{ ...STYLES.glassCard, maxWidth: '560px', margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
+                  1. Selecciona el Proceso o Área:
+                </label>
+                <select
+                  value={filtro5SFamilia}
+                  onChange={(e) => {
+                    setFiltro5SFamilia(e.target.value);
+                    setFiltro5SMaquinaId('');
+                  }}
+                  style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
+                >
+                  <option value="">-- Elige un proceso / área --</option>
+                  {FAMILIAS_5S.map((fam) => (
+                    <option key={fam} value={fam}>{fam}</option>
+                  ))}
+                </select>
+              </div>
+
+              {filtro5SFamilia && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
+                    2. Selecciona la Máquina o Área Auxiliar:
+                  </label>
+                  <select
+                    value={filtro5SMaquinaId}
+                    onChange={(e) => setFiltro5SMaquinaId(e.target.value)}
+                    style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', background: '#EEF0F3', padding: '2px 8px', borderRadius: '10px' }}>
-                        {item.tipo}
-                      </span>
-                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F7A55', background: '#E0F2EC', padding: '2px 6px', borderRadius: '4px' }}>
-                        {totalPuntos5S} Ptos 5S
-                      </span>
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E', textAlign: 'left' }}>{item.nombre}</div>
-                  </div>
-                );
-              })}
+                    <option value="">-- Elige la máquina o área específica --</option>
+                    {CATALOGO.filter((m) => m.modulo5S && m.tipo === filtro5SFamilia).map((m) => (
+                      <option key={m.id} value={m.id}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={!filtro5SMaquinaId}
+                onClick={() => {
+                  const m = CATALOGO.find((maq) => maq.id === filtro5SMaquinaId);
+                  if (m) {
+                    setMaquinaSeleccionada(m);
+                    setTipoAuditoriaActiva('5S');
+                    setVista('EVALUACION');
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: filtro5SMaquinaId ? '#003580' : '#E8EEF8',
+                  color: filtro5SMaquinaId ? '#ffffff' : '#8A9AB0',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: filtro5SMaquinaId ? 'pointer' : 'not-allowed',
+                  boxShadow: filtro5SMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
+                }}
+              >
+                Iniciar Auditoría 5S (20 Puntos) →
+              </button>
             </div>
           </div>
         )}
@@ -1347,64 +1425,82 @@ export const App: React.FC = () => {
             {/* A. TABLA GANTT */}
             {subVistaHistorial === 'GANTT' && (
               <div>
+                {/* Panel de Filtros Simplificado */}
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
                     Filtros de Búsqueda para Cronograma
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Máquina / Área:</label>
-                      <select value={filtroMaquina} onChange={(e) => setFiltroMaquina(e.target.value)} style={STYLES.input}>
-                        <option value="">Todas las máquinas y áreas</option>
-                        {CATALOGO.map((m) => (
-                          <option key={m.id} value={m.nombre}>{m.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'center' }}>
+                    
+                    {/* Filtro Origen / Módulo */}
+                    <select
+                      value={filtroOrigenGantt}
+                      onChange={(e) => setFiltroOrigenGantt(e.target.value)}
+                      style={STYLES.input}
+                    >
+                      <option value="">Todos los módulos</option>
+                      <option value="PROCESO">Validación de Proceso</option>
+                      <option value="5S">Condiciones y 5S</option>
+                    </select>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Mes:</label>
-                      <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} style={STYLES.input}>
-                        <option value="">Todos los meses</option>
-                        <option value="01">Enero</option>
-                        <option value="02">Febrero</option>
-                        <option value="03">Marzo</option>
-                        <option value="04">Abril</option>
-                        <option value="05">Mayo</option>
-                        <option value="06">Junio</option>
-                        <option value="07">Julio</option>
-                        <option value="08">Agosto</option>
-                        <option value="09">Septiembre</option>
-                        <option value="10">Octubre</option>
-                        <option value="11">Noviembre</option>
-                        <option value="12">Diciembre</option>
-                      </select>
-                    </div>
+                    {/* Máquina / Área */}
+                    <select
+                      value={filtroMaquina}
+                      onChange={(e) => setFiltroMaquina(e.target.value)}
+                      style={STYLES.input}
+                    >
+                      <option value="">Todas las máquinas y áreas</option>
+                      {CATALOGO.map((m) => (
+                        <option key={m.id} value={m.nombre}>{m.nombre}</option>
+                      ))}
+                    </select>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Día (1–31):</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        placeholder="Ej. 20"
-                        value={filtroDia}
-                        onChange={(e) => setFiltroDia(e.target.value)}
-                        style={STYLES.input}
-                      />
-                    </div>
+                    {/* Mes */}
+                    <select
+                      value={filtroMes}
+                      onChange={(e) => setFiltroMes(e.target.value)}
+                      style={STYLES.input}
+                    >
+                      <option value="">Todos los meses</option>
+                      <option value="01">Enero</option>
+                      <option value="02">Febrero</option>
+                      <option value="03">Marzo</option>
+                      <option value="04">Abril</option>
+                      <option value="05">Mayo</option>
+                      <option value="06">Junio</option>
+                      <option value="07">Julio</option>
+                      <option value="08">Agosto</option>
+                      <option value="09">Septiembre</option>
+                      <option value="10">Octubre</option>
+                      <option value="11">Noviembre</option>
+                      <option value="12">Diciembre</option>
+                    </select>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Cumplimiento:</label>
-                      <select value={filtroCumplimiento} onChange={(e) => setFiltroCumplimiento(e.target.value)} style={STYLES.input}>
-                        <option value="">Todos los estados</option>
-                        <option value="PENDIENTE">PENDIENTE</option>
-                        <option value="TERMINADO">TERMINADO</option>
-                        <option value="PENDIENTE_ATRASADO">PENDIENTE ATRASADO</option>
-                      </select>
-                    </div>
+                    {/* Día */}
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="Día (1–31)"
+                      value={filtroDia}
+                      onChange={(e) => setFiltroDia(e.target.value)}
+                      style={STYLES.input}
+                    />
 
+                    {/* Cumplimiento */}
+                    <select
+                      value={filtroCumplimiento}
+                      onChange={(e) => setFiltroCumplimiento(e.target.value)}
+                      style={STYLES.input}
+                    >
+                      <option value="">Todos los estados</option>
+                      <option value="PENDIENTE">PENDIENTE</option>
+                      <option value="TERMINADO">TERMINADO</option>
+                      <option value="PENDIENTE_ATRASADO">PENDIENTE ATRASADO</option>
+                    </select>
+
+                    {/* Botones de acción */}
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
                         type="button"
@@ -1415,7 +1511,7 @@ export const App: React.FC = () => {
                           background: '#003580',
                           color: '#ffffff',
                           border: 'none',
-                          padding: '8px 12px',
+                          padding: '10px 12px',
                           borderRadius: '8px',
                           fontSize: '12px',
                           fontWeight: 700,
@@ -1433,7 +1529,7 @@ export const App: React.FC = () => {
                             background: 'transparent',
                             border: '1px solid rgba(0,32,96,0.12)',
                             color: '#5A6A80',
-                            padding: '8px 8px',
+                            padding: '10px 8px',
                             borderRadius: '8px',
                             fontSize: '11px',
                             fontWeight: 600,
@@ -1520,7 +1616,7 @@ export const App: React.FC = () => {
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
                                 <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
                                 <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                                  OP: {item.ordenTrabajo || 'S/N'} · {item.accion || 'Sin acción'}
+                                  {item.tipoAuditoria === '5S' ? '5S' : `OP: ${item.ordenTrabajo || 'S/N'}`} · {item.accion || 'Sin acción'}
                                 </div>
                               </td>
 
