@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
 const STYLES = {
@@ -129,7 +129,7 @@ const CHECKLIST_OFICIAL_5S: ItemChecklist[] = [
   { id: 6, seccion: '2. LIMPIEZA', queObservar: 'Sin derrames de tinta, solvente, aceite, agua u otros productos', comoVerifica: 'Revisar charolas, piso y conexiones de fluidos' },
   { id: 7, seccion: '2. LIMPIEZA', queObservar: 'Sin acumulación de papel, película, tinta, adhesivo o residuos alrededor de la máquina', comoVerifica: 'Inspección de desbobinador, rebobinador y piso' },
   { id: 8, seccion: '2. LIMPIEZA', queObservar: 'Los residuos y merma se encuentran correctamente segregados', comoVerifica: 'Verificar botes identificados y bolsas correspondientes' },
-  { id: 9, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'La máquina está sin daños físicos visibles que puedan afectar su operación', comoVerifica: 'Inspección de rodillos, guías y estructura' },
+  { id: 9, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'La máquina esta sin daños físicos visibles que puedan afectar su operación', comoVerifica: 'Inspección de rodillos, guías y estructura' },
   { id: 10, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin reparaciones temporales, improvisaciones o soluciones provisionales', comoVerifica: 'Verificar sujeciones, ensambles y componentes' },
   { id: 11, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin fugas de aceite, aire, agua, tinta o solvente', comoVerifica: 'Revisión de manómetros, mangueras y cilindros' },
   { id: 12, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin cables, mangueras o conexiones dañadas, expuestas o improvisadas', comoVerifica: 'Inspección del cableado eléctrico y neumático' },
@@ -137,10 +137,10 @@ const CHECKLIST_OFICIAL_5S: ItemChecklist[] = [
   { id: 14, seccion: '4. SEGURIDAD', queObservar: 'El paro de emergencia se encuentra accesible y sin obstrucciones', comoVerifica: 'Comprobar acceso libre inmediato al botón de paro' },
   { id: 15, seccion: '4. SEGURIDAD', queObservar: 'Extintores, rutas de evacuación y equipos de emergencia se encuentran despejados', comoVerifica: 'Inspección visual del área circundante' },
   { id: 16, seccion: '4. SEGURIDAD', queObservar: 'Sin condiciones que representen riesgo inmediato de atrapamiento, corte, golpe, incendio o derrame', comoVerifica: 'Evaluación general de riesgos en la estación' },
-  { id: 17, seccion: '5. INFRAESTRUCTURA', queObservar: 'Sin presencia de goteras en máquina o periferia', comoVerifica: 'Inspección visual de techos e iluminación' },
+  { id: 17, seccion: '5. INFRAESTRUCTURA', queObservar: 'Sin presencia de goteras en maquina o periferia', comoVerifica: 'Inspección visual de techos e iluminación' },
   { id: 18, seccion: '5. INFRAESTRUCTURA', queObservar: 'Piso en condiciones de operación', comoVerifica: 'Verificar piso sin grietas graves ni desniveles riesgosos' },
   { id: 19, seccion: '5. INFRAESTRUCTURA', queObservar: 'Anaqueles y estantes disponibles para la operación', comoVerifica: 'Revisar orden y capacidad en estantería' },
-  { id: 20, seccion: '5. INFRAESTRUCTURA', queObservar: 'Casilleros disponibles para artículos personales', comoVerifica: 'Inspección de gavetas asignadas al personal' }
+  { id: 20, seccion: '5. INFRAESTRUCTURA', queObservar: 'Casilleros disponibles para articulos personales', comoVerifica: 'Inspección de gavetas asignadas al personal' }
 ];
 
 type EstadoCumplimiento = 'PENDIENTE' | 'TERMINADO' | 'PENDIENTE_ATRASADO';
@@ -159,7 +159,7 @@ interface Hallazgo {
 export const App: React.FC = () => {
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
-  const [subVistaHistorial, setSubVistaHistorial] = useState<'GANTT' | 'AUDITORIAS'>('AUDITORIAS');
+  const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   // Selectores dependientes
@@ -195,32 +195,30 @@ export const App: React.FC = () => {
 
   // Filtros Gantt
   const [filtroOrigenGantt, setFiltroOrigenGantt] = useState('');
-  const [filtroMaquina, setFiltroMaquina] = useState('');
-  const [filtroMes, setFiltroMes] = useState('');
-  const [filtroDia, setFiltroDia] = useState('');
-  const [filtroCumplimiento, setFiltroCumplimiento] = useState('');
-  const [hallazgosGantt, setHallazgosGantt] = useState<any[] | null>(null);
-  const [buscandoGantt, setBuscandoGantt] = useState(false);
+  const [filtroMaquinaGantt, setFiltroMaquinaGantt] = useState('');
+  const [filtroMesGantt, setFiltroMesGantt] = useState('');
+  const [filtroDiaGantt, setFiltroDiaGantt] = useState('');
+  const [filtroCumplimientoGantt, setFiltroCumplimientoGantt] = useState('');
 
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    // Escuchar todas las evaluaciones en tiempo real (sin filtros restrictivos para no ocultar nada)
-    const q = query(collection(db, 'evaluaciones_proceso'), orderBy('createdAt', 'desc'));
-    const unsubAuditorias = onSnapshot(q, (snapshot) => {
+    // 1. Escuchar evaluaciones en tiempo real sin restricción para que nunca se pierdan
+    const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data()
       }));
-      setHistorial(docs);
-    }, (err) => {
-      console.warn('Fallback sin orden:', err);
-      onSnapshot(collection(db, 'evaluaciones_proceso'), (s) => {
-        setHistorial(s.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // Ordenar localmente por fecha más reciente
+      docs.sort((a: any, b: any) => {
+        const tA = a.createdAt?.seconds || 0;
+        const tB = b.createdAt?.seconds || 0;
+        return tB - tA;
       });
+      setHistorial(docs);
     });
 
-    // Escuchar plantillas de checklists Proceso
+    // 2. Escuchar plantillas de Proceso
     const unsubPlantillasProceso = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataP: Record<string, ItemChecklist[]> = { Pegado: CHECKLIST_BASE_PEGADO };
       snapshot.docs.forEach((d) => {
@@ -230,7 +228,7 @@ export const App: React.FC = () => {
       setPlantillasProceso(dataP);
     });
 
-    // Escuchar plantillas 5S
+    // 3. Escuchar plantillas 5S
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
       const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
@@ -258,7 +256,7 @@ export const App: React.FC = () => {
     cancelarEdicionPregunta();
   }, [tipoSeleccionadoEditor, moduloEditor, plantillasProceso, plantillas5S, vista]);
 
-  // Obtener preguntas activas: si es 5S SIEMPRE carga los 20 puntos por defecto si no hay personalizada
+  // Obtener preguntas activas: para 5S SIEMPRE carga los 20 puntos por defecto
   const itemsChecklistActivo = maquinaSeleccionada
     ? (tipoAuditoriaActiva === 'PROCESO'
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
@@ -465,86 +463,13 @@ export const App: React.FC = () => {
     }
   };
 
-  // Consultar Gantt bajo demanda
-  const handleConsultarGantt = () => {
-    setBuscandoGantt(true);
-    try {
-      let resultados: any[] = [];
-
-      historial.forEach((docData) => {
-        const tipoAuditoriaDoc = docData.tipoAuditoria || 'PROCESO';
-
-        if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) return;
-        if (filtroMaquina && docData.maquinaNombre !== filtroMaquina) return;
-
-        if (docData.hallazgos && Array.isArray(docData.hallazgos)) {
-          docData.hallazgos.forEach((h: Hallazgo, idx: number) => {
-            const fAuditoria = docData.fechaAuditoria || todayStr;
-            const fFin = h.fechaCierre || todayStr;
-            const estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
-
-            if (filtroMes) {
-              const mesAuditoria = fAuditoria.split('-')[1];
-              if (mesAuditoria !== filtroMes) return;
-            }
-
-            if (filtroDia) {
-              const diaAuditoria = fAuditoria.split('-')[2];
-              if (diaAuditoria !== filtroDia.padStart(2, '0')) return;
-            }
-
-            if (filtroCumplimiento && estatus !== filtroCumplimiento) return;
-
-            resultados.push({
-              ...h,
-              docId: docData.id,
-              hallazgoIdx: idx,
-              tipoAuditoria: tipoAuditoriaDoc,
-              maquinaNombre: docData.maquinaNombre,
-              ordenTrabajo: docData.ordenTrabajo,
-              auditor: docData.auditor,
-              fechaAuditoria: fAuditoria,
-              fechaInicio: fAuditoria,
-              fechaFin: fFin,
-              estadoSeguimiento: estatus
-            });
-          });
-        }
-      });
-
-      setHallazgosGantt(resultados);
-    } catch (error) {
-      console.error('Error en Gantt:', error);
-    } finally {
-      setBuscandoGantt(false);
-    }
-  };
-
-  const handleLimpiarFiltrosGantt = () => {
-    setFiltroOrigenGantt('');
-    setFiltroMaquina('');
-    setFiltroMes('');
-    setFiltroDia('');
-    setFiltroCumplimiento('');
-    setHallazgosGantt(null);
-  };
-
+  // Alternar Estatus en el Gantt y en Firebase
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
       if (estadoActual === 'PENDIENTE' || !estadoActual) nuevoEstado = 'TERMINADO';
       else if (estadoActual === 'TERMINADO') nuevoEstado = 'PENDIENTE_ATRASADO';
       else if (estadoActual === 'PENDIENTE_ATRASADO') nuevoEstado = 'PENDIENTE';
-
-      setHallazgosGantt((prev) => {
-        if (!prev) return prev;
-        return prev.map((item) => {
-          if (item.docId === docId && item.hallazgoIdx === hallazgoIdx) {
-            return { ...item, estadoSeguimiento: nuevoEstado };
-          }
-          return item;
-        });
-      });
 
       const docEncontrado = historial.find((h) => h.id === docId);
       if (docEncontrado && docEncontrado.hallazgos) {
@@ -560,6 +485,50 @@ export const App: React.FC = () => {
       console.error('Error al actualizar estado:', error);
     }
   };
+
+  // Obtener lista completa de hallazgos filtrados para la tabla Gantt
+  const hallazgosFiltradosGantt = historial.flatMap((auditoria) => {
+    const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
+
+    if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) return [];
+    if (filtroMaquinaGantt && auditoria.maquinaNombre !== filtroMaquinaGantt) return [];
+
+    if (!auditoria.hallazgos || !Array.isArray(auditoria.hallazgos)) return [];
+
+    return auditoria.hallazgos
+      .map((h: Hallazgo, idx: number) => {
+        const fAuditoria = auditoria.fechaAuditoria || todayStr;
+        const fFin = h.fechaCierre || todayStr;
+        const estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
+
+        if (filtroMesGantt) {
+          const mes = fAuditoria.split('-')[1];
+          if (mes !== filtroMesGantt) return null;
+        }
+
+        if (filtroDiaGantt) {
+          const dia = fAuditoria.split('-')[2];
+          if (dia !== filtroDiaGantt.padStart(2, '0')) return null;
+        }
+
+        if (filtroCumplimientoGantt && estatus !== filtroCumplimientoGantt) return null;
+
+        return {
+          ...h,
+          docId: auditoria.id,
+          hallazgoIdx: idx,
+          tipoAuditoria: tipoAuditoriaDoc,
+          maquinaNombre: auditoria.maquinaNombre,
+          ordenTrabajo: auditoria.ordenTrabajo,
+          auditor: auditoria.auditor,
+          fechaAuditoria: fAuditoria,
+          fechaInicio: fAuditoria,
+          fechaFin: fFin,
+          estadoSeguimiento: estatus
+        };
+      })
+      .filter(Boolean);
+  });
 
   const diasGantt = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
@@ -621,7 +590,7 @@ export const App: React.FC = () => {
               <div style={STYLES.metricCard}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Total Auditorías</div>
                 <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>{historial.length}</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Registros globales</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Registros sincronizados</div>
               </div>
               <div style={STYLES.metricCard}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Máquinas Activas</div>
@@ -686,7 +655,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 2. VISTA SELECCIÓN PROCESO (SELECTORES DEPENDIENTES) */}
+        {/* 2. VISTA SELECCIÓN PROCESO */}
         {vista === 'MODULO_PROCESO' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -757,7 +726,8 @@ export const App: React.FC = () => {
                   borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 700,
-                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed'
+                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed',
+                  boxShadow: filtroProcesoMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
                 }}
               >
                 Iniciar Auditoría de Proceso →
@@ -766,7 +736,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 3. VISTA SELECCIÓN 5S (SELECTORES DEPENDIENTES) */}
+        {/* 3. VISTA SELECCIÓN 5S */}
         {vista === 'MODULO_5S' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -837,7 +807,8 @@ export const App: React.FC = () => {
                   borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 700,
-                  cursor: filtro5SMaquinaId ? 'pointer' : 'not-allowed'
+                  cursor: filtro5SMaquinaId ? 'pointer' : 'not-allowed',
+                  boxShadow: filtro5SMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
                 }}
               >
                 Iniciar Auditoría 5S (20 Puntos) →
@@ -910,7 +881,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Checklist Activo */}
+            {/* Checklist Dinámico */}
             {itemsChecklistActivo.length > 0 ? (
               <div style={STYLES.glassCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
@@ -987,12 +958,12 @@ export const App: React.FC = () => {
                   Sin preguntas registradas para {maquinaSeleccionada?.tipo}
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
-                  Configura los puntos desde el <strong>Editor de Plantillas</strong> o registra observaciones con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
+                  Puedes agregar las preguntas oficiales para esta familia desde el <strong>Editor de Plantillas</strong> en el menú principal, o registrar observaciones directas con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
                 </div>
               </div>
             )}
 
-            {/* SECCIÓN HALLAZGOS */}
+            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1148,7 +1119,7 @@ export const App: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setModuloEditor('PROCESO');
-                    setTipoSeleccionadoEditor('Flexografía');
+                    setTipoSeleccionadoEditor('Pegado');
                   }}
                   style={{
                     flex: 1,
@@ -1382,7 +1353,7 @@ export const App: React.FC = () => {
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico y Cronograma Gantt</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Consolidación bajo demanda y seguimiento de actividades</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Consolidación de auditorías ({historial.length}) y plan de acción</div>
               </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -1398,10 +1369,7 @@ export const App: React.FC = () => {
                   Auditorías ({historial.length})
                 </button>
                 <button
-                  onClick={() => {
-                    setSubVistaHistorial('GANTT');
-                    handleConsultarGantt();
-                  }}
+                  onClick={() => setSubVistaHistorial('GANTT')}
                   style={{
                     background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
                     color: subVistaHistorial === 'GANTT' ? '#ffffff' : '#003580',
@@ -1409,7 +1377,7 @@ export const App: React.FC = () => {
                     fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  Tabla Gantt
+                  Tabla Gantt ({hallazgosFiltradosGantt.length})
                 </button>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                   Cerrar
@@ -1438,8 +1406,8 @@ export const App: React.FC = () => {
                     </select>
 
                     <select
-                      value={filtroMaquina}
-                      onChange={(e) => setFiltroMaquina(e.target.value)}
+                      value={filtroMaquinaGantt}
+                      onChange={(e) => setFiltroMaquinaGantt(e.target.value)}
                       style={STYLES.input}
                     >
                       <option value="">Todas las máquinas y áreas</option>
@@ -1449,8 +1417,8 @@ export const App: React.FC = () => {
                     </select>
 
                     <select
-                      value={filtroMes}
-                      onChange={(e) => setFiltroMes(e.target.value)}
+                      value={filtroMesGantt}
+                      onChange={(e) => setFiltroMesGantt(e.target.value)}
                       style={STYLES.input}
                     >
                       <option value="">Todos los meses</option>
@@ -1473,14 +1441,14 @@ export const App: React.FC = () => {
                       min="1"
                       max="31"
                       placeholder="Día (1–31)"
-                      value={filtroDia}
-                      onChange={(e) => setFiltroDia(e.target.value)}
+                      value={filtroDiaGantt}
+                      onChange={(e) => setFiltroDiaGantt(e.target.value)}
                       style={STYLES.input}
                     />
 
                     <select
-                      value={filtroCumplimiento}
-                      onChange={(e) => setFiltroCumplimiento(e.target.value)}
+                      value={filtroCumplimientoGantt}
+                      onChange={(e) => setFiltroCumplimientoGantt(e.target.value)}
                       style={STYLES.input}
                     >
                       <option value="">Todos los estados</option>
@@ -1489,61 +1457,35 @@ export const App: React.FC = () => {
                       <option value="PENDIENTE_ATRASADO">PENDIENTE ATRASADO</option>
                     </select>
 
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={handleConsultarGantt}
-                        disabled={buscandoGantt}
-                        style={{
-                          flex: 2,
-                          background: '#003580',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: buscandoGantt ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        {buscandoGantt ? 'Consultando…' : '🔍 Consultar Gantt'}
-                      </button>
-                      {hallazgosGantt !== null && (
-                        <button
-                          type="button"
-                          onClick={handleLimpiarFiltrosGantt}
-                          style={{
-                            flex: 1,
-                            background: 'transparent',
-                            border: '1px solid rgba(0,32,96,0.12)',
-                            color: '#5A6A80',
-                            padding: '10px 8px',
-                            borderRadius: '8px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Limpiar
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFiltroOrigenGantt('');
+                        setFiltroMaquinaGantt('');
+                        setFiltroMesGantt('');
+                        setFiltroDiaGantt('');
+                        setFiltroCumplimientoGantt('');
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(0,32,96,0.12)',
+                        color: '#5A6A80',
+                        padding: '10px 8px',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Limpiar Filtros
+                    </button>
                   </div>
                 </div>
 
                 <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
-                  {hallazgosGantt === null ? (
-                    <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
-                        Cronograma en Espera
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                        Aplica los filtros requeridos y presiona <strong>"Consultar Gantt"</strong> para visualizar el cronograma.
-                      </div>
-                    </div>
-                  ) : hallazgosGantt.length === 0 ? (
+                  {hallazgosFiltradosGantt.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                      No se encontraron hallazgos con los filtros seleccionados.
+                      No se encontraron hallazgos registrados para el criterio seleccionado.
                     </div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
@@ -1577,7 +1519,7 @@ export const App: React.FC = () => {
                       </thead>
 
                       <tbody>
-                        {hallazgosGantt.map((item, idx) => {
+                        {hallazgosFiltradosGantt.map((item: any, idx: number) => {
                           const estatus: EstadoCumplimiento = item.estadoSeguimiento || 'PENDIENTE';
                           
                           const dIni = new Date(item.fechaInicio);
