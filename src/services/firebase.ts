@@ -6,12 +6,13 @@ import {
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_AUTH_DOMAIN",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_STORAGE_BUCKET",
-  messagingSenderId: "TU_MESSAGING_SENDER_ID",
-  appId: "TU_APP_ID"
+apiKey: "AIzaSyC0mjRHlg4R89KUafsCGpCk75nwosuKCzs",
+  authDomain: "proceso-pwa.firebaseapp.com",
+  databaseURL: "https://proceso-pwa-default-rtdb.firebaseio.com",
+  projectId: "proceso-pwa",
+  storageBucket: "proceso-pwa.firebasestorage.app",
+  messagingSenderId: "969526934633",
+  appId: "1:969526934633:web:153b81a2b696863c5c76f8"
 };
 
 // Inicializar Firebase App
