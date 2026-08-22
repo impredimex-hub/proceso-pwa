@@ -120,12 +120,33 @@ const CHECKLIST_BASE_PEGADO: ItemChecklist[] = [
   { id: 16, seccion: 'D · VALIDACIÓN Y LIBERACIÓN', queObservar: 'Reporte de producción sin espacios en blanco ni tachaduras; ancho plano y solvente registrados hora por hora', comoVerifica: 'Revisar F1-PR-PA-03' }
 ];
 
-const CHECKLIST_BASE_5S: ItemChecklist[] = [
-  { id: 1, seccion: '1S · CLASIFICAR (SEIRI)', queObservar: 'Sin herramientas, materiales ni residuos innecesarios en el área', comoVerifica: 'Revisión visual de mesas, pisos y tableros' },
-  { id: 2, seccion: '2S · ORDENAR (SEITON)', queObservar: 'Herramentales y materias primas en su lugar delimitado', comoVerifica: 'Verificar sombras de herramientas y líneas de piso' },
-  { id: 3, seccion: '3S · LIMPIAR (SEISO)', queObservar: 'Máquina y piso limpios, libres de grasa, solvente o tinta', comoVerifica: 'Inspección de guardas, bandejas y alrededores' },
-  { id: 4, seccion: '4S · ESTANDARIZAR (SEIKETSU)', queObservar: 'Etiquetas de identificación visibles y controles visuales vigentes', comoVerifica: 'Inspección de contenedores de solventes y residuos' },
-  { id: 5, seccion: '5S · DISCIPLINA (SHITSUKE)', queObservar: 'Uso correcto de EPP y cumplimiento del despeje de línea', comoVerifica: 'Observación directa del personal en turno' }
+// --- NUEVO CHECKLIST OFICIAL DE CONDICIONES Y 5S (20 PUNTOS) ---
+const CHECKLIST_OFICIAL_5S: ItemChecklist[] = [
+  // 1. Orden y 5S
+  { id: 1, seccion: '1. ORDEN Y 5S', queObservar: 'Todas las herramientas y utensilios se encuentran y tienen lugar asignado', comoVerifica: 'Revisión visual de tableros, mesas y gavetas' },
+  { id: 2, seccion: '1. ORDEN Y 5S', queObservar: 'Todos materiales, rollos, tarimas o contenedores se encuentran en su ubicación definida', comoVerifica: 'Verificar delimitaciones en piso y estantes' },
+  { id: 3, seccion: '1. ORDEN Y 5S', queObservar: 'Pasillos, accesos y zonas de operación se encuentran despejados', comoVerifica: 'Inspección de líneas peatonales y áreas de maniobra' },
+  { id: 4, seccion: '1. ORDEN Y 5S', queObservar: 'El área de trabajo se encuentra ordenada y libre de objetos innecesarios', comoVerifica: 'Revisión de superficies de apoyo y periferia' },
+  // 2. Limpieza
+  { id: 5, seccion: '2. LIMPIEZA', queObservar: 'El área y la máquina se encuentran limpias', comoVerifica: 'Inspección de estructura, paneles y piso general' },
+  { id: 6, seccion: '2. LIMPIEZA', queObservar: 'Sin derrames de tinta, solvente, aceite, agua u otros productos', comoVerifica: 'Revisar charolas, piso y conexiones de fluidos' },
+  { id: 7, seccion: '2. LIMPIEZA', queObservar: 'Sin acumulación de papel, película, tinta, adhesivo o residuos alrededor de la máquina', comoVerifica: 'Inspección de desbobinador, rebobinador y piso' },
+  { id: 8, seccion: '2. LIMPIEZA', queObservar: 'Los residuos y merma se encuentran correctamente segregados', comoVerifica: 'Verificar botes identificados y bolsas correspondientes' },
+  // 3. Condición de máquina
+  { id: 9, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'La máquina está sin daños físicos visibles que puedan afectar su operación', comoVerifica: 'Inspección de rodillos, guías y estructura' },
+  { id: 10, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin reparaciones temporales, improvisaciones o soluciones provisionales', comoVerifica: 'Verificar sujeciones, ensambles y componentes' },
+  { id: 11, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin fugas de aceite, aire, agua, tinta o solvente', comoVerifica: 'Revisión de manómetros, mangueras y cilindros' },
+  { id: 12, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Sin cables, mangueras o conexiones dañadas, expuestas o improvisadas', comoVerifica: 'Inspección del cableado eléctrico y neumático' },
+  { id: 13, seccion: '3. CONDICIÓN DE MÁQUINA', queObservar: 'Guardas, cubiertas y protecciones de seguridad se encuentran instaladas y en buen estado', comoVerifica: 'Verificación física de guardas de protección' },
+  // 4. Seguridad
+  { id: 14, seccion: '4. SEGURIDAD', queObservar: 'El paro de emergencia se encuentra accesible y sin obstrucciones', comoVerifica: 'Comprobar acceso libre inmediato al botón de paro' },
+  { id: 15, seccion: '4. SEGURIDAD', queObservar: 'Extintores, rutas de evacuación y equipos de emergencia se encuentran despejados', comoVerifica: 'Inspección visual del área circundante' },
+  { id: 16, seccion: '4. SEGURIDAD', queObservar: 'Sin condiciones que representen riesgo inmediato de atrapamiento, corte, golpe, incendio o derrame', comoVerifica: 'Evaluación general de riesgos en la estación' },
+  // 5. Infraestructura
+  { id: 17, seccion: '5. INFRAESTRUCTURA', queObservar: 'Sin presencia de goteras en máquina o periferia', comoVerifica: 'Inspección visual de techos e iluminación' },
+  { id: 18, seccion: '5. INFRAESTRUCTURA', queObservar: 'Piso en condiciones de operación', comoVerifica: 'Verificar piso sin grietas graves ni desniveles riesgosos' },
+  { id: 19, seccion: '5. INFRAESTRUCTURA', queObservar: 'Anaqueles y estantes disponibles para la operación', comoVerifica: 'Revisar orden y capacidad en estantería' },
+  { id: 20, seccion: '5. INFRAESTRUCTURA', queObservar: 'Casilleros disponibles para artículos personales', comoVerifica: 'Inspección de gavetas asignadas al personal' }
 ];
 
 type EstadoCumplimiento = 'PENDIENTE' | 'TERMINADO' | 'PENDIENTE_ATRASADO';
@@ -152,12 +173,12 @@ export const App: React.FC = () => {
     Pegado: CHECKLIST_BASE_PEGADO
   });
   const [plantillas5S, setPlantillas5S] = useState<Record<string, ItemChecklist[]>>({
-    'Área Auxiliar': CHECKLIST_BASE_5S
+    'Área Auxiliar': CHECKLIST_OFICIAL_5S
   });
 
   // Editor de plantillas
-  const [moduloEditor, setModuloEditor] = useState<'PROCESO' | '5S'>('PROCESO');
-  const [tipoSeleccionadoEditor, setTipoSeleccionadoEditor] = useState<string>('Pegado');
+  const [moduloEditor, setModuloEditor] = useState<'PROCESO' | '5S'>('5S');
+  const [tipoSeleccionadoEditor, setTipoSeleccionadoEditor] = useState<string>('Flexografía');
   const [checklistEnEdicion, setChecklistEnEdicion] = useState<ItemChecklist[]>([]);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nuevaSeccion, setNuevaSeccion] = useState('');
@@ -207,7 +228,7 @@ export const App: React.FC = () => {
 
     // 3. Escuchar plantillas 5S
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
-      const data5: Record<string, ItemChecklist[]> = { 'Área Auxiliar': CHECKLIST_BASE_5S };
+      const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
         const data = d.data();
         if (data.items && Array.isArray(data.items)) data5[d.id] = data.items;
@@ -227,7 +248,7 @@ export const App: React.FC = () => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
     const baseDefault = moduloEditor === 'PROCESO'
       ? (tipoSeleccionadoEditor === 'Pegado' ? CHECKLIST_BASE_PEGADO : [])
-      : CHECKLIST_BASE_5S;
+      : CHECKLIST_OFICIAL_5S;
     const items = fuente[tipoSeleccionadoEditor] || baseDefault;
     setChecklistEnEdicion(items);
     cancelarEdicionPregunta();
@@ -237,7 +258,7 @@ export const App: React.FC = () => {
   const itemsChecklistActivo = maquinaSeleccionada
     ? (tipoAuditoriaActiva === 'PROCESO'
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
-        : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_BASE_5S))
+        : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
     : [];
 
   const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
@@ -386,7 +407,7 @@ export const App: React.FC = () => {
 
       const nuevoItem: ItemChecklist = {
         id: nuevoId,
-        seccion: nuevaSeccion.trim() || (moduloEditor === '5S' ? '3S · LIMPIEZA' : 'GENERAL · PARÁMETROS OPERATIVOS'),
+        seccion: nuevaSeccion.trim() || (moduloEditor === '5S' ? '1. ORDEN Y 5S' : 'GENERAL · PARÁMETROS OPERATIVOS'),
         queObservar: nuevoQueObservar.trim(),
         comoVerifica: nuevoComoVerifica.trim()
       };
@@ -637,7 +658,7 @@ export const App: React.FC = () => {
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Condiciones y 5S</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
-                  Auditoría de área limpia, estantes correctos, despeje de línea y orden de herramentales.
+                  Auditoría de 20 puntos: orden, limpieza, condición de máquina, seguridad e infraestructura.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
                   33 Áreas y Máquinas
@@ -719,7 +740,7 @@ export const App: React.FC = () => {
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Condiciones de Equipo y 5S</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona máquina o área auxiliar para auditar orden y limpieza</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona máquina o área auxiliar para auditar orden, limpieza y seguridad</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver
@@ -728,7 +749,7 @@ export const App: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px' }}>
               {CATALOGO.filter((m) => m.modulo5S).map((item) => {
-                const totalPuntos5S = (plantillas5S[item.tipo] || CHECKLIST_BASE_5S).length;
+                const totalPuntos5S = (plantillas5S[item.tipo] || CHECKLIST_OFICIAL_5S).length;
                 return (
                   <div
                     key={item.id}
@@ -1077,7 +1098,7 @@ export const App: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setModuloEditor('5S');
-                    setTipoSeleccionadoEditor('Área Auxiliar');
+                    setTipoSeleccionadoEditor('Flexografía');
                   }}
                   style={{
                     flex: 1,
@@ -1128,7 +1149,7 @@ export const App: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder={moduloEditor === '5S' ? 'Ej. 3S · LIMPIEZA Y ORDEN' : 'Ej. A · SOLVENTE Y APORTE'}
+                      placeholder={moduloEditor === '5S' ? 'Ej. 1. ORDEN Y 5S' : 'Ej. A · SOLVENTE Y APORTE'}
                       value={nuevaSeccion}
                       onChange={(e) => setNuevaSeccion(e.target.value)}
                       style={STYLES.input}
