@@ -1,28 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  setDoc, 
-  serverTimestamp 
-} from 'firebase/firestore';
+import { db } from './services/firebase';
+import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-// --- CONFIGURACIÓN DE FIREBASE (INTEGRADA DIRECTAMENTE) ---
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROJECT_ID.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "TU_MESSAGING_SENDER_ID",
-  appId: "TU_APP_ID"
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app);
 (window as any).db = db;
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
@@ -754,7 +733,8 @@ export const App: React.FC = () => {
                   borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 700,
-                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed'
+                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed',
+                  boxShadow: filtroProcesoMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
                 }}
               >
                 Iniciar Auditoría de Proceso →
@@ -844,7 +824,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN */}
+        {/* 4. VISTA DE EVALUACIÓN CON NÓMINAS */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1010,7 +990,7 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
+            {/* SECCIÓN HALLAZGOS Y ACCIONES CON DESCRIPCIÓN EN TODOS LOS PUNTOS */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1058,7 +1038,7 @@ export const App: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Campo de descripción en todos los hallazgos */}
+                        {/* Campo de descripción para todos los hallazgos */}
                         <div style={{ marginBottom: '8px' }}>
                           <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
                           <input
