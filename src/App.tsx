@@ -1,6 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './services/firebase';
-import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  setDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+
+// --- CONFIGURACIÓN DE FIREBASE (INTEGRADA DIRECTAMENTE) ---
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROJECT_ID.firebaseapp.com",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_PROJECT_ID.firebasestorage.app",
+  messagingSenderId: "TU_MESSAGING_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const db = getFirestore(app);
+(window as any).db = db;
 
 // --- ESTILOS COMPARTIDOS DEL SISTEMA DE DISEÑO ---
 const STYLES = {
@@ -184,9 +207,11 @@ export const App: React.FC = () => {
   const [nuevoComoVerifica, setNuevoComoVerifica] = useState('');
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
 
-  // Formulario Evaluación
+  // Formulario Evaluación con Nóminas añadidas
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
+  const [nominaAuditado, setNominaAuditado] = useState('');
+  const [nominaSupervisor, setNominaSupervisor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   const [respuestas, setRespuestas] = useState<Record<number, 'SI' | 'NO' | null>>({});
   const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
@@ -203,22 +228,21 @@ export const App: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    // 1. Escuchar evaluaciones en tiempo real sin restricción para que nunca se pierdan
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data()
       }));
-      // Ordenar localmente por fecha más reciente
       docs.sort((a: any, b: any) => {
         const tA = a.createdAt?.seconds || 0;
         const tB = b.createdAt?.seconds || 0;
         return tB - tA;
       });
       setHistorial(docs);
+    }, (error) => {
+      console.error('Error al escuchar Firestore:', error);
     });
 
-    // 2. Escuchar plantillas de Proceso
     const unsubPlantillasProceso = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataP: Record<string, ItemChecklist[]> = { Pegado: CHECKLIST_BASE_PEGADO };
       snapshot.docs.forEach((d) => {
@@ -228,7 +252,6 @@ export const App: React.FC = () => {
       setPlantillasProceso(dataP);
     });
 
-    // 3. Escuchar plantillas 5S
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
       const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
@@ -245,7 +268,6 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Sincronizar editor al cambiar familia o módulo
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
     const baseDefault = moduloEditor === 'PROCESO'
@@ -256,7 +278,6 @@ export const App: React.FC = () => {
     cancelarEdicionPregunta();
   }, [tipoSeleccionadoEditor, moduloEditor, plantillasProceso, plantillas5S, vista]);
 
-  // Obtener preguntas activas: para 5S SIEMPRE carga los 20 puntos por defecto
   const itemsChecklistActivo = maquinaSeleccionada
     ? (tipoAuditoriaActiva === 'PROCESO'
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
@@ -355,6 +376,8 @@ export const App: React.FC = () => {
         tipoMaquina: maquinaSeleccionada?.tipo,
         ordenTrabajo: ordenTrabajo.trim() || 'N/A 5S',
         auditor: auditor.trim(),
+        nominaAuditado: nominaAuditado.trim(),
+        nominaSupervisor: nominaSupervisor.trim(),
         turno,
         cumplimiento,
         totalSi: itemsChecklistActivo.length > 0 ? totalSi : (listaHallazgos.length === 0 ? 1 : 0),
@@ -371,6 +394,8 @@ export const App: React.FC = () => {
       setHallazgos({});
       setOrdenTrabajo('');
       setAuditor('');
+      setNominaAuditado('');
+      setNominaSupervisor('');
       setVista('HISTORIAL');
       setSubVistaHistorial('AUDITORIAS');
     } catch (error) {
@@ -463,7 +488,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Alternar Estatus en el Gantt y en Firebase
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
@@ -486,7 +510,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Obtener lista completa de hallazgos filtrados para la tabla Gantt
   const hallazgosFiltradosGantt = historial.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
@@ -499,7 +522,12 @@ export const App: React.FC = () => {
       .map((h: Hallazgo, idx: number) => {
         const fAuditoria = auditoria.fechaAuditoria || todayStr;
         const fFin = h.fechaCierre || todayStr;
-        const estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
+        let estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
+
+        // Regla automática de atraso
+        if (estatus !== 'TERMINADO' && todayStr > fFin) {
+          estatus = 'PENDIENTE_ATRASADO';
+        }
 
         if (filtroMesGantt) {
           const mes = fAuditoria.split('-')[1];
@@ -726,8 +754,7 @@ export const App: React.FC = () => {
                   borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 700,
-                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed',
-                  boxShadow: filtroProcesoMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
+                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed'
                 }}
               >
                 Iniciar Auditoría de Proceso →
@@ -847,7 +874,7 @@ export const App: React.FC = () => {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '1.2rem', textAlign: 'left' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginTop: '1.2rem', textAlign: 'left' }}>
                 {tipoAuditoriaActiva === 'PROCESO' && (
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Orden de Trabajo (OP):</label>
@@ -861,12 +888,32 @@ export const App: React.FC = () => {
                   </div>
                 )}
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Auditor / Supervisor:</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Auditor:</label>
                   <input
                     type="text"
-                    placeholder="Nombre completo"
+                    placeholder="Nombre del auditor"
                     value={auditor}
                     onChange={(e) => setAuditor(e.target.value)}
+                    style={STYLES.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Nómina auditado:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 1045"
+                    value={nominaAuditado}
+                    onChange={(e) => setNominaAuditado(e.target.value)}
+                    style={STYLES.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Nómina supervisor:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 2012"
+                    value={nominaSupervisor}
+                    onChange={(e) => setNominaSupervisor(e.target.value)}
                     style={STYLES.input}
                   />
                 </div>
@@ -958,7 +1005,7 @@ export const App: React.FC = () => {
                   Sin preguntas registradas para {maquinaSeleccionada?.tipo}
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
-                  Puedes agregar las preguntas oficiales para esta familia desde el <strong>Editor de Plantillas</strong> en el menú principal, o registrar observaciones directas con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
+                  Configura los puntos desde el <strong>Editor de Plantillas</strong> o registra observaciones con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
                 </div>
               </div>
             )}
@@ -1011,18 +1058,17 @@ export const App: React.FC = () => {
                           )}
                         </div>
 
-                        {h.esExtra && (
-                          <div style={{ marginBottom: '8px' }}>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
-                            <input
-                              type="text"
-                              placeholder="Describe la desviación observada..."
-                              value={h.hallazgo}
-                              onChange={(e) => handleHallazgoChange(h.id, 'hallazgo', e.target.value)}
-                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
-                            />
-                          </div>
-                        )}
+                        {/* Campo de descripción en todos los hallazgos */}
+                        <div style={{ marginBottom: '8px' }}>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
+                          <input
+                            type="text"
+                            placeholder="Describe la desviación observada..."
+                            value={h.hallazgo}
+                            onChange={(e) => handleHallazgoChange(h.id, 'hallazgo', e.target.value)}
+                            style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
+                          />
+                        </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
                           <div>
@@ -1112,14 +1158,13 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Selector de Módulo */}
             <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
                 <button
                   type="button"
                   onClick={() => {
                     setModuloEditor('PROCESO');
-                    setTipoSeleccionadoEditor('Pegado');
+                    setTipoSeleccionadoEditor('Flexografía');
                   }}
                   style={{
                     flex: 1,
@@ -1628,7 +1673,7 @@ export const App: React.FC = () => {
               <div>
                 {historial.length === 0 ? (
                   <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    Sin auditorías guardadas aún.
+                    Sin auditorías guardadas aún en la colección activa.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1651,6 +1696,11 @@ export const App: React.FC = () => {
                           <div style={{ fontSize: '12px', color: '#5A6A80' }}>
                             Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · {item.tipoAuditoria === '5S' ? '' : `OP: ${item.ordenTrabajo || 'S/N'} · `}Auditor: <strong>{item.auditor}</strong> · {item.turno}
                           </div>
+                          {(item.nominaAuditado || item.nominaSupervisor) && (
+                            <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
+                              Auditado (Nóm): <strong>{item.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{item.nominaSupervisor || 'N/A'}</strong>
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ textAlign: 'right' }}>
@@ -1675,7 +1725,7 @@ export const App: React.FC = () => {
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
-        <strong style={{ color: '#003580' }}>IMPREDIMEX</strong> — Impresión y Diseño de México S.A. de C.V. &nbsp;·&nbsp; Sistema de Control Operativo &nbsp;·&nbsp; Planta Industrial[cite: 2]
+        <strong style={{ color: '#003580' }}>IMPREDIMEX</strong> — Impresión y Diseño de México S.A. de C.V. &nbsp;·&nbsp; Sistema de Control Operativo &nbsp;·&nbsp; Planta Industrial
       </footer>
     </div>
   );
