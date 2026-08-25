@@ -93,6 +93,7 @@ const CATALOGO: Maquina[] = [
   { id: 'area-cal', nombre: 'Laboratorio Calidad', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true }
 ];
 
+const FAMILIAS_TODAS = Array.from(new Set(CATALOGO.map((m) => m.tipo)));
 const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
 const FAMILIAS_5S = Array.from(new Set(CATALOGO.filter((m) => m.modulo5S).map((m) => m.tipo)));
 
@@ -164,11 +165,20 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Selectores dependientes
+  // Modal para ver auditoría en detalle
+  const [auditoriaDetalleModal, setAuditoriaDetalleModal] = useState<any | null>(null);
+
+  // Selectores dependientes de Proceso y 5S en captura
   const [filtroProcesoFamilia, setFiltroProcesoFamilia] = useState('');
   const [filtroProcesoMaquinaId, setFiltroProcesoMaquinaId] = useState('');
   const [filtro5SFamilia, setFiltro5SFamilia] = useState('');
   const [filtro5SMaquinaId, setFiltro5SMaquinaId] = useState('');
+
+  // Filtros en pestaña Auditorías
+  const [filtroAudTipoRevision, setFiltroAudTipoRevision] = useState(''); // '' | 'PROCESO' | '5S'
+  const [filtroAudFamilia, setFiltroAudFamilia] = useState('');
+  const [filtroAudMaquinaId, setFiltroAudMaquinaId] = useState('');
+  const [filtroAudMes, setFiltroAudMes] = useState('');
 
   // Plantillas dinámicas
   const [plantillasProceso, setPlantillasProceso] = useState<Record<string, ItemChecklist[]>>({
@@ -186,7 +196,7 @@ export const App: React.FC = () => {
   const [nuevoComoVerifica, setNuevoComoVerifica] = useState('');
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
 
-  // Formulario Evaluación con Nóminas añadidas
+  // Formulario Evaluación
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
   const [nominaAuditado, setNominaAuditado] = useState('');
@@ -364,6 +374,7 @@ export const App: React.FC = () => {
         fechaAuditoria: todayStr,
         respuestas: itemsChecklistActivo.length > 0 ? respuestas : {},
         hallazgos: listaHallazgos,
+        itemsSnapshot: itemsChecklistActivo, // Guarda snapshot del checklist para visualizarlo exactamente en auditorías
         estadoFinal: (itemsChecklistActivo.length > 0 ? totalNo === 0 : listaHallazgos.length === 0) ? 'APROBADO' : 'CON_HALLAZGOS',
         createdAt: serverTimestamp()
       });
@@ -489,6 +500,7 @@ export const App: React.FC = () => {
     }
   };
 
+  // Cálculo automático de Gantt y regla de atraso
   const hallazgosFiltradosGantt = historial.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
@@ -503,7 +515,7 @@ export const App: React.FC = () => {
         const fFin = h.fechaCierre || todayStr;
         let estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
 
-        // Regla automática de atraso
+        // Regla automática: si no está terminado y la fecha actual es posterior a la fecha compromiso -> PENDIENTE_ATRASADO
         if (estatus !== 'TERMINADO' && todayStr > fFin) {
           estatus = 'PENDIENTE_ATRASADO';
         }
@@ -537,6 +549,19 @@ export const App: React.FC = () => {
       .filter(Boolean);
   });
 
+  // Filtro de la pestaña Auditorías
+  const auditoriasFiltradas = historial.filter((item) => {
+    const tipoDoc = item.tipoAuditoria || 'PROCESO';
+    if (filtroAudTipoRevision && tipoDoc !== filtroAudTipoRevision) return false;
+    if (filtroAudFamilia && item.tipoMaquina !== filtroAudFamilia) return false;
+    if (filtroAudMaquinaId && item.maquinaId !== filtroAudMaquinaId) return false;
+    if (filtroAudMes) {
+      const mesDoc = (item.fechaAuditoria || todayStr).split('-')[1];
+      if (mesDoc !== filtroAudMes) return false;
+    }
+    return true;
+  });
+
   const diasGantt = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -549,6 +574,72 @@ export const App: React.FC = () => {
       mesNum: d.getMonth() + 1
     };
   });
+
+  // --- EXPORTAR A EXCEL (CSV COMPATIBLE CON BOM) ---
+  const handleExportarExcelGantt = () => {
+    if (hallazgosFiltradosGantt.length === 0) {
+      alert('No hay datos en el Gantt con los filtros actuales para exportar.');
+      return;
+    }
+
+    const headers = [
+      '#',
+      'Tipo de Revisión',
+      'Fecha Auditoría',
+      'Máquina / Área',
+      'OP',
+      'Auditor',
+      'Actividad / Desviación',
+      'Acción Correctiva',
+      'Responsable',
+      'Fecha Inicio',
+      'Fecha Compromiso',
+      'Días',
+      'Cumplimiento'
+    ];
+
+    const rows = hallazgosFiltradosGantt.map((item: any, index: number) => {
+      const dIni = new Date(item.fechaInicio);
+      const dFin = new Date(item.fechaFin);
+      const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
+      const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
+      return [
+        index + 1,
+        item.tipoAuditoria,
+        item.fechaAuditoria,
+        `"${item.maquinaNombre}"`,
+        `"${item.ordenTrabajo || 'N/A'}"`,
+        `"${item.auditor}"`,
+        `"${(item.hallazgo || '').replace(/"/g, '""')}"`,
+        `"${(item.accion || '').replace(/"/g, '""')}"`,
+        `"${item.responsable || 'No asignado'}"`,
+        item.fechaInicio,
+        item.fechaFin,
+        diasTotal,
+        item.estadoSeguimiento
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Gantt_Acciones_IMPREDIMEX_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- EXPORTAR A PDF (IMPRESIÓN HORIZONTAL) ---
+  const handleExportarPDFGantt = () => {
+    if (hallazgosFiltradosGantt.length === 0) {
+      alert('No hay datos en el Gantt con los filtros actuales para exportar.');
+      return;
+    }
+    window.print();
+  };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
@@ -990,7 +1081,7 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* SECCIÓN HALLAZGOS Y ACCIONES CON DESCRIPCIÓN EN TODOS LOS PUNTOS */}
+            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1038,7 +1129,7 @@ export const App: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Campo de descripción para todos los hallazgos */}
+                        {/* Campo de descripción editable para todos los hallazgos */}
                         <div style={{ marginBottom: '8px' }}>
                           <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
                           <input
@@ -1073,19 +1164,18 @@ export const App: React.FC = () => {
                           </div>
                           <div>
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>
-                              Fecha de Cierre:
+                              Fecha de Cierre (Compromiso):
                             </label>
                             <input
                               type="date"
                               value={h.fechaCierre}
-                              readOnly={!h.esExtra}
                               onChange={(e) => handleHallazgoChange(h.id, 'fechaCierre', e.target.value)}
                               style={{
                                 ...STYLES.input,
                                 fontSize: '12px',
                                 padding: '6px 10px',
-                                background: !h.esExtra ? '#f1f5f9' : '#ffffff',
-                                cursor: !h.esExtra ? 'not-allowed' : 'auto'
+                                background: '#ffffff',
+                                cursor: 'pointer'
                               }}
                             />
                           </div>
@@ -1410,12 +1500,42 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* A. TABLA GANTT */}
+            {/* A. TABLA GANTT (CON BOTONES DE EXCEL Y PDF) */}
             {subVistaHistorial === 'GANTT' && (
               <div>
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                    Filtros de Búsqueda para Cronograma
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                      Filtros de Búsqueda para Cronograma
+                    </div>
+
+                    {/* Botones de Exportación */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={handleExportarExcelGantt}
+                        style={{
+                          background: '#0F7A55', color: '#ffffff', border: 'none',
+                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                          boxShadow: '0 2px 6px rgba(15,122,85,0.25)'
+                        }}
+                      >
+                        📊 Exportar Excel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportarPDFGantt}
+                        style={{
+                          background: '#003580', color: '#ffffff', border: 'none',
+                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                          boxShadow: '0 2px 6px rgba(0,53,128,0.25)'
+                        }}
+                      >
+                        📄 Exportar PDF
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'center' }}>
@@ -1648,17 +1768,138 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* B. SUBVISTA AUDITORÍAS GENERALES */}
+            {/* B. SUBVISTA AUDITORÍAS CON FILTROS ESTRUCTURADOS Y DETALLE EN CLIC */}
             {subVistaHistorial === 'AUDITORIAS' && (
               <div>
-                {historial.length === 0 ? (
+                {/* Panel de Filtros para Auditorías */}
+                <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Filtros de Búsqueda de Auditorías
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', alignItems: 'center' }}>
+                    
+                    {/* Filtro Tipo de Revisión */}
+                    <select
+                      value={filtroAudTipoRevision}
+                      onChange={(e) => {
+                        setFiltroAudTipoRevision(e.target.value);
+                        setFiltroAudFamilia('');
+                        setFiltroAudMaquinaId('');
+                      }}
+                      style={STYLES.input}
+                    >
+                      <option value="">Tipo de revisión: Todos</option>
+                      <option value="PROCESO">Validación de Proceso</option>
+                      <option value="5S">Condiciones y 5S</option>
+                    </select>
+
+                    {/* Filtro Proceso / Familia */}
+                    <select
+                      value={filtroAudFamilia}
+                      onChange={(e) => {
+                        setFiltroAudFamilia(e.target.value);
+                        setFiltroAudMaquinaId('');
+                      }}
+                      style={STYLES.input}
+                    >
+                      <option value="">Selecciona Proceso/Familia</option>
+                      {(filtroAudTipoRevision === 'PROCESO'
+                        ? FAMILIAS_PROCESO
+                        : filtroAudTipoRevision === '5S'
+                        ? FAMILIAS_5S
+                        : FAMILIAS_TODAS
+                      ).map((fam) => (
+                        <option key={fam} value={fam}>{fam}</option>
+                      ))}
+                    </select>
+
+                    {/* Filtro Máquina (Dependiente) */}
+                    <select
+                      value={filtroAudMaquinaId}
+                      onChange={(e) => setFiltroAudMaquinaId(e.target.value)}
+                      style={STYLES.input}
+                    >
+                      <option value="">Selecciona la Máquina/Área</option>
+                      {CATALOGO.filter((m) => {
+                        if (filtroAudTipoRevision === 'PROCESO' && !m.moduloProceso) return false;
+                        if (filtroAudTipoRevision === '5S' && !m.modulo5S) return false;
+                        if (filtroAudFamilia && m.tipo !== filtroAudFamilia) return false;
+                        return true;
+                      }).map((m) => (
+                        <option key={m.id} value={m.id}>{m.nombre}</option>
+                      ))}
+                    </select>
+
+                    {/* Filtro Mes */}
+                    <select
+                      value={filtroAudMes}
+                      onChange={(e) => setFiltroAudMes(e.target.value)}
+                      style={STYLES.input}
+                    >
+                      <option value="">Todos los meses</option>
+                      <option value="01">Enero</option>
+                      <option value="02">Febrero</option>
+                      <option value="03">Marzo</option>
+                      <option value="04">Abril</option>
+                      <option value="05">Mayo</option>
+                      <option value="06">Junio</option>
+                      <option value="07">Julio</option>
+                      <option value="08">Agosto</option>
+                      <option value="09">Septiembre</option>
+                      <option value="10">Octubre</option>
+                      <option value="11">Noviembre</option>
+                      <option value="12">Diciembre</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFiltroAudTipoRevision('');
+                        setFiltroAudFamilia('');
+                        setFiltroAudMaquinaId('');
+                        setFiltroAudMes('');
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(0,32,96,0.12)',
+                        color: '#5A6A80',
+                        padding: '10px 8px',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Limpiar Filtros
+                    </button>
+                  </div>
+                </div>
+
+                {auditoriasFiltradas.length === 0 ? (
                   <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    Sin auditorías guardadas aún en la colección activa.
+                    Sin auditorías encontradas con los filtros seleccionados.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {historial.map((item) => (
-                      <div key={item.id} style={{ ...STYLES.glassCard, marginBottom: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    {auditoriasFiltradas.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => setAuditoriaDetalleModal(item)}
+                        style={{
+                          ...STYLES.glassCard,
+                          marginBottom: 0,
+                          padding: '14px 18px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '10px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title="Haz clic para ver el checklist y hallazgos detallados de esta auditoría"
+                      >
                         <div style={{ textAlign: 'left' }}>
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
                             <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
@@ -1683,13 +1924,17 @@ export const App: React.FC = () => {
                           )}
                         </div>
 
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                            {item.cumplimiento}%
+                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div>
+                            {/* Porcentaje unificado con % */}
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                              {item.cumplimiento}%
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
+                              {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
+                            </div>
                           </div>
-                          <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                            {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
-                          </div>
+                          <span style={{ fontSize: '13px', color: '#003580', fontWeight: 700 }}>🔍 Ver Check</span>
                         </div>
                       </div>
                     ))}
@@ -1702,6 +1947,134 @@ export const App: React.FC = () => {
         )}
 
       </main>
+
+      {/* MODAL DETALLE DE CHECKLIST REALIZADO */}
+      {auditoriaDetalleModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 32, 96, 0.45)', backdropFilter: 'blur(6px)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff', borderRadius: '16px', maxWidth: '850px', width: '100%',
+            maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            textAlign: 'left', border: '1px solid rgba(0,32,96,0.1)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E8EEF8', paddingBottom: '12px', marginBottom: '14px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{auditoriaDetalleModal.maquinaNombre}</span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#E8EEF8', color: '#003580' }}>
+                    {auditoriaDetalleModal.tipoAuditoria}
+                  </span>
+                  <span style={{
+                    fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
+                    background: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
+                    color: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
+                  }}>
+                    {auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#5A6A80', marginTop: '4px' }}>
+                  Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}
+                </div>
+                {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor) && (
+                  <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
+                    Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: auditoriaDetalleModal.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                  {auditoriaDetalleModal.cumplimiento}%
+                </div>
+                <div style={{ fontSize: '10px', color: '#5A6A80' }}>
+                  {auditoriaDetalleModal.totalSi} SÍ / {auditoriaDetalleModal.totalNo} NO
+                </div>
+              </div>
+            </div>
+
+            {/* Checklist Realizado */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Respuestas del Checklist Registrado:
+              </div>
+
+              {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
+                    const snapItem = (auditoriaDetalleModal.itemsSnapshot || (auditoriaDetalleModal.tipoAuditoria === '5S' ? CHECKLIST_OFICIAL_5S : CHECKLIST_BASE_PEGADO))?.find((i: any) => String(i.id) === String(puntoId));
+                    return (
+                      <div
+                        key={puntoId}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '8px 12px', borderRadius: '8px',
+                          background: valor === 'SI' ? '#F4FBF7' : '#FEF2F2',
+                          border: valor === 'SI' ? '1px solid #D1FAE5' : '1px solid #FEE2E2'
+                        }}
+                      >
+                        <div style={{ fontSize: '12px', color: '#0D1A2E' }}>
+                          <span style={{ fontWeight: 700, color: '#003580', marginRight: '6px' }}>#{puntoId}</span>
+                          {snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}
+                        </div>
+                        <span style={{
+                          fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
+                          background: valor === 'SI' ? '#0F7A55' : '#C8102E', color: '#ffffff'
+                        }}>
+                          {valor === 'SI' ? '✓ SÍ' : '✕ NO'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: '12px', color: '#5A6A80', fontStyle: 'italic' }}>
+                  Esta auditoría se capturó sin respuestas individuales de checklist o mediante hallazgos directos.
+                </div>
+              )}
+            </div>
+
+            {/* Hallazgos y Acciones Registradas */}
+            {auditoriaDetalleModal.hallazgos && auditoriaDetalleModal.hallazgos.length > 0 && (
+              <div style={{ marginTop: '14px', borderTop: '1px solid #E8EEF8', paddingTop: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Desviaciones y Acciones Correctivas Registradas:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {auditoriaDetalleModal.hallazgos.map((h: any, i: number) => (
+                    <div key={i} style={{ background: '#FFF8F8', border: '1px solid #FCA5A5', padding: '10px 12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
+                        {h.hallazgo || 'Desviación no especificada'}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
+                        <div><strong>Acción:</strong> {h.accion || 'Sin registrar'}</div>
+                        <div><strong>Responsable:</strong> {h.responsable || 'No asignado'}</div>
+                        <div><strong>Fecha Cierre:</strong> {h.fechaCierre || 'N/A'}</div>
+                        <div><strong>Estatus:</strong> {h.estadoSeguimiento || 'PENDIENTE'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: '1.2rem', textAlign: 'right' }}>
+              <button
+                type="button"
+                onClick={() => setAuditoriaDetalleModal(null)}
+                style={{
+                  padding: '8px 20px', background: '#003580', color: '#ffffff',
+                  border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                Cerrar Detalle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
