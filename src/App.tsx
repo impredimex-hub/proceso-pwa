@@ -187,7 +187,7 @@ export const App: React.FC = () => {
   const [plantillas5S, setPlantillas5S] = useState<Record<string, ItemChecklist[]>>({});
 
   // Editor de plantillas
-  const [moduloEditor, setModuloEditor] = useState<'PROCESO' | '5S'>('5S');
+  const [moduloEditor, setModuloEditor] = useState<'PROCESO' | '5S'>('PROCESO');
   const [tipoSeleccionadoEditor, setTipoSeleccionadoEditor] = useState<string>('Flexografía');
   const [checklistEnEdicion, setChecklistEnEdicion] = useState<ItemChecklist[]>([]);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -217,7 +217,6 @@ export const App: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    // 1. Escuchar evaluaciones
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
@@ -233,7 +232,6 @@ export const App: React.FC = () => {
       console.error('Error al escuchar Firestore:', error);
     });
 
-    // 2. Escuchar plantillas de Proceso
     const unsubPlantillasProceso = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataP: Record<string, ItemChecklist[]> = { Pegado: CHECKLIST_BASE_PEGADO };
       snapshot.docs.forEach((d) => {
@@ -243,7 +241,6 @@ export const App: React.FC = () => {
       setPlantillasProceso(dataP);
     });
 
-    // 3. Escuchar plantillas 5S
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
       const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
@@ -260,14 +257,14 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Cargar lista al cambiar familia o módulo en el editor
+  // Actualizar lista en edición cuando cambia la familia o el módulo
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
     const baseDefault = moduloEditor === 'PROCESO'
       ? (tipoSeleccionadoEditor === 'Pegado' ? CHECKLIST_BASE_PEGADO : [])
       : CHECKLIST_OFICIAL_5S;
     const items = fuente[tipoSeleccionadoEditor] || baseDefault;
-    setChecklistEnEdicion(items);
+    setChecklistEnEdicion(Array.isArray(items) ? [...items] : []);
     cancelarEdicionPregunta();
   }, [tipoSeleccionadoEditor, moduloEditor, plantillasProceso, plantillas5S]);
 
@@ -401,7 +398,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- EDITOR DE PLANTILLAS: ALTA Y MODIFICACIÓN DE PREGUNTAS ---
+  // --- EDITOR DE PLANTILLAS: ALTA Y EDICIÓN ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
@@ -410,7 +407,6 @@ export const App: React.FC = () => {
     }
 
     if (editandoId !== null) {
-      // Modificar pregunta existente
       setChecklistEnEdicion((prev) =>
         prev.map((item) =>
           item.id === editandoId
@@ -425,7 +421,6 @@ export const App: React.FC = () => {
       );
       cancelarEdicionPregunta();
     } else {
-      // Dar de alta una nueva pregunta
       const nuevoId = checklistEnEdicion.length > 0
         ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
         : 1;
@@ -479,14 +474,13 @@ export const App: React.FC = () => {
         actualizadoEn: serverTimestamp()
       });
 
-      // Actualizar estado en memoria de forma inmediata
       if (moduloEditor === 'PROCESO') {
-        setPlantillasProceso((prev) => ({ ...prev, [tipoSeleccionadoEditor]: checklistEnEdicion }));
+        setPlantillasProceso((prev) => ({ ...prev, [tipoSeleccionadoEditor]: [...checklistEnEdicion] }));
       } else {
-        setPlantillas5S((prev) => ({ ...prev, [tipoSeleccionadoEditor]: checklistEnEdicion }));
+        setPlantillas5S((prev) => ({ ...prev, [tipoSeleccionadoEditor]: [...checklistEnEdicion] }));
       }
 
-      alert(`✅ Plantilla de ${moduloEditor} para "${tipoSeleccionadoEditor}" guardada y aplicada a los checks.`);
+      alert(`✅ Plantilla de ${moduloEditor} para "${tipoSeleccionadoEditor}" guardada y actualizada.`);
     } catch (error) {
       console.error('Error al guardar plantilla:', error);
       alert('Error al guardar en Firebase.');
@@ -517,7 +511,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Cálculo automático de Gantt y atraso
   const hallazgosFiltradosGantt = historial.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
@@ -565,7 +558,6 @@ export const App: React.FC = () => {
       .filter(Boolean);
   });
 
-  // Filtro de la pestaña Auditorías
   const auditoriasFiltradas = historial.filter((item) => {
     const tipoDoc = item.tipoAuditoria || 'PROCESO';
     if (filtroAudTipoRevision && tipoDoc !== filtroAudTipoRevision) return false;
@@ -754,7 +746,7 @@ export const App: React.FC = () => {
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Configuración</div>
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Editor de Plantillas (Proceso y 5S)</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Editor de Plantillas y Listas de Verificación</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
                   Agrega nuevas preguntas, modifica las existentes o elimina puntos en Proceso y 5S.
                 </p>
@@ -786,6 +778,7 @@ export const App: React.FC = () => {
                   1. Selecciona el Proceso / Familia:
                 </label>
                 <select
+                  key="proceso-select-captura"
                   value={filtroProcesoFamilia}
                   onChange={(e) => {
                     setFiltroProcesoFamilia(e.target.value);
@@ -806,6 +799,7 @@ export const App: React.FC = () => {
                     2. Selecciona la Máquina:
                   </label>
                   <select
+                    key={`maquina-select-${filtroProcesoFamilia}`}
                     value={filtroProcesoMaquinaId}
                     onChange={(e) => setFiltroProcesoMaquinaId(e.target.value)}
                     style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
@@ -867,6 +861,7 @@ export const App: React.FC = () => {
                   1. Selecciona el Proceso o Área:
                 </label>
                 <select
+                  key="5s-select-captura"
                   value={filtro5SFamilia}
                   onChange={(e) => {
                     setFiltro5SFamilia(e.target.value);
@@ -887,6 +882,7 @@ export const App: React.FC = () => {
                     2. Selecciona la Máquina o Área Auxiliar:
                   </label>
                   <select
+                    key={`maquina-5s-${filtro5SFamilia}`}
                     value={filtro5SMaquinaId}
                     onChange={(e) => setFiltro5SMaquinaId(e.target.value)}
                     style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
@@ -929,7 +925,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN */}
+        {/* 4. VISTA DE EVALUACIÓN CON NÓMINAS */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1248,7 +1244,7 @@ export const App: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setModuloEditor('PROCESO');
-                    setTipoSeleccionadoEditor('Flexografía');
+                    setTipoSeleccionadoEditor(FAMILIAS_PROCESO[0] || 'Flexografía');
                     cancelarEdicionPregunta();
                   }}
                   style={{
@@ -1269,7 +1265,7 @@ export const App: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setModuloEditor('5S');
-                    setTipoSeleccionadoEditor('Flexografía');
+                    setTipoSeleccionadoEditor(FAMILIAS_5S[0] || 'Flexografía');
                     cancelarEdicionPregunta();
                   }}
                   style={{
@@ -1292,6 +1288,7 @@ export const App: React.FC = () => {
                 Selecciona la Familia o Categoría de {moduloEditor === '5S' ? '5S' : 'Proceso'}:
               </label>
               <select
+                key={`editor-select-familia-${moduloEditor}`}
                 value={tipoSeleccionadoEditor}
                 onChange={(e) => {
                   setTipoSeleccionadoEditor(e.target.value);
@@ -1787,7 +1784,7 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* B. SUBVISTA AUDITORÍAS CON FILTROS ESTRUCTURADOS Y DETALLE EN CLIC */}
+            {/* B. SUBVISTA AUDITORÍAS */}
             {subVistaHistorial === 'AUDITORIAS' && (
               <div>
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
@@ -1812,6 +1809,7 @@ export const App: React.FC = () => {
                     </select>
 
                     <select
+                      key={`aud-select-familia-${filtroAudTipoRevision}`}
                       value={filtroAudFamilia}
                       onChange={(e) => {
                         setFiltroAudFamilia(e.target.value);
@@ -1831,6 +1829,7 @@ export const App: React.FC = () => {
                     </select>
 
                     <select
+                      key={`aud-select-maquina-${filtroAudFamilia}-${filtroAudTipoRevision}`}
                       value={filtroAudMaquinaId}
                       onChange={(e) => setFiltroAudMaquinaId(e.target.value)}
                       style={STYLES.input}
