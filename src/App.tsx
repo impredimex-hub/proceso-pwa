@@ -168,14 +168,14 @@ export const App: React.FC = () => {
   // Modal para ver auditoría en detalle
   const [auditoriaDetalleModal, setAuditoriaDetalleModal] = useState<any | null>(null);
 
-  // Selectores dependientes de Proceso y 5S en captura
+  // Selectores dependientes en captura
   const [filtroProcesoFamilia, setFiltroProcesoFamilia] = useState('');
   const [filtroProcesoMaquinaId, setFiltroProcesoMaquinaId] = useState('');
   const [filtro5SFamilia, setFiltro5SFamilia] = useState('');
   const [filtro5SMaquinaId, setFiltro5SMaquinaId] = useState('');
 
   // Filtros en pestaña Auditorías
-  const [filtroAudTipoRevision, setFiltroAudTipoRevision] = useState(''); // '' | 'PROCESO' | '5S'
+  const [filtroAudTipoRevision, setFiltroAudTipoRevision] = useState('');
   const [filtroAudFamilia, setFiltroAudFamilia] = useState('');
   const [filtroAudMaquinaId, setFiltroAudMaquinaId] = useState('');
   const [filtroAudMes, setFiltroAudMes] = useState('');
@@ -217,6 +217,7 @@ export const App: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
+    // 1. Escuchar evaluaciones
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
@@ -232,6 +233,7 @@ export const App: React.FC = () => {
       console.error('Error al escuchar Firestore:', error);
     });
 
+    // 2. Escuchar plantillas de Proceso
     const unsubPlantillasProceso = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataP: Record<string, ItemChecklist[]> = { Pegado: CHECKLIST_BASE_PEGADO };
       snapshot.docs.forEach((d) => {
@@ -241,6 +243,7 @@ export const App: React.FC = () => {
       setPlantillasProceso(dataP);
     });
 
+    // 3. Escuchar plantillas 5S
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
       const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
@@ -257,6 +260,7 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Cargar lista al cambiar familia o módulo en el editor
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
     const baseDefault = moduloEditor === 'PROCESO'
@@ -265,9 +269,10 @@ export const App: React.FC = () => {
     const items = fuente[tipoSeleccionadoEditor] || baseDefault;
     setChecklistEnEdicion(items);
     cancelarEdicionPregunta();
-  }, [tipoSeleccionadoEditor, moduloEditor, plantillasProceso, plantillas5S, vista]);
+  }, [tipoSeleccionadoEditor, moduloEditor, plantillasProceso, plantillas5S]);
 
-  const itemsChecklistActivo = maquinaSeleccionada
+  // Selección reactiva de preguntas para la máquina activa
+  const itemsChecklistActivo: ItemChecklist[] = maquinaSeleccionada
     ? (tipoAuditoriaActiva === 'PROCESO'
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
         : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
@@ -374,7 +379,7 @@ export const App: React.FC = () => {
         fechaAuditoria: todayStr,
         respuestas: itemsChecklistActivo.length > 0 ? respuestas : {},
         hallazgos: listaHallazgos,
-        itemsSnapshot: itemsChecklistActivo, // Guarda snapshot del checklist para visualizarlo exactamente en auditorías
+        itemsSnapshot: itemsChecklistActivo,
         estadoFinal: (itemsChecklistActivo.length > 0 ? totalNo === 0 : listaHallazgos.length === 0) ? 'APROBADO' : 'CON_HALLAZGOS',
         createdAt: serverTimestamp()
       });
@@ -396,15 +401,16 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- EDITOR DE PLANTILLAS ---
+  // --- EDITOR DE PLANTILLAS: ALTA Y MODIFICACIÓN DE PREGUNTAS ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
-      alert('Completa la descripción y la forma de verificación.');
+      alert('Completa la descripción de lo que se observa y cómo se verifica.');
       return;
     }
 
     if (editandoId !== null) {
+      // Modificar pregunta existente
       setChecklistEnEdicion((prev) =>
         prev.map((item) =>
           item.id === editandoId
@@ -419,13 +425,15 @@ export const App: React.FC = () => {
       );
       cancelarEdicionPregunta();
     } else {
+      // Dar de alta una nueva pregunta
       const nuevoId = checklistEnEdicion.length > 0
         ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
         : 1;
 
+      const seccionDefault = moduloEditor === '5S' ? '1. ORDEN Y 5S' : 'PARÁMETROS OPERATIVOS';
       const nuevoItem: ItemChecklist = {
         id: nuevoId,
-        seccion: nuevaSeccion.trim() || (moduloEditor === '5S' ? '1. ORDEN Y 5S' : 'GENERAL · PARÁMETROS OPERATIVOS'),
+        seccion: nuevaSeccion.trim() || seccionDefault,
         queObservar: nuevoQueObservar.trim(),
         comoVerifica: nuevoComoVerifica.trim()
       };
@@ -433,6 +441,7 @@ export const App: React.FC = () => {
       setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
       setNuevoQueObservar('');
       setNuevoComoVerifica('');
+      setNuevaSeccion('');
     }
   };
 
@@ -451,7 +460,7 @@ export const App: React.FC = () => {
   };
 
   const handleEliminarPregunta = (id: number) => {
-    if (confirm('¿Deseas eliminar este punto del checklist?')) {
+    if (confirm(`¿Deseas eliminar el punto #${id} del checklist?`)) {
       setChecklistEnEdicion((prev) => prev.filter((item) => item.id !== id));
       if (editandoId === id) cancelarEdicionPregunta();
     }
@@ -462,6 +471,7 @@ export const App: React.FC = () => {
     try {
       const coleccionTarget = moduloEditor === 'PROCESO' ? 'plantillas_checklists' : 'plantillas_5s';
       const docRef = doc(db, coleccionTarget, tipoSeleccionadoEditor);
+      
       await setDoc(docRef, {
         tipo: tipoSeleccionadoEditor,
         modulo: moduloEditor,
@@ -469,7 +479,14 @@ export const App: React.FC = () => {
         actualizadoEn: serverTimestamp()
       });
 
-      alert(`✅ Plantilla de ${moduloEditor} para "${tipoSeleccionadoEditor}" guardada.`);
+      // Actualizar estado en memoria de forma inmediata
+      if (moduloEditor === 'PROCESO') {
+        setPlantillasProceso((prev) => ({ ...prev, [tipoSeleccionadoEditor]: checklistEnEdicion }));
+      } else {
+        setPlantillas5S((prev) => ({ ...prev, [tipoSeleccionadoEditor]: checklistEnEdicion }));
+      }
+
+      alert(`✅ Plantilla de ${moduloEditor} para "${tipoSeleccionadoEditor}" guardada y aplicada a los checks.`);
     } catch (error) {
       console.error('Error al guardar plantilla:', error);
       alert('Error al guardar en Firebase.');
@@ -500,7 +517,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Cálculo automático de Gantt y regla de atraso
+  // Cálculo automático de Gantt y atraso
   const hallazgosFiltradosGantt = historial.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
@@ -515,7 +532,6 @@ export const App: React.FC = () => {
         const fFin = h.fechaCierre || todayStr;
         let estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
 
-        // Regla automática: si no está terminado y la fecha actual es posterior a la fecha compromiso -> PENDIENTE_ATRASADO
         if (estatus !== 'TERMINADO' && todayStr > fFin) {
           estatus = 'PENDIENTE_ATRASADO';
         }
@@ -575,7 +591,6 @@ export const App: React.FC = () => {
     };
   });
 
-  // --- EXPORTAR A EXCEL (CSV COMPATIBLE CON BOM) ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -632,7 +647,6 @@ export const App: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // --- EXPORTAR A PDF (IMPRESIÓN HORIZONTAL) ---
   const handleExportarPDFGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -742,7 +756,7 @@ export const App: React.FC = () => {
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Editor de Plantillas (Proceso y 5S)</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
-                  Agrega, modifica o elimina preguntas técnicas de Proceso y listas de verificación 5S.
+                  Agrega nuevas preguntas, modifica las existentes o elimina puntos en Proceso y 5S.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
                   Gestión Dinámica
@@ -909,13 +923,13 @@ export const App: React.FC = () => {
                   boxShadow: filtro5SMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
                 }}
               >
-                Iniciar Auditoría 5S (20 Puntos) →
+                Iniciar Auditoría 5S →
               </button>
             </div>
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN CON NÓMINAS */}
+        {/* 4. VISTA DE EVALUACIÓN */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1129,7 +1143,6 @@ export const App: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Campo de descripción editable para todos los hallazgos */}
                         <div style={{ marginBottom: '8px' }}>
                           <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
                           <input
@@ -1215,12 +1228,12 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 5. VISTA EDITOR DE PLANTILLAS */}
+        {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS */}
         {vista === 'EDITOR_PLANTILLAS' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Checklists</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Listas de Verificación</div>
                 <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configuración integral para Proceso y Condiciones 5S</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
@@ -1228,6 +1241,7 @@ export const App: React.FC = () => {
               </button>
             </div>
 
+            {/* Selector de Módulo */}
             <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
                 <button
@@ -1235,10 +1249,11 @@ export const App: React.FC = () => {
                   onClick={() => {
                     setModuloEditor('PROCESO');
                     setTipoSeleccionadoEditor('Flexografía');
+                    cancelarEdicionPregunta();
                   }}
                   style={{
                     flex: 1,
-                    padding: '8px 12px',
+                    padding: '10px 14px',
                     borderRadius: '8px',
                     border: 'none',
                     fontSize: '12px',
@@ -1255,10 +1270,11 @@ export const App: React.FC = () => {
                   onClick={() => {
                     setModuloEditor('5S');
                     setTipoSeleccionadoEditor('Flexografía');
+                    cancelarEdicionPregunta();
                   }}
                   style={{
                     flex: 1,
-                    padding: '8px 12px',
+                    padding: '10px 14px',
                     borderRadius: '8px',
                     border: 'none',
                     fontSize: '12px',
@@ -1268,16 +1284,19 @@ export const App: React.FC = () => {
                     color: moduloEditor === '5S' ? '#ffffff' : '#003580'
                   }}
                 >
-                  🧹 Checklists de Condiciones 5S
+                  🧹 Listas de verificación de condiciones 5S
                 </button>
               </div>
 
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                Selecciona la Familia o Categoría de {moduloEditor}:
+                Selecciona la Familia o Categoría de {moduloEditor === '5S' ? '5S' : 'Proceso'}:
               </label>
               <select
                 value={tipoSeleccionadoEditor}
-                onChange={(e) => setTipoSeleccionadoEditor(e.target.value)}
+                onChange={(e) => {
+                  setTipoSeleccionadoEditor(e.target.value);
+                  cancelarEdicionPregunta();
+                }}
                 style={{ ...STYLES.input, maxWidth: '320px', fontWeight: 600 }}
               >
                 {(moduloEditor === 'PROCESO' ? FAMILIAS_PROCESO : FAMILIAS_5S).map((fam) => (
@@ -1286,14 +1305,14 @@ export const App: React.FC = () => {
               </select>
             </div>
 
-            {/* Formulario Agregar / Modificar */}
+            {/* Formulario de Alta y Modificación de Pregunta */}
             <div style={{ ...STYLES.glassCard, textAlign: 'left', border: editandoId !== null ? '1.5px solid #003580' : '1px solid rgba(255, 255, 255, 0.98)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: editandoId !== null ? '#16a34a' : '#003580', borderRadius: '2px' }}></div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
                   {editandoId !== null
                     ? `✏️ Modificar Punto #${editandoId} (${moduloEditor} - ${tipoSeleccionadoEditor})`
-                    : `+ Agregar Nuevo Punto a "${tipoSeleccionadoEditor}" (${moduloEditor})`}
+                    : `+ Dar de Alta Nueva Pregunta (${moduloEditor} - ${tipoSeleccionadoEditor})`}
                 </div>
               </div>
 
@@ -1342,14 +1361,14 @@ export const App: React.FC = () => {
                       background: editandoId !== null ? '#0F7A55' : '#003580',
                       color: '#ffffff',
                       border: 'none',
-                      padding: '8px 18px',
+                      padding: '9px 20px',
                       borderRadius: '8px',
                       fontSize: '12px',
                       fontWeight: 700,
                       cursor: 'pointer'
                     }}
                   >
-                    {editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Punto a la Lista'}
+                    {editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Pregunta a la Lista'}
                   </button>
                   {editandoId !== null && (
                     <button
@@ -1359,7 +1378,7 @@ export const App: React.FC = () => {
                         background: 'transparent',
                         border: '1px solid rgba(0,32,96,0.12)',
                         color: '#5A6A80',
-                        padding: '8px 14px',
+                        padding: '9px 16px',
                         borderRadius: '8px',
                         fontSize: '12px',
                         fontWeight: 600,
@@ -1373,9 +1392,9 @@ export const App: React.FC = () => {
               </form>
             </div>
 
-            {/* Lista de Preguntas */}
+            {/* Lista de Preguntas Configurada */}
             <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
@@ -1391,7 +1410,8 @@ export const App: React.FC = () => {
                     background: '#0F7A55', color: '#ffffff', border: 'none',
                     padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
                     cursor: guardandoPlantilla ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 2px 6px rgba(15,122,85,0.3)'
+                    boxShadow: '0 2px 6px rgba(15,122,85,0.3)',
+                    display: 'flex', alignItems: 'center', gap: '6px'
                   }}
                 >
                   {guardandoPlantilla ? 'Guardando en la Nube…' : `💾 Guardar Plantilla de ${moduloEditor} en Firebase`}
@@ -1400,7 +1420,7 @@ export const App: React.FC = () => {
 
               {checklistEnEdicion.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                  No hay preguntas configuradas para esta categoría de {moduloEditor}. Agrega la primera arriba.
+                  No hay preguntas configuradas para esta categoría de {moduloEditor}. Utiliza el formulario superior para dar de alta la primera.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1500,7 +1520,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* A. TABLA GANTT (CON BOTONES DE EXCEL Y PDF) */}
+            {/* A. TABLA GANTT */}
             {subVistaHistorial === 'GANTT' && (
               <div>
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
@@ -1509,7 +1529,6 @@ export const App: React.FC = () => {
                       Filtros de Búsqueda para Cronograma
                     </div>
 
-                    {/* Botones de Exportación */}
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="button"
@@ -1771,7 +1790,6 @@ export const App: React.FC = () => {
             {/* B. SUBVISTA AUDITORÍAS CON FILTROS ESTRUCTURADOS Y DETALLE EN CLIC */}
             {subVistaHistorial === 'AUDITORIAS' && (
               <div>
-                {/* Panel de Filtros para Auditorías */}
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
                     Filtros de Búsqueda de Auditorías
@@ -1779,7 +1797,6 @@ export const App: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', alignItems: 'center' }}>
                     
-                    {/* Filtro Tipo de Revisión */}
                     <select
                       value={filtroAudTipoRevision}
                       onChange={(e) => {
@@ -1794,7 +1811,6 @@ export const App: React.FC = () => {
                       <option value="5S">Condiciones y 5S</option>
                     </select>
 
-                    {/* Filtro Proceso / Familia */}
                     <select
                       value={filtroAudFamilia}
                       onChange={(e) => {
@@ -1814,7 +1830,6 @@ export const App: React.FC = () => {
                       ))}
                     </select>
 
-                    {/* Filtro Máquina (Dependiente) */}
                     <select
                       value={filtroAudMaquinaId}
                       onChange={(e) => setFiltroAudMaquinaId(e.target.value)}
@@ -1831,7 +1846,6 @@ export const App: React.FC = () => {
                       ))}
                     </select>
 
-                    {/* Filtro Mes */}
                     <select
                       value={filtroAudMes}
                       onChange={(e) => setFiltroAudMes(e.target.value)}
@@ -1926,7 +1940,6 @@ export const App: React.FC = () => {
 
                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
                           <div>
-                            {/* Porcentaje unificado con % */}
                             <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
                               {item.cumplimiento}%
                             </div>
@@ -1995,7 +2008,6 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Checklist Realizado */}
             <div style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', marginBottom: '8px' }}>
                 Respuestas del Checklist Registrado:
@@ -2036,7 +2048,6 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            {/* Hallazgos y Acciones Registradas */}
             {auditoriaDetalleModal.hallazgos && auditoriaDetalleModal.hallazgos.length > 0 && (
               <div style={{ marginTop: '14px', borderTop: '1px solid #E8EEF8', paddingTop: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', marginBottom: '8px' }}>
