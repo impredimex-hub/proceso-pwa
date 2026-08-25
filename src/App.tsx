@@ -398,7 +398,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- EDITOR DE PLANTILLAS: ALTA Y EDICIÓN ---
+  // --- EDITOR DE PLANTILLAS ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
@@ -679,7 +679,7 @@ export const App: React.FC = () => {
             background: '#003580', color: '#ffffff', border: 'none',
             padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
           }}>
-            Histórico ({historial.length})
+            <span>Histórico ({historial.length})</span>
           </button>
         </div>
       </header>
@@ -925,7 +925,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN CON NÓMINAS */}
+        {/* 4. VISTA DE EVALUACIÓN */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1025,10 +1025,10 @@ export const App: React.FC = () => {
                     const showHeader = idx === 0 || itemsChecklistActivo[idx - 1].seccion !== item.seccion;
 
                     return (
-                      <React.Fragment key={item.id}>
+                      <React.Fragment key={`check-item-${item.id}`}>
                         {showHeader && (
                           <div style={{ background: '#E8EEF8', color: '#002060', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', marginTop: idx === 0 ? '0' : '14px', textAlign: 'left' }}>
-                            {item.seccion}
+                            <span>{item.seccion}</span>
                           </div>
                         )}
                         <div style={{
@@ -1041,10 +1041,10 @@ export const App: React.FC = () => {
                           <div style={{ flex: '1 1 300px', textAlign: 'left' }}>
                             <div style={{ fontSize: '12.5px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
                               <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
-                              {item.queObservar}
+                              <span>{item.queObservar}</span>
                             </div>
                             <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                              <strong>Verificación:</strong> {item.comoVerifica}
+                              <strong>Verificación:</strong> <span>{item.comoVerifica}</span>
                             </div>
                           </div>
 
@@ -1083,7 +1083,7 @@ export const App: React.FC = () => {
             ) : (
               <div style={{ ...STYLES.glassCard, textAlign: 'left', padding: '16px 20px', background: '#f8fafc' }}>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
-                  Sin preguntas registradas para {maquinaSeleccionada?.tipo}
+                  <span>Sin preguntas registradas para {maquinaSeleccionada?.tipo}</span>
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5 }}>
                   Configura los puntos desde el <strong>Editor de Plantillas</strong> o registra observaciones con el botón <strong>"+ Agregar Hallazgo Extra"</strong>.
@@ -1097,7 +1097,7 @@ export const App: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '3px', height: '18px', background: listaHallazgos.length > 0 ? '#C8102E' : '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: listaHallazgos.length > 0 ? '#7A0B1D' : '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                    Hallazgos y Acciones Correctivas ({listaHallazgos.length})
+                    <span>Hallazgos y Acciones Correctivas ({listaHallazgos.length})</span>
                   </div>
                 </div>
 
@@ -1123,10 +1123,10 @@ export const App: React.FC = () => {
                   {listaHallazgos.map((h) => {
                     const itemCheck = h.puntoId ? itemsChecklistActivo.find((i) => i.id === h.puntoId) : null;
                     return (
-                      <div key={h.id} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
+                      <div key={`hallazgo-item-${h.id}`} style={{ background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(200,16,46,0.25)', textAlign: 'left' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
-                            {h.esExtra ? '⚠️ Hallazgo Extra' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}
+                            <span>{h.esExtra ? '⚠️ Hallazgo Extra' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}</span>
                           </div>
                           {h.esExtra && (
                             <button
@@ -1218,7 +1218,7 @@ export const App: React.FC = () => {
                   boxShadow: '0 3px 10px rgba(0,53,128,0.35)'
                 }}
               >
-                {guardando ? 'Guardando en Firebase…' : 'Guardar Registro de Auditoría'}
+                <span>{guardando ? 'Guardando en Firebase…' : 'Guardar Registro de Auditoría'}</span>
               </button>
             </div>
           </div>
@@ -1285,10 +1285,10 @@ export const App: React.FC = () => {
               </div>
 
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                Selecciona la Familia o Categoría de {moduloEditor === '5S' ? '5S' : 'Proceso'}:
+                <span>Selecciona la Familia o Categoría de {moduloEditor === '5S' ? '5S' : 'Proceso'}:</span>
               </label>
               <select
-                key={`editor-select-familia-${moduloEditor}`}
+                key={`editor-select-${moduloEditor}`}
                 value={tipoSeleccionadoEditor}
                 onChange={(e) => {
                   setTipoSeleccionadoEditor(e.target.value);
@@ -1297,7 +1297,7 @@ export const App: React.FC = () => {
                 style={{ ...STYLES.input, maxWidth: '320px', fontWeight: 600 }}
               >
                 {(moduloEditor === 'PROCESO' ? FAMILIAS_PROCESO : FAMILIAS_5S).map((fam) => (
-                  <option key={fam} value={fam}>{fam}</option>
+                  <option key={`fam-opt-${fam}`} value={fam}>{fam}</option>
                 ))}
               </select>
             </div>
@@ -1307,9 +1307,9 @@ export const App: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: editandoId !== null ? '#16a34a' : '#003580', borderRadius: '2px' }}></div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  {editandoId !== null
+                  <span>{editandoId !== null
                     ? `✏️ Modificar Punto #${editandoId} (${moduloEditor} - ${tipoSeleccionadoEditor})`
-                    : `+ Dar de Alta Nueva Pregunta (${moduloEditor} - ${tipoSeleccionadoEditor})`}
+                    : `+ Dar de Alta Nueva Pregunta (${moduloEditor} - ${tipoSeleccionadoEditor})`}</span>
                 </div>
               </div>
 
@@ -1317,7 +1317,7 @@ export const App: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>
-                      {moduloEditor === '5S' ? 'Pilar 5S / Sección:' : 'Sección / Categoría:'}
+                      <span>{moduloEditor === '5S' ? 'Pilar 5S / Sección:' : 'Sección / Categoría:'}</span>
                     </label>
                     <input
                       type="text"
@@ -1365,7 +1365,7 @@ export const App: React.FC = () => {
                       cursor: 'pointer'
                     }}
                   >
-                    {editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Pregunta a la Lista'}
+                    <span>{editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Pregunta a la Lista'}</span>
                   </button>
                   {editandoId !== null && (
                     <button
@@ -1395,7 +1395,7 @@ export const App: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                    Puntos de Revisión ({checklistEnEdicion.length})
+                    <span>Puntos de Revisión ({checklistEnEdicion.length})</span>
                   </div>
                 </div>
 
@@ -1411,13 +1411,13 @@ export const App: React.FC = () => {
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}
                 >
-                  {guardandoPlantilla ? 'Guardando en la Nube…' : `💾 Guardar Plantilla de ${moduloEditor} en Firebase`}
+                  <span>{guardandoPlantilla ? 'Guardando en la Nube…' : `💾 Guardar Plantilla de ${moduloEditor} en Firebase`}</span>
                 </button>
               </div>
 
               {checklistEnEdicion.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                  No hay preguntas configuradas para esta categoría de {moduloEditor}. Utiliza el formulario superior para dar de alta la primera.
+                  <span>No hay preguntas configuradas para esta categoría de {moduloEditor}. Utiliza el formulario superior para dar de alta la primera.</span>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1425,7 +1425,7 @@ export const App: React.FC = () => {
                     const estaSiendoEditado = editandoId === item.id;
                     return (
                       <div
-                        key={item.id}
+                        key={`edicion-item-${item.id}`}
                         style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: '10px 14px', borderRadius: '8px',
@@ -1435,13 +1435,13 @@ export const App: React.FC = () => {
                       >
                         <div style={{ flex: '1 1 300px' }}>
                           <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
-                            {item.seccion}
+                            <span>{item.seccion}</span>
                           </div>
                           <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
-                            #{item.id} {item.queObservar}
+                            <span>#{item.id} {item.queObservar}</span>
                           </div>
                           <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                            <strong>Verificación:</strong> {item.comoVerifica}
+                            <strong>Verificación:</strong> <span>{item.comoVerifica}</span>
                           </div>
                         </div>
 
@@ -1498,7 +1498,7 @@ export const App: React.FC = () => {
                     fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  Auditorías ({historial.length})
+                  <span>Auditorías ({historial.length})</span>
                 </button>
                 <button
                   onClick={() => setSubVistaHistorial('GANTT')}
@@ -1509,7 +1509,7 @@ export const App: React.FC = () => {
                     fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  Tabla Gantt ({hallazgosFiltradosGantt.length})
+                  <span>Tabla Gantt ({hallazgosFiltradosGantt.length})</span>
                 </button>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                   Cerrar
@@ -1557,6 +1557,7 @@ export const App: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'center' }}>
                     
                     <select
+                      key="gantt-sel-orig"
                       value={filtroOrigenGantt}
                       onChange={(e) => setFiltroOrigenGantt(e.target.value)}
                       style={STYLES.input}
@@ -1567,17 +1568,19 @@ export const App: React.FC = () => {
                     </select>
 
                     <select
+                      key="gantt-sel-maq"
                       value={filtroMaquinaGantt}
                       onChange={(e) => setFiltroMaquinaGantt(e.target.value)}
                       style={STYLES.input}
                     >
                       <option value="">Todas las máquinas y áreas</option>
                       {CATALOGO.map((m) => (
-                        <option key={m.id} value={m.nombre}>{m.nombre}</option>
+                        <option key={`gantt-maq-${m.id}`} value={m.nombre}>{m.nombre}</option>
                       ))}
                     </select>
 
                     <select
+                      key="gantt-sel-mes"
                       value={filtroMesGantt}
                       onChange={(e) => setFiltroMesGantt(e.target.value)}
                       style={STYLES.input}
@@ -1608,6 +1611,7 @@ export const App: React.FC = () => {
                     />
 
                     <select
+                      key="gantt-sel-cumpl"
                       value={filtroCumplimientoGantt}
                       onChange={(e) => setFiltroCumplimientoGantt(e.target.value)}
                       style={STYLES.input}
@@ -1672,7 +1676,7 @@ export const App: React.FC = () => {
 
                         <tr style={{ background: '#003580', color: '#ffffff', textAlign: 'center' }}>
                           {diasGantt.map((d, i) => (
-                            <th key={i} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>
+                            <th key={`d-col-${i}`} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>
                               {d.letra}
                             </th>
                           ))}
@@ -1689,13 +1693,13 @@ export const App: React.FC = () => {
                           const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
                           return (
-                            <tr key={`${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
+                            <tr key={`gantt-row-${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>
                                 {idx + 1}
                               </td>
 
                               <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#002060', fontWeight: 600 }}>
-                                {item.fechaAuditoria}
+                                <span>{item.fechaAuditoria}</span>
                               </td>
 
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
@@ -1707,20 +1711,20 @@ export const App: React.FC = () => {
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
                                 <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
                                 <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                                  {item.tipoAuditoria === '5S' ? '5S' : `OP: ${item.ordenTrabajo || 'S/N'}`} · {item.accion || 'Sin acción'}
+                                  <span>{item.tipoAuditoria === '5S' ? '5S' : `OP: ${item.ordenTrabajo || 'S/N'}`} · {item.accion || 'Sin acción'}</span>
                                 </div>
                               </td>
 
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>
-                                {item.responsable || 'No asignado'}
+                                <span>{item.responsable || 'No asignado'}</span>
                               </td>
 
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
-                                {item.fechaInicio}
+                                <span>{item.fechaInicio}</span>
                               </td>
 
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
-                                {item.fechaFin}
+                                <span>{item.fechaFin}</span>
                               </td>
 
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#002060' }}>
@@ -1747,7 +1751,7 @@ export const App: React.FC = () => {
                                   }}
                                   title="Haz clic para alternar: PENDIENTE → TERMINADO → PENDIENTE ATRASADO"
                                 >
-                                  {estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}
+                                  <span>{estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}</span>
                                 </button>
                               </td>
 
@@ -1763,7 +1767,7 @@ export const App: React.FC = () => {
 
                                 return (
                                   <td
-                                    key={dIdx}
+                                    key={`celda-${idx}-${dIdx}`}
                                     style={{
                                       border: '1px solid rgba(0,32,96,0.06)',
                                       background: bgCelda,
@@ -1795,6 +1799,7 @@ export const App: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', alignItems: 'center' }}>
                     
                     <select
+                      key="aud-sel-rev"
                       value={filtroAudTipoRevision}
                       onChange={(e) => {
                         setFiltroAudTipoRevision(e.target.value);
@@ -1824,7 +1829,7 @@ export const App: React.FC = () => {
                         ? FAMILIAS_5S
                         : FAMILIAS_TODAS
                       ).map((fam) => (
-                        <option key={fam} value={fam}>{fam}</option>
+                        <option key={`aud-fam-${fam}`} value={fam}>{fam}</option>
                       ))}
                     </select>
 
@@ -1841,11 +1846,12 @@ export const App: React.FC = () => {
                         if (filtroAudFamilia && m.tipo !== filtroAudFamilia) return false;
                         return true;
                       }).map((m) => (
-                        <option key={m.id} value={m.id}>{m.nombre}</option>
+                        <option key={`aud-maq-${m.id}`} value={m.id}>{m.nombre}</option>
                       ))}
                     </select>
 
                     <select
+                      key="aud-sel-mes"
                       value={filtroAudMes}
                       onChange={(e) => setFiltroAudMes(e.target.value)}
                       style={STYLES.input}
@@ -1897,7 +1903,7 @@ export const App: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {auditoriasFiltradas.map((item) => (
                       <div
-                        key={item.id}
+                        key={`aud-card-${item.id}`}
                         onClick={() => setAuditoriaDetalleModal(item)}
                         style={{
                           ...STYLES.glassCard,
@@ -1928,11 +1934,11 @@ export const App: React.FC = () => {
                             </span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                            Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · {item.tipoAuditoria === '5S' ? '' : `OP: ${item.ordenTrabajo || 'S/N'} · `}Auditor: <strong>{item.auditor}</strong> · {item.turno}
+                            <span>Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · {item.tipoAuditoria === '5S' ? '' : `OP: ${item.ordenTrabajo || 'S/N'} · `}Auditor: <strong>{item.auditor}</strong> · {item.turno}</span>
                           </div>
                           {(item.nominaAuditado || item.nominaSupervisor) && (
                             <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                              Auditado (Nóm): <strong>{item.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{item.nominaSupervisor || 'N/A'}</strong>
+                              <span>Auditado (Nóm): <strong>{item.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{item.nominaSupervisor || 'N/A'}</strong></span>
                             </div>
                           )}
                         </div>
@@ -1940,10 +1946,10 @@ export const App: React.FC = () => {
                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
                           <div>
                             <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                              {item.cumplimiento}%
+                              <span>{item.cumplimiento}%</span>
                             </div>
                             <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                              {item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos
+                              <span>{item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos</span>
                             </div>
                           </div>
                           <span style={{ fontSize: '13px', color: '#003580', fontWeight: 700 }}>🔍 Ver Check</span>
@@ -1988,28 +1994,28 @@ export const App: React.FC = () => {
                   </span>
                 </div>
                 <div style={{ fontSize: '12px', color: '#5A6A80', marginTop: '4px' }}>
-                  Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}
+                  <span>Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}</span>
                 </div>
                 {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor) && (
                   <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                    Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong>
+                    <span>Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong></span>
                   </div>
                 )}
               </div>
 
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '22px', fontWeight: 700, color: auditoriaDetalleModal.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                  {auditoriaDetalleModal.cumplimiento}%
+                  <span>{auditoriaDetalleModal.cumplimiento}%</span>
                 </div>
                 <div style={{ fontSize: '10px', color: '#5A6A80' }}>
-                  {auditoriaDetalleModal.totalSi} SÍ / {auditoriaDetalleModal.totalNo} NO
+                  <span>{auditoriaDetalleModal.totalSi} SÍ / {auditoriaDetalleModal.totalNo} NO</span>
                 </div>
               </div>
             </div>
 
             <div style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Respuestas del Checklist Registrado:
+                <span>Respuestas del Checklist Registrado:</span>
               </div>
 
               {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
@@ -2018,7 +2024,7 @@ export const App: React.FC = () => {
                     const snapItem = (auditoriaDetalleModal.itemsSnapshot || (auditoriaDetalleModal.tipoAuditoria === '5S' ? CHECKLIST_OFICIAL_5S : CHECKLIST_BASE_PEGADO))?.find((i: any) => String(i.id) === String(puntoId));
                     return (
                       <div
-                        key={puntoId}
+                        key={`modal-punto-${puntoId}`}
                         style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: '8px 12px', borderRadius: '8px',
@@ -2028,7 +2034,7 @@ export const App: React.FC = () => {
                       >
                         <div style={{ fontSize: '12px', color: '#0D1A2E' }}>
                           <span style={{ fontWeight: 700, color: '#003580', marginRight: '6px' }}>#{puntoId}</span>
-                          {snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}
+                          <span>{snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}</span>
                         </div>
                         <span style={{
                           fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
@@ -2042,7 +2048,7 @@ export const App: React.FC = () => {
                 </div>
               ) : (
                 <div style={{ fontSize: '12px', color: '#5A6A80', fontStyle: 'italic' }}>
-                  Esta auditoría se capturó sin respuestas individuales de checklist o mediante hallazgos directos.
+                  <span>Esta auditoría se capturó sin respuestas individuales de checklist o mediante hallazgos directos.</span>
                 </div>
               )}
             </div>
@@ -2050,19 +2056,19 @@ export const App: React.FC = () => {
             {auditoriaDetalleModal.hallazgos && auditoriaDetalleModal.hallazgos.length > 0 && (
               <div style={{ marginTop: '14px', borderTop: '1px solid #E8EEF8', paddingTop: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Desviaciones y Acciones Correctivas Registradas:
+                  <span>Desviaciones y Acciones Correctivas Registradas:</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {auditoriaDetalleModal.hallazgos.map((h: any, i: number) => (
-                    <div key={i} style={{ background: '#FFF8F8', border: '1px solid #FCA5A5', padding: '10px 12px', borderRadius: '8px' }}>
+                    <div key={`modal-hallazgo-${i}`} style={{ background: '#FFF8F8', border: '1px solid #FCA5A5', padding: '10px 12px', borderRadius: '8px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
-                        {h.hallazgo || 'Desviación no especificada'}
+                        <span>{h.hallazgo || 'Desviación no especificada'}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
-                        <div><strong>Acción:</strong> {h.accion || 'Sin registrar'}</div>
-                        <div><strong>Responsable:</strong> {h.responsable || 'No asignado'}</div>
-                        <div><strong>Fecha Cierre:</strong> {h.fechaCierre || 'N/A'}</div>
-                        <div><strong>Estatus:</strong> {h.estadoSeguimiento || 'PENDIENTE'}</div>
+                        <div><strong>Acción:</strong> <span>{h.accion || 'Sin registrar'}</span></div>
+                        <div><strong>Responsable:</strong> <span>{h.responsable || 'No asignado'}</span></div>
+                        <div><strong>Fecha Cierre:</strong> <span>{h.fechaCierre || 'N/A'}</span></div>
+                        <div><strong>Estatus:</strong> <span>{h.estadoSeguimiento || 'PENDIENTE'}</span></div>
                       </div>
                     </div>
                   ))}
