@@ -152,6 +152,7 @@ interface Hallazgo {
   id: string;
   puntoId?: number;
   esExtra?: boolean;
+  esReincidente?: boolean;
   hallazgo: string;
   accion: string;
   responsable: string;
@@ -178,6 +179,19 @@ export const App: React.FC = () => {
 
   // Modal para ver auditoría en detalle
   const [auditoriaDetalleModal, setAuditoriaDetalleModal] = useState<any | null>(null);
+
+  // Modal para alerta de Reincidencia
+  const [modalReincidencia, setModalReincidencia] = useState<{
+    abierto: boolean;
+    puntoId: number;
+    itemCheck: ItemChecklist | null;
+    hallazgosPrevios: any[];
+  }>({
+    abierto: false,
+    puntoId: 0,
+    itemCheck: null,
+    hallazgosPrevios: []
+  });
 
   // Estados para agregar desviación desde el Modal de Detalle
   const [mostrarFormNuevoHallazgoModal, setMostrarFormNuevoHallazgoModal] = useState(false);
@@ -224,6 +238,7 @@ export const App: React.FC = () => {
   const [nominaSupervisor, setNominaSupervisor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   const [respuestas, setRespuestas] = useState<Record<number, 'SI' | 'NO' | null>>({});
+  const [puntosSoloReincidentes, setPuntosSoloReincidentes] = useState<number[]>([]);
   const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
   const [guardando, setGuardando] = useState(false);
   const [historial, setHistorial] = useState<any[]>([]);
@@ -255,7 +270,6 @@ export const App: React.FC = () => {
       });
       setHistorial(docs);
 
-      // Si el modal está abierto, mantener sincronizada la vista de detalle
       if (auditoriaDetalleModal) {
         const docActivo = docs.find((d) => d.id === auditoriaDetalleModal.id);
         if (docActivo) setAuditoriaDetalleModal(docActivo);
@@ -305,32 +319,108 @@ export const App: React.FC = () => {
         : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
     : [];
 
+  // --- DETECCIÓN DE HALLAZGOS REINCIDENTES / REPETIDOS ---
   const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
     setRespuestas((prev) => ({ ...prev, [puntoId]: valor }));
     const key = `punto_${puntoId}`;
 
-    if (valor === 'NO' && !hallazgos[key]) {
+    if (valor === 'SI') {
+      // Si cambia a SÍ, remover de hallazgos y de reincidentes
+      if (hallazgos[key]) {
+        setHallazgos((prev) => {
+          const copy = { ...prev };
+          delete copy[key];
+          return copy;
+        });
+      }
+      setPuntosSoloReincidentes((prev) => prev.filter((id) => id !== puntoId));
+      return;
+    }
+
+    if (valor === 'NO') {
       const item = itemsChecklistActivo.find((i) => i.id === puntoId);
+      
+      // Buscar en el histórico si esta máquina ya tuvo fallas en este punto
+      const hallazgosAnteriores: any[] = [];
+      historial.forEach((aud) => {
+        if (aud.maquinaNombre === maquinaSeleccionada?.nombre && aud.hallazgos && Array.isArray(aud.hallazgos)) {
+          aud.hallazgos.forEach((h: any) => {
+            if (h.puntoId === puntoId) {
+              hallazgosAnteriores.push({
+                ...h,
+                fechaAuditoria: aud.fechaAuditoria || 'Fecha no registrada',
+                auditor: aud.auditor
+              });
+            }
+          });
+        }
+      });
+
+      if (hallazgosAnteriores.length > 0) {
+        // Disparar modal de reincidencia
+        setModalReincidencia({
+          abierto: true,
+          puntoId,
+          itemCheck: item || null,
+          hallazgosPrevios: hallazgosAnteriores
+        });
+      } else {
+        // Flujo normal sin reincidencia previa
+        if (!hallazgos[key]) {
+          setHallazgos((prev) => ({
+            ...prev,
+            [key]: {
+              id: key,
+              puntoId,
+              esExtra: false,
+              esReincidente: false,
+              hallazgo: `Desviación en: ${item?.queObservar || ''}`,
+              accion: '',
+              responsable: '',
+              fechaCierre: todayStr,
+              estadoSeguimiento: 'PENDIENTE'
+            }
+          }));
+        }
+      }
+    }
+  };
+
+  // Confirmar acción desde el modal de reincidencia
+  const handleConfirmarReincidencia = (marcarComoNuevo: boolean) => {
+    const { puntoId, itemCheck } = modalReincidencia;
+    const key = `punto_${puntoId}`;
+
+    if (marcarComoNuevo) {
+      // Flujo normal: se carga en la sección de desviaciones y en el Gantt con indicador de reincidente
       setHallazgos((prev) => ({
         ...prev,
         [key]: {
           id: key,
           puntoId,
           esExtra: false,
-          hallazgo: `Desviación en: ${item?.queObservar || ''}`,
+          esReincidente: true,
+          hallazgo: `(Reincidente) Desviación en: ${itemCheck?.queObservar || ''}`,
           accion: '',
           responsable: '',
           fechaCierre: todayStr,
           estadoSeguimiento: 'PENDIENTE'
         }
       }));
-    } else if (valor === 'SI' && hallazgos[key]) {
-      setHallazgos((prev) => {
-        const copy = { ...prev };
-        delete copy[key];
-        return copy;
-      });
+      setPuntosSoloReincidentes((prev) => prev.filter((id) => id !== puntoId));
+    } else {
+      // Marcar solo como reincidente: computa en el check como NO pero no genera tarea ni entra al Gantt
+      if (hallazgos[key]) {
+        setHallazgos((prev) => {
+          const copy = { ...prev };
+          delete copy[key];
+          return copy;
+        });
+      }
+      setPuntosSoloReincidentes((prev) => Array.from(new Set([...prev, puntoId])));
     }
+
+    setModalReincidencia({ abierto: false, puntoId: 0, itemCheck: null, hallazgosPrevios: [] });
   };
 
   const handleAddHallazgoExtra = () => {
@@ -340,6 +430,7 @@ export const App: React.FC = () => {
       [extraId]: {
         id: extraId,
         esExtra: true,
+        esReincidente: false,
         hallazgo: '',
         accion: '',
         responsable: '',
@@ -405,6 +496,7 @@ export const App: React.FC = () => {
         totalNo: itemsChecklistActivo.length > 0 ? totalNo : listaHallazgos.length,
         fechaAuditoria: todayStr,
         respuestas: itemsChecklistActivo.length > 0 ? respuestas : {},
+        puntosSoloReincidentes: puntosSoloReincidentes,
         hallazgos: listaHallazgos,
         itemsSnapshot: itemsChecklistActivo,
         estadoFinal: (itemsChecklistActivo.length > 0 ? totalNo === 0 : listaHallazgos.length === 0) ? 'APROBADO' : 'CON_HALLAZGOS',
@@ -413,6 +505,7 @@ export const App: React.FC = () => {
 
       alert('✅ Auditoría guardada y sincronizada correctamente.');
       setRespuestas({});
+      setPuntosSoloReincidentes([]);
       setHallazgos({});
       setOrdenTrabajo('');
       setAuditor('');
@@ -428,7 +521,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- OBTENER PLANTILLA CORRESPONDIENTE A UNA AUDITORÍA DEL MODAL ---
   const obtenerPlantillaAuditoriaModal = (auditoria: any): ItemChecklist[] => {
     if (!auditoria) return [];
     if (auditoria.itemsSnapshot && Array.isArray(auditoria.itemsSnapshot) && auditoria.itemsSnapshot.length > 0) {
@@ -441,7 +533,6 @@ export const App: React.FC = () => {
     return plantillasProceso[auditoria.tipoMaquina] || CHECKLIST_BASE_PEGADO;
   };
 
-  // --- AGREGAR DESVIACIÓN DESDE EL MODAL A UNA AUDITORÍA EXISTENTE ---
   const handleGuardarDesviacionModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auditoriaDetalleModal) return;
@@ -472,6 +563,7 @@ export const App: React.FC = () => {
           id: `punto_${pId}_${Date.now()}`,
           puntoId: pId,
           esExtra: false,
+          esReincidente: false,
           hallazgo: descNuevoHallazgoModal.trim(),
           accion: accionNuevoHallazgoModal.trim() || 'Sin registrar',
           responsable: respNuevoHallazgoModal.trim() || 'No asignado',
@@ -482,6 +574,7 @@ export const App: React.FC = () => {
         nuevoHallazgoObj = {
           id: `extra_${Date.now()}`,
           esExtra: true,
+          esReincidente: false,
           hallazgo: descNuevoHallazgoModal.trim(),
           accion: accionNuevoHallazgoModal.trim() || 'Sin registrar',
           responsable: respNuevoHallazgoModal.trim() || 'No asignado',
@@ -492,7 +585,6 @@ export const App: React.FC = () => {
 
       hallazgosActuales.push(nuevoHallazgoObj);
 
-      // Recalcular cumplimiento y estatus
       const totalPuntos = plantilla.length > 0 ? plantilla.length : Object.keys(respuestasActuales).length;
       const totalSiCalc = Object.values(respuestasActuales).filter((v) => v === 'SI').length;
       const totalNoCalc = Object.values(respuestasActuales).filter((v) => v === 'NO').length;
@@ -508,7 +600,6 @@ export const App: React.FC = () => {
         estadoFinal: 'CON_HALLAZGOS'
       });
 
-      // Actualizar estado en el modal abierto
       setAuditoriaDetalleModal((prev: any) => ({
         ...prev,
         hallazgos: hallazgosActuales,
@@ -519,7 +610,6 @@ export const App: React.FC = () => {
         estadoFinal: 'CON_HALLAZGOS'
       }));
 
-      // Limpiar formulario de inserción
       setMostrarFormNuevoHallazgoModal(false);
       setPuntoSeleccionadoModal('');
       setDescNuevoHallazgoModal('');
@@ -536,7 +626,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- EDITOR DE PLANTILLAS ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
@@ -679,6 +768,9 @@ export const App: React.FC = () => {
 
         if (filtroCumplimientoGantt && estatus !== filtroCumplimientoGantt) return null;
 
+        // Comprobar si es reincidente por bandera o por hallazgo previo
+        const esReincidente = h.esReincidente || (h.hallazgo && h.hallazgo.toLowerCase().includes('reincidente'));
+
         return {
           ...h,
           docId: auditoria.id,
@@ -690,7 +782,8 @@ export const App: React.FC = () => {
           fechaAuditoria: fAuditoria,
           fechaInicio: fAuditoria,
           fechaFin: fFin,
-          estadoSeguimiento: estatus
+          estadoSeguimiento: estatus,
+          esReincidente: esReincidente
         };
       })
       .filter(Boolean);
@@ -721,6 +814,7 @@ export const App: React.FC = () => {
     };
   });
 
+  // --- EXPORTAR A EXCEL CON FORMATO Y COLUMNA REINCIDENTE ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -761,7 +855,7 @@ export const App: React.FC = () => {
           <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaFin}</td>
           <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold;">${diasTotal}</td>
           <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; background-color: ${statusBg}; color: ${statusColor};">
-            ${item.estadoSeguimiento}
+            ${item.estadoSeguimiento} ${item.esReincidente ? '<br/><span style="color:#C8102E; font-size:9pt;">(Reincidente)</span>' : ''}
           </td>
         </tr>
       `;
@@ -1212,6 +1306,7 @@ export const App: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {itemsChecklistActivo.map((item, idx) => {
                     const resp = respuestas[item.id];
+                    const esSoloReincidente = puntosSoloReincidentes.includes(item.id);
                     const showHeader = idx === 0 || itemsChecklistActivo[idx - 1].seccion !== item.seccion;
 
                     return (
@@ -1232,6 +1327,11 @@ export const App: React.FC = () => {
                             <div style={{ fontSize: '12.5px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
                               <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
                               <span>{item.queObservar}</span>
+                              {esSoloReincidente && (
+                                <span style={{ marginLeft: '8px', fontSize: '10px', background: '#FDE8EB', color: '#C8102E', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                  ⚠️ REINCIDENTE
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
                               <strong>Verificación:</strong> <span>{item.comoVerifica}</span>
@@ -1306,7 +1406,9 @@ export const App: React.FC = () => {
 
               {listaHallazgos.length === 0 ? (
                 <div style={{ fontSize: '12px', color: '#5A6A80', textAlign: 'center', padding: '14px 10px' }}>
-                  No hay hallazgos registrados. Si una pregunta se marca como "NO" o agregas un hallazgo extra, aparecerá aquí.
+                  {puntosSoloReincidentes.length > 0 
+                    ? `Hay ${puntosSoloReincidentes.length} punto(s) marcado(s) como Reincidente(s). Afectan la calificación pero no generan tareas duplicadas en el Gantt.`
+                    : 'No hay hallazgos registrados. Si una pregunta se marca como "NO" o agregas un hallazgo extra, aparecerá aquí.'}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1317,6 +1419,11 @@ export const App: React.FC = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D' }}>
                             <span>{h.esExtra ? '⚠️ Hallazgo Extra' : `Punto #${h.puntoId}: ${itemCheck?.queObservar}`}</span>
+                            {h.esReincidente && (
+                              <span style={{ marginLeft: '8px', fontSize: '10px', background: '#FDE8EB', color: '#C8102E', padding: '2px 6px', borderRadius: '4px' }}>
+                                (REINCIDENTE)
+                              </span>
+                            )}
                           </div>
                           {h.esExtra && (
                             <button
@@ -1401,7 +1508,7 @@ export const App: React.FC = () => {
                 onClick={handleGuardarEvaluacion}
                 style={{
                   padding: '11px 28px',
-                  background: listaHallazgos.length === 0 ? '#003580' : '#C8102E',
+                  background: (listaHallazgos.length === 0 && puntosSoloReincidentes.length === 0) ? '#003580' : '#C8102E',
                   color: '#ffffff', border: 'none', borderRadius: '8px',
                   fontSize: '13px', fontWeight: 700, letterSpacing: '.02em',
                   cursor: guardando ? 'not-allowed' : 'pointer',
@@ -1854,7 +1961,7 @@ export const App: React.FC = () => {
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '120px' }} rowSpan={2}>Cumplimiento</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '130px' }} rowSpan={2}>Cumplimiento</th>
 
                           <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
                             Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
@@ -1921,6 +2028,7 @@ export const App: React.FC = () => {
                                 {diasTotal}
                               </td>
 
+                              {/* Columna Cumplimiento con Leyenda Reincidente */}
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
@@ -1943,6 +2051,11 @@ export const App: React.FC = () => {
                                 >
                                   <span>{estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}</span>
                                 </button>
+                                {item.esReincidente && (
+                                  <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#C8102E', marginTop: '3px', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                                    Reincidente
+                                  </div>
+                                )}
                               </td>
 
                               {diasGantt.map((diaCol, dIdx) => {
@@ -2158,6 +2271,84 @@ export const App: React.FC = () => {
         )}
 
       </main>
+
+      {/* MODAL DE ALERTA: HALLAZGO REINCIDENTE DETECTADO */}
+      {modalReincidencia.abierto && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 32, 96, 0.6)', backdropFilter: 'blur(6px)',
+          zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff', borderRadius: '16px', maxWidth: '600px', width: '100%',
+            padding: '1.6rem', boxShadow: '0 24px 48px rgba(0,0,0,0.3)', textAlign: 'left',
+            border: '2px solid #C8102E'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid #FEE2E2', paddingBottom: '10px', marginBottom: '14px' }}>
+              <span style={{ fontSize: '24px' }}>⚠️</span>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#991B1B', textTransform: 'uppercase' }}>
+                  Hallazgo Repetitivo / Reincidente Detectado
+                </div>
+                <div style={{ fontSize: '12px', color: '#5A6A80' }}>
+                  Máquina: <strong>{maquinaSeleccionada?.nombre}</strong> · Punto #{modalReincidencia.puntoId}
+                </div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#1F2937', lineHeight: 1.5, margin: '0 0 12px' }}>
+              El punto <strong>"#{modalReincidencia.puntoId} - {modalReincidencia.itemCheck?.queObservar}"</strong> ya cuenta con antecedentes de no conformidad en revisiones previas:
+            </p>
+
+            {/* Antecedentes previos */}
+            <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {modalReincidencia.hallazgosPrevios.slice(0, 3).map((prevH, pIdx) => (
+                <div key={pIdx} style={{ background: '#FFF5F5', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px', fontSize: '11.5px' }}>
+                  <div style={{ fontWeight: 700, color: '#991B1B', marginBottom: '3px' }}>
+                    📅 Fecha: {prevH.fechaAuditoria} · Auditor: {prevH.auditor}
+                  </div>
+                  <div style={{ color: '#374151', marginBottom: '2px' }}>
+                    <strong>Desviación:</strong> {prevH.hallazgo}
+                  </div>
+                  <div style={{ color: '#4B5563' }}>
+                    <strong>Acción previa:</strong> {prevH.accion || 'Sin registrar'} · <strong>Responsable:</strong> {prevH.responsable || 'No asignado'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize: '12.5px', fontWeight: 600, color: '#002060', margin: '0 0 16px' }}>
+              ¿Cómo deseas registrar esta no conformidad en la auditoría actual?
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => handleConfirmarReincidencia(true)}
+                style={{
+                  background: '#003580', color: '#ffffff', border: 'none',
+                  padding: '11px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700,
+                  cursor: 'pointer', textAlign: 'center', boxShadow: '0 2px 6px rgba(0,53,128,0.25)'
+                }}
+              >
+                ✓ Registrar Nueva Desviación y Acción Correctiva (Flujo Normal + Gantt)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleConfirmarReincidencia(false)}
+                style={{
+                  background: '#FFF1F2', color: '#991B1B', border: '1.5px solid #FCA5A5',
+                  padding: '11px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700,
+                  cursor: 'pointer', textAlign: 'center'
+                }}
+              >
+                ⚠️ Solo Marcar como Reincidente (Afecta Cumplimiento pero no duplica en Gantt)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DETALLE DE CHECKLIST REALIZADO CON AGREGAR DESVIACIÓN */}
       {auditoriaDetalleModal && (() => {
@@ -2375,6 +2566,8 @@ export const App: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
                       const snapItem = plantillaActual.find((i: any) => String(i.id) === String(puntoId));
+                      const esPuntoReincidente = auditoriaDetalleModal.puntosSoloReincidentes && auditoriaDetalleModal.puntosSoloReincidentes.includes(parseInt(puntoId, 10));
+
                       return (
                         <div
                           key={`modal-punto-${puntoId}`}
@@ -2388,6 +2581,11 @@ export const App: React.FC = () => {
                           <div style={{ fontSize: '12px', color: '#0D1A2E' }}>
                             <span style={{ fontWeight: 700, color: '#003580', marginRight: '6px' }}>#{puntoId}</span>
                             <span>{snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}</span>
+                            {esPuntoReincidente && (
+                              <span style={{ marginLeft: '8px', fontSize: '10px', background: '#FDE8EB', color: '#C8102E', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                ⚠️ REINCIDENTE
+                              </span>
+                            )}
                           </div>
                           <span style={{
                             fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
