@@ -159,13 +159,11 @@ interface Hallazgo {
   estadoSeguimiento?: EstadoCumplimiento;
 }
 
-// Función auxiliar de clasificación precisa
 const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
   const tipoOriginal = (docData.tipoAuditoria || '').toUpperCase();
   const tipoMaq = docData.tipoMaquina || '';
   const totalRespuestas = Object.keys(docData.respuestas || {}).length;
 
-  // Si tiene 20 respuestas o es una máquina sin checklist de proceso propio (no es pegado) y tiene respuestas de 5S
   if (totalRespuestas >= 17 || tipoOriginal === '5S' || (tipoMaq !== 'Pegado' && totalRespuestas > 0)) {
     return '5S';
   }
@@ -178,7 +176,6 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Modal para ver auditoría en detalle
   const [auditoriaDetalleModal, setAuditoriaDetalleModal] = useState<any | null>(null);
 
   // Selectores dependientes en captura
@@ -414,7 +411,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- EDITOR DE PLANTILLAS: ALTA Y EDICIÓN ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
@@ -599,57 +595,110 @@ export const App: React.FC = () => {
     };
   });
 
+  // --- EXPORTAR A EXCEL CON FORMATO Y ESTILOS NATIVOS ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
       return;
     }
 
-    const headers = [
-      '#',
-      'Tipo de Revisión',
-      'Fecha Auditoría',
-      'Máquina / Área',
-      'OP',
-      'Auditor',
-      'Actividad / Desviación',
-      'Acción Correctiva',
-      'Responsable',
-      'Fecha Inicio',
-      'Fecha Compromiso',
-      'Días',
-      'Cumplimiento'
-    ];
-
-    const rows = hallazgosFiltradosGantt.map((item: any, index: number) => {
+    const rowsHtml = hallazgosFiltradosGantt.map((item: any, index: number) => {
       const dIni = new Date(item.fechaInicio);
       const dFin = new Date(item.fechaFin);
       const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
       const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-      return [
-        index + 1,
-        item.tipoAuditoria,
-        item.fechaAuditoria,
-        `"${item.maquinaNombre}"`,
-        `"${item.ordenTrabajo || 'N/A'}"`,
-        `"${item.auditor}"`,
-        `"${(item.hallazgo || '').replace(/"/g, '""')}"`,
-        `"${(item.accion || '').replace(/"/g, '""')}"`,
-        `"${item.responsable || 'No asignado'}"`,
-        item.fechaInicio,
-        item.fechaFin,
-        diasTotal,
-        item.estadoSeguimiento
-      ].join(',');
-    });
+      const isEven = index % 2 === 0;
+      const rowBg = isEven ? '#FFFFFF' : '#F4F8FD';
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      let statusColor = '#7A4500';
+      let statusBg = '#FFF4E5';
+      if (item.estadoSeguimiento === 'TERMINADO') {
+        statusColor = '#0F7A55';
+        statusBg = '#E0F2EC';
+      } else if (item.estadoSeguimiento === 'PENDIENTE_ATRASADO') {
+        statusColor = '#C8102E';
+        statusBg = '#FDE8EB';
+      }
+
+      return `
+        <tr style="background-color: ${rowBg};">
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${index + 1}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; color: #002060;">${item.tipoAuditoria}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaAuditoria}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; font-weight: bold; color: #003580;">${item.maquinaNombre}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.ordenTrabajo || 'N/A'}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px;">${item.auditor}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; white-space: normal;">${item.hallazgo || ''}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; white-space: normal;">${item.accion || 'Sin acción'}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px;">${item.responsable || 'No asignado'}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaInicio}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaFin}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold;">${diasTotal}</td>
+          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; background-color: ${statusBg}; color: ${statusColor};">
+            ${item.estadoSeguimiento}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Cronograma Gantt</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <style>
+            table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+            th { background-color: #002060; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #001030; padding: 10px 8px; vertical-align: middle; }
+          </style>
+        </head>
+        <body>
+          <h2 style="color: #002060; font-family: Calibri, Arial, sans-serif;">IMPREDIMEX — Reporte de Cronograma Gantt y Acciones</h2>
+          <p style="color: #5A6A80; font-family: Calibri, Arial, sans-serif; font-size: 10pt;">Generado el: <strong>${todayStr}</strong> · Total de registros filtrados: <strong>${hallazgosFiltradosGantt.length}</strong></p>
+          <table border="1">
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th style="width: 140px;">Tipo de Revisión</th>
+                <th style="width: 110px;">Fecha Auditoría</th>
+                <th style="width: 160px;">Máquina / Área</th>
+                <th style="width: 90px;">OP</th>
+                <th style="width: 140px;">Auditor</th>
+                <th style="width: 320px;">Actividad / Desviación</th>
+                <th style="width: 260px;">Acción Correctiva</th>
+                <th style="width: 140px;">Responsable</th>
+                <th style="width: 100px;">Inicio</th>
+                <th style="width: 100px;">Compromiso</th>
+                <th style="width: 50px;">Días</th>
+                <th style="width: 130px;">Cumplimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Gantt_Acciones_IMPREDIMEX_${todayStr}.csv`);
+    link.setAttribute('download', `Gantt_Acciones_IMPREDIMEX_${todayStr}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2037,7 +2086,6 @@ export const App: React.FC = () => {
               {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
-                    // Selección de la plantilla correcta para visualizar
                     const plantillaReferencia = auditoriaDetalleModal.itemsSnapshot || 
                       (auditoriaDetalleModal.tipoAuditoria === '5S' || Object.keys(auditoriaDetalleModal.respuestas).length >= 17 || auditoriaDetalleModal.tipoMaquina !== 'Pegado' 
                         ? CHECKLIST_OFICIAL_5S 
