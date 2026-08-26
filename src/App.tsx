@@ -176,7 +176,18 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
+  // Modal para ver auditoría en detalle
   const [auditoriaDetalleModal, setAuditoriaDetalleModal] = useState<any | null>(null);
+
+  // Estados para agregar desviación desde el Modal de Detalle
+  const [mostrarFormNuevoHallazgoModal, setMostrarFormNuevoHallazgoModal] = useState(false);
+  const [tipoNuevoHallazgoModal, setTipoNuevoHallazgoModal] = useState<'PREESTABLECIDO' | 'EXTRA'>('PREESTABLECIDO');
+  const [puntoSeleccionadoModal, setPuntoSeleccionadoModal] = useState<string>('');
+  const [descNuevoHallazgoModal, setDescNuevoHallazgoModal] = useState('');
+  const [accionNuevoHallazgoModal, setAccionNuevoHallazgoModal] = useState('');
+  const [respNuevoHallazgoModal, setRespNuevoHallazgoModal] = useState('');
+  const [fechaCierreNuevoHallazgoModal, setFechaCierreNuevoHallazgoModal] = useState('');
+  const [guardandoHallazgoModal, setGuardandoHallazgoModal] = useState(false);
 
   // Selectores dependientes en captura
   const [filtroProcesoFamilia, setFiltroProcesoFamilia] = useState('');
@@ -243,6 +254,12 @@ export const App: React.FC = () => {
         return tB - tA;
       });
       setHistorial(docs);
+
+      // Si el modal está abierto, mantener sincronizada la vista de detalle
+      if (auditoriaDetalleModal) {
+        const docActivo = docs.find((d) => d.id === auditoriaDetalleModal.id);
+        if (docActivo) setAuditoriaDetalleModal(docActivo);
+      }
     }, (error) => {
       console.error('Error al escuchar Firestore:', error);
     });
@@ -270,7 +287,7 @@ export const App: React.FC = () => {
       unsubPlantillasProceso();
       unsubPlantillas5S();
     };
-  }, []);
+  }, [auditoriaDetalleModal?.id]);
 
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
@@ -411,6 +428,115 @@ export const App: React.FC = () => {
     }
   };
 
+  // --- OBTENER PLANTILLA CORRESPONDIENTE A UNA AUDITORÍA DEL MODAL ---
+  const obtenerPlantillaAuditoriaModal = (auditoria: any): ItemChecklist[] => {
+    if (!auditoria) return [];
+    if (auditoria.itemsSnapshot && Array.isArray(auditoria.itemsSnapshot) && auditoria.itemsSnapshot.length > 0) {
+      return auditoria.itemsSnapshot;
+    }
+    const tipoReal = auditoria.tipoAuditoria || 'PROCESO';
+    if (tipoReal === '5S' || auditoria.tipoMaquina !== 'Pegado') {
+      return plantillas5S[auditoria.tipoMaquina] || CHECKLIST_OFICIAL_5S;
+    }
+    return plantillasProceso[auditoria.tipoMaquina] || CHECKLIST_BASE_PEGADO;
+  };
+
+  // --- AGREGAR DESVIACIÓN DESDE EL MODAL A UNA AUDITORÍA EXISTENTE ---
+  const handleGuardarDesviacionModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auditoriaDetalleModal) return;
+
+    if (tipoNuevoHallazgoModal === 'PREESTABLECIDO' && !puntoSeleccionadoModal) {
+      alert('Por favor selecciona el punto del checklist preestablecido.');
+      return;
+    }
+    if (!descNuevoHallazgoModal.trim()) {
+      alert('Por favor describe la desviación.');
+      return;
+    }
+
+    setGuardandoHallazgoModal(true);
+    try {
+      const plantilla = obtenerPlantillaAuditoriaModal(auditoriaDetalleModal);
+      const docId = auditoriaDetalleModal.id;
+      const hallazgosActuales = [...(auditoriaDetalleModal.hallazgos || [])];
+      const respuestasActuales = { ...(auditoriaDetalleModal.respuestas || {}) };
+
+      let nuevoHallazgoObj: Hallazgo;
+
+      if (tipoNuevoHallazgoModal === 'PREESTABLECIDO') {
+        const pId = parseInt(puntoSeleccionadoModal, 10);
+        respuestasActuales[pId] = 'NO';
+
+        nuevoHallazgoObj = {
+          id: `punto_${pId}_${Date.now()}`,
+          puntoId: pId,
+          esExtra: false,
+          hallazgo: descNuevoHallazgoModal.trim(),
+          accion: accionNuevoHallazgoModal.trim() || 'Sin registrar',
+          responsable: respNuevoHallazgoModal.trim() || 'No asignado',
+          fechaCierre: fechaCierreNuevoHallazgoModal || todayStr,
+          estadoSeguimiento: 'PENDIENTE'
+        };
+      } else {
+        nuevoHallazgoObj = {
+          id: `extra_${Date.now()}`,
+          esExtra: true,
+          hallazgo: descNuevoHallazgoModal.trim(),
+          accion: accionNuevoHallazgoModal.trim() || 'Sin registrar',
+          responsable: respNuevoHallazgoModal.trim() || 'No asignado',
+          fechaCierre: fechaCierreNuevoHallazgoModal || todayStr,
+          estadoSeguimiento: 'PENDIENTE'
+        };
+      }
+
+      hallazgosActuales.push(nuevoHallazgoObj);
+
+      // Recalcular cumplimiento y estatus
+      const totalPuntos = plantilla.length > 0 ? plantilla.length : Object.keys(respuestasActuales).length;
+      const totalSiCalc = Object.values(respuestasActuales).filter((v) => v === 'SI').length;
+      const totalNoCalc = Object.values(respuestasActuales).filter((v) => v === 'NO').length;
+      const nuevoCumplimiento = totalPuntos > 0 ? Math.round((totalSiCalc / totalPuntos) * 100) : (hallazgosActuales.length === 0 ? 100 : 70);
+
+      const docRef = doc(db, 'evaluaciones_proceso', docId);
+      await updateDoc(docRef, {
+        hallazgos: hallazgosActuales,
+        respuestas: respuestasActuales,
+        totalSi: totalSiCalc,
+        totalNo: totalNoCalc + (tipoNuevoHallazgoModal === 'EXTRA' ? 1 : 0),
+        cumplimiento: nuevoCumplimiento,
+        estadoFinal: 'CON_HALLAZGOS'
+      });
+
+      // Actualizar estado en el modal abierto
+      setAuditoriaDetalleModal((prev: any) => ({
+        ...prev,
+        hallazgos: hallazgosActuales,
+        respuestas: respuestasActuales,
+        totalSi: totalSiCalc,
+        totalNo: totalNoCalc,
+        cumplimiento: nuevoCumplimiento,
+        estadoFinal: 'CON_HALLAZGOS'
+      }));
+
+      // Limpiar formulario de inserción
+      setMostrarFormNuevoHallazgoModal(false);
+      setPuntoSeleccionadoModal('');
+      setDescNuevoHallazgoModal('');
+      setAccionNuevoHallazgoModal('');
+      setRespNuevoHallazgoModal('');
+      setFechaCierreNuevoHallazgoModal('');
+
+      alert('✅ Desviación agregada con éxito y sincronizada en el Gantt y el Historial.');
+    } catch (error) {
+      console.error('Error al agregar desviación:', error);
+      alert('Error al guardar la nueva desviación en Firebase.');
+    } finally {
+      setGuardandoHallazgoModal(false);
+    }
+  };
+
+  // --- EDITOR DE PLANTILLAS ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
@@ -595,7 +721,6 @@ export const App: React.FC = () => {
     };
   });
 
-  // --- EXPORTAR A EXCEL CON FORMATO Y ESTILOS NATIVOS ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -1969,7 +2094,10 @@ export const App: React.FC = () => {
                     {auditoriasFiltradas.map((item) => (
                       <div
                         key={`aud-card-${item.id}`}
-                        onClick={() => setAuditoriaDetalleModal(item)}
+                        onClick={() => {
+                          setAuditoriaDetalleModal(item);
+                          setMostrarFormNuevoHallazgoModal(false);
+                        }}
                         style={{
                           ...STYLES.glassCard,
                           marginBottom: 0,
@@ -2031,136 +2159,293 @@ export const App: React.FC = () => {
 
       </main>
 
-      {/* MODAL DETALLE DE CHECKLIST REALIZADO */}
-      {auditoriaDetalleModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 32, 96, 0.45)', backdropFilter: 'blur(6px)',
-          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
-        }}>
+      {/* MODAL DETALLE DE CHECKLIST REALIZADO CON AGREGAR DESVIACIÓN */}
+      {auditoriaDetalleModal && (() => {
+        const plantillaActual = obtenerPlantillaAuditoriaModal(auditoriaDetalleModal);
+
+        return (
           <div style={{
-            background: '#ffffff', borderRadius: '16px', maxWidth: '850px', width: '100%',
-            maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-            textAlign: 'left', border: '1px solid rgba(0,32,96,0.1)'
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 32, 96, 0.45)', backdropFilter: 'blur(6px)',
+            zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E8EEF8', paddingBottom: '12px', marginBottom: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{auditoriaDetalleModal.maquinaNombre}</span>
-                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#E8EEF8', color: '#003580' }}>
-                    {auditoriaDetalleModal.tipoAuditoria}
-                  </span>
-                  <span style={{
-                    fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                    background: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
-                    color: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
-                  }}>
-                    {auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
-                  </span>
+            <div style={{
+              background: '#ffffff', borderRadius: '16px', maxWidth: '850px', width: '100%',
+              maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              textAlign: 'left', border: '1px solid rgba(0,32,96,0.1)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E8EEF8', paddingBottom: '12px', marginBottom: '14px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{auditoriaDetalleModal.maquinaNombre}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#E8EEF8', color: '#003580' }}>
+                      {auditoriaDetalleModal.tipoAuditoria}
+                    </span>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
+                      background: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
+                      color: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
+                    }}>
+                      {auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#5A6A80', marginTop: '4px' }}>
+                    <span>Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}</span>
+                  </div>
+                  {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor) && (
+                    <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
+                      <span>Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong></span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: '12px', color: '#5A6A80', marginTop: '4px' }}>
-                  <span>Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}</span>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: auditoriaDetalleModal.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                    <span>{auditoriaDetalleModal.cumplimiento}%</span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#5A6A80' }}>
+                    <span>{auditoriaDetalleModal.totalSi} SÍ / {auditoriaDetalleModal.totalNo} NO</span>
+                  </div>
                 </div>
-                {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor) && (
-                  <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                    <span>Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong></span>
+              </div>
+
+              {/* Botón para abrir formulario de nueva desviación */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase' }}>
+                  Respuestas del Checklist Registrado:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarFormNuevoHallazgoModal(!mostrarFormNuevoHallazgoModal);
+                    setFechaCierreNuevoHallazgoModal(todayStr);
+                  }}
+                  style={{
+                    background: '#C8102E', color: '#ffffff', border: 'none',
+                    padding: '6px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                    boxShadow: '0 2px 6px rgba(200,16,46,0.25)'
+                  }}
+                >
+                  {mostrarFormNuevoHallazgoModal ? '✕ Cancelar Desviación' : '+ Agregar Nueva Desviación'}
+                </button>
+              </div>
+
+              {/* Formulario Dinámico de Nueva Desviación */}
+              {mostrarFormNuevoHallazgoModal && (
+                <div style={{ background: '#FFF4F6', border: '1.5px solid #FCA5A5', padding: '14px', borderRadius: '10px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '8px', textTransform: 'uppercase' }}>
+                    Registrar Desviación y Acción Correctiva
+                  </div>
+
+                  <form onSubmit={handleGuardarDesviacionModal}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoNuevoHallazgoModal('PREESTABLECIDO');
+                          setPuntoSeleccionadoModal('');
+                          setDescNuevoHallazgoModal('');
+                        }}
+                        style={{
+                          flex: 1, padding: '6px 10px', borderRadius: '6px', border: 'none',
+                          fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
+                          background: tipoNuevoHallazgoModal === 'PREESTABLECIDO' ? '#991B1B' : '#ffffff',
+                          color: tipoNuevoHallazgoModal === 'PREESTABLECIDO' ? '#ffffff' : '#991B1B',
+                          outline: '1px solid #FCA5A5'
+                        }}
+                      >
+                        📋 Punto del Checklist Preestablecido
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoNuevoHallazgoModal('EXTRA');
+                          setPuntoSeleccionadoModal('');
+                          setDescNuevoHallazgoModal('');
+                        }}
+                        style={{
+                          flex: 1, padding: '6px 10px', borderRadius: '6px', border: 'none',
+                          fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
+                          background: tipoNuevoHallazgoModal === 'EXTRA' ? '#991B1B' : '#ffffff',
+                          color: tipoNuevoHallazgoModal === 'EXTRA' ? '#ffffff' : '#991B1B',
+                          outline: '1px solid #FCA5A5'
+                        }}
+                      >
+                        ⚠️ Hallazgo Extra
+                      </button>
+                    </div>
+
+                    {tipoNuevoHallazgoModal === 'PREESTABLECIDO' && (
+                      <div style={{ marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#002060', marginBottom: '3px' }}>
+                          Selecciona el Punto del Checklist a Marcar como "NO":
+                        </label>
+                        <select
+                          value={puntoSeleccionadoModal}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPuntoSeleccionadoModal(val);
+                            const itemP = plantillaActual.find((i) => String(i.id) === String(val));
+                            if (itemP) {
+                              setDescNuevoHallazgoModal(`Desviación en: ${itemP.queObservar}`);
+                            }
+                          }}
+                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
+                          required
+                        >
+                          <option value="">-- Selecciona el punto del checklist --</option>
+                          {plantillaActual.map((item) => (
+                            <option key={`opt-modal-p-${item.id}`} value={item.id}>
+                              #{item.id} - {item.queObservar}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#002060', marginBottom: '3px' }}>
+                        Descripción del Hallazgo / Desviación:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Describe detalladamente el hallazgo..."
+                        value={descNuevoHallazgoModal}
+                        onChange={(e) => setDescNuevoHallazgoModal(e.target.value)}
+                        style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Acción Correctiva:</label>
+                        <input
+                          type="text"
+                          placeholder="Acción a realizar..."
+                          value={accionNuevoHallazgoModal}
+                          onChange={(e) => setAccionNuevoHallazgoModal(e.target.value)}
+                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
+                        <input
+                          type="text"
+                          placeholder="Nombre responsable"
+                          value={respNuevoHallazgoModal}
+                          onChange={(e) => setRespNuevoHallazgoModal(e.target.value)}
+                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Fecha Compromiso:</label>
+                        <input
+                          type="date"
+                          value={fechaCierreNuevoHallazgoModal}
+                          onChange={(e) => setFechaCierreNuevoHallazgoModal(e.target.value)}
+                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={guardandoHallazgoModal}
+                      style={{
+                        background: '#0F7A55', color: '#ffffff', border: 'none',
+                        padding: '8px 18px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                        cursor: guardandoHallazgoModal ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 2px 6px rgba(15,122,85,0.3)'
+                      }}
+                    >
+                      {guardandoHallazgoModal ? 'Guardando Desviación…' : '💾 Guardar Desviación en la Auditoría'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* Checklist Realizado con Mapeo Fiel */}
+              <div style={{ marginBottom: '16px' }}>
+                {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
+                      const snapItem = plantillaActual.find((i: any) => String(i.id) === String(puntoId));
+                      return (
+                        <div
+                          key={`modal-punto-${puntoId}`}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '8px 12px', borderRadius: '8px',
+                            background: valor === 'SI' ? '#F4FBF7' : '#FEF2F2',
+                            border: valor === 'SI' ? '1px solid #D1FAE5' : '1px solid #FEE2E2'
+                          }}
+                        >
+                          <div style={{ fontSize: '12px', color: '#0D1A2E' }}>
+                            <span style={{ fontWeight: 700, color: '#003580', marginRight: '6px' }}>#{puntoId}</span>
+                            <span>{snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}</span>
+                          </div>
+                          <span style={{
+                            fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
+                            background: valor === 'SI' ? '#0F7A55' : '#C8102E', color: '#ffffff'
+                          }}>
+                            {valor === 'SI' ? '✓ SÍ' : '✕ NO'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#5A6A80', fontStyle: 'italic' }}>
+                    <span>Esta auditoría se capturó sin respuestas individuales de checklist o mediante hallazgos directos.</span>
                   </div>
                 )}
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '22px', fontWeight: 700, color: auditoriaDetalleModal.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                  <span>{auditoriaDetalleModal.cumplimiento}%</span>
-                </div>
-                <div style={{ fontSize: '10px', color: '#5A6A80' }}>
-                  <span>{auditoriaDetalleModal.totalSi} SÍ / {auditoriaDetalleModal.totalNo} NO</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', marginBottom: '8px' }}>
-                <span>Respuestas del Checklist Registrado:</span>
-              </div>
-
-              {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
-                    const plantillaReferencia = auditoriaDetalleModal.itemsSnapshot || 
-                      (auditoriaDetalleModal.tipoAuditoria === '5S' || Object.keys(auditoriaDetalleModal.respuestas).length >= 17 || auditoriaDetalleModal.tipoMaquina !== 'Pegado' 
-                        ? CHECKLIST_OFICIAL_5S 
-                        : CHECKLIST_BASE_PEGADO);
-
-                    const snapItem = plantillaReferencia.find((i: any) => String(i.id) === String(puntoId));
-                    return (
-                      <div
-                        key={`modal-punto-${puntoId}`}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '8px 12px', borderRadius: '8px',
-                          background: valor === 'SI' ? '#F4FBF7' : '#FEF2F2',
-                          border: valor === 'SI' ? '1px solid #D1FAE5' : '1px solid #FEE2E2'
-                        }}
-                      >
-                        <div style={{ fontSize: '12px', color: '#0D1A2E' }}>
-                          <span style={{ fontWeight: 700, color: '#003580', marginRight: '6px' }}>#{puntoId}</span>
-                          <span>{snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}</span>
+              {/* Hallazgos y Acciones Registradas */}
+              {auditoriaDetalleModal.hallazgos && auditoriaDetalleModal.hallazgos.length > 0 && (
+                <div style={{ marginTop: '14px', borderTop: '1px solid #E8EEF8', paddingTop: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <span>Desviaciones y Acciones Correctivas Registradas:</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {auditoriaDetalleModal.hallazgos.map((h: any, i: number) => (
+                      <div key={`modal-hallazgo-${i}`} style={{ background: '#FFF8F8', border: '1px solid #FCA5A5', padding: '10px 12px', borderRadius: '8px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
+                          <span>{h.hallazgo || 'Desviación no especificada'}</span>
                         </div>
-                        <span style={{
-                          fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
-                          background: valor === 'SI' ? '#0F7A55' : '#C8102E', color: '#ffffff'
-                        }}>
-                          {valor === 'SI' ? '✓ SÍ' : '✕ NO'}
-                        </span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
+                          <div><strong>Acción:</strong> <span>{h.accion || 'Sin registrar'}</span></div>
+                          <div><strong>Responsable:</strong> <span>{h.responsable || 'No asignado'}</span></div>
+                          <div><strong>Fecha Compromiso:</strong> <span>{h.fechaCierre || 'N/A'}</span></div>
+                          <div><strong>Estatus:</strong> <span>{h.estadoSeguimiento || 'PENDIENTE'}</span></div>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ fontSize: '12px', color: '#5A6A80', fontStyle: 'italic' }}>
-                  <span>Esta auditoría se capturó sin respuestas individuales de checklist o mediante hallazgos directos.</span>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
 
-            {auditoriaDetalleModal.hallazgos && auditoriaDetalleModal.hallazgos.length > 0 && (
-              <div style={{ marginTop: '14px', borderTop: '1px solid #E8EEF8', paddingTop: '12px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  <span>Desviaciones y Acciones Correctivas Registradas:</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {auditoriaDetalleModal.hallazgos.map((h: any, i: number) => (
-                    <div key={`modal-hallazgo-${i}`} style={{ background: '#FFF8F8', border: '1px solid #FCA5A5', padding: '10px 12px', borderRadius: '8px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
-                        <span>{h.hallazgo || 'Desviación no especificada'}</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
-                        <div><strong>Acción:</strong> <span>{h.accion || 'Sin registrar'}</span></div>
-                        <div><strong>Responsable:</strong> <span>{h.responsable || 'No asignado'}</span></div>
-                        <div><strong>Fecha Cierre:</strong> <span>{h.fechaCierre || 'N/A'}</span></div>
-                        <div><strong>Estatus:</strong> <span>{h.estadoSeguimiento || 'PENDIENTE'}</span></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ marginTop: '1.2rem', textAlign: 'right' }}>
+                <button
+                  type="button"
+                  onClick={() => setAuditoriaDetalleModal(null)}
+                  style={{
+                    padding: '8px 20px', background: '#003580', color: '#ffffff',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  Cerrar Detalle
+                </button>
               </div>
-            )}
-
-            <div style={{ marginTop: '1.2rem', textAlign: 'right' }}>
-              <button
-                type="button"
-                onClick={() => setAuditoriaDetalleModal(null)}
-                style={{
-                  padding: '8px 20px', background: '#003580', color: '#ffffff',
-                  border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                }}
-              >
-                Cerrar Detalle
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
