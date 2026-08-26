@@ -159,6 +159,19 @@ interface Hallazgo {
   estadoSeguimiento?: EstadoCumplimiento;
 }
 
+// Función auxiliar de clasificación precisa
+const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
+  const tipoOriginal = (docData.tipoAuditoria || '').toUpperCase();
+  const tipoMaq = docData.tipoMaquina || '';
+  const totalRespuestas = Object.keys(docData.respuestas || {}).length;
+
+  // Si tiene 20 respuestas o es una máquina sin checklist de proceso propio (no es pegado) y tiene respuestas de 5S
+  if (totalRespuestas >= 17 || tipoOriginal === '5S' || (tipoMaq !== 'Pegado' && totalRespuestas > 0)) {
+    return '5S';
+  }
+  return 'PROCESO';
+};
+
 export const App: React.FC = () => {
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
@@ -218,10 +231,15 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
-      const docs = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }));
+      const docs = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        const tipoCorregido = resolverTipoAuditoria(data);
+        return {
+          id: docSnap.id,
+          ...data,
+          tipoAuditoria: tipoCorregido
+        };
+      });
       docs.sort((a: any, b: any) => {
         const tA = a.createdAt?.seconds || 0;
         const tB = b.createdAt?.seconds || 0;
@@ -257,7 +275,6 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Actualizar lista en edición cuando cambia la familia o el módulo
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
     const baseDefault = moduloEditor === 'PROCESO'
@@ -268,7 +285,6 @@ export const App: React.FC = () => {
     cancelarEdicionPregunta();
   }, [tipoSeleccionadoEditor, moduloEditor, plantillasProceso, plantillas5S]);
 
-  // Selección reactiva de preguntas para la máquina activa
   const itemsChecklistActivo: ItemChecklist[] = maquinaSeleccionada
     ? (tipoAuditoriaActiva === 'PROCESO'
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
@@ -398,7 +414,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- EDITOR DE PLANTILLAS ---
+  // --- EDITOR DE PLANTILLAS: ALTA Y EDICIÓN ---
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
@@ -2021,7 +2037,13 @@ export const App: React.FC = () => {
               {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
-                    const snapItem = (auditoriaDetalleModal.itemsSnapshot || (auditoriaDetalleModal.tipoAuditoria === '5S' ? CHECKLIST_OFICIAL_5S : CHECKLIST_BASE_PEGADO))?.find((i: any) => String(i.id) === String(puntoId));
+                    // Selección de la plantilla correcta para visualizar
+                    const plantillaReferencia = auditoriaDetalleModal.itemsSnapshot || 
+                      (auditoriaDetalleModal.tipoAuditoria === '5S' || Object.keys(auditoriaDetalleModal.respuestas).length >= 17 || auditoriaDetalleModal.tipoMaquina !== 'Pegado' 
+                        ? CHECKLIST_OFICIAL_5S 
+                        : CHECKLIST_BASE_PEGADO);
+
+                    const snapItem = plantillaReferencia.find((i: any) => String(i.id) === String(puntoId));
                     return (
                       <div
                         key={`modal-punto-${puntoId}`}
