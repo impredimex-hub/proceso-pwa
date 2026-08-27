@@ -40,6 +40,31 @@ const STYLES = {
   }
 };
 
+// --- CATÁLOGO DE USUARIOS Y PERFILES (10 ACTIVOS + 2 VACANTES) ---
+export interface UserProfile {
+  nomina: string;
+  nombre: string;
+  puesto: string;
+  pin: string;
+  activo: boolean;
+}
+
+const USUARIOS_SISTEMA: UserProfile[] = [
+  { nomina: '885', nombre: 'MAGALLANES LOPEZ ANGEL GAMALIEL', puesto: 'JEFE DE IMPRESIÓN DIGITAL', pin: '5888', activo: true },
+  { nomina: '1802', nombre: 'NUÑEZ ARELLANO CANDELARIO', puesto: 'JEFE DE EMBARQUES Y MATERIA PRIMA', pin: '2081', activo: true },
+  { nomina: '1853', nombre: 'JULIAN IGLESIAS RODOLFO', puesto: 'SUPERVISOR DE ACONDICIONADO', pin: '3581', activo: true },
+  { nomina: '2129', nombre: 'ESTRADA RODRIGUEZ ALDO YAEL', puesto: 'JEFE DE TINTAS', pin: '9212', activo: true },
+  { nomina: '2308', nombre: 'CASTRUITA CRUZ SERGIO', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8032', activo: true },
+  { nomina: '2377', nombre: 'AVALOS MONREAL JOSE DAVID', puesto: 'SUPERVISOR DE ACONDICIONADO', pin: '7732', activo: true },
+  { nomina: '2159', nombre: 'SOTO MENESES OSCAR', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '9512', activo: true },
+  { nomina: '2435', nombre: 'JOSELYNE MAGDALENA MENDOZA PARRA', puesto: 'INGENIERO DE PROCESOS', pin: '5342', activo: true },
+  { nomina: '2432', nombre: 'EMMANUEL TEJEDA CAMPOS', puesto: 'ANALISTA DE MANTENIMIENTO', pin: '2342', activo: true },
+  { nomina: '2398', nombre: 'ZARATE MONROY SAMUEL', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8932', activo: true },
+  // Plazas Vacantes Pendientes
+  { nomina: 'VAC-01', nombre: '[VACANTE] JEFE DE ASEGURAMIENTO DE CALIDAD', puesto: 'JEFE DE ASEGURAMIENTO DE CALIDAD', pin: '0000', activo: false },
+  { nomina: 'VAC-02', nombre: '[VACANTE] JEFE DE PRODUCCIÓN', puesto: 'JEFE DE PRODUCCIÓN', pin: '0000', activo: false }
+];
+
 // --- CATÁLOGO DE MÁQUINAS Y ÁREAS ---
 interface Maquina {
   id: string;
@@ -172,6 +197,24 @@ const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
 };
 
 export const App: React.FC = () => {
+  // --- ESTADO DE SESIÓN / AUTENTICACIÓN RÁPIDA ---
+  const [usuarioActivo, setUsuarioActivo] = useState<UserProfile | null>(() => {
+    const sesionGuardada = localStorage.getItem('impredimex_user_session');
+    if (sesionGuardada) {
+      try {
+        return JSON.parse(sesionGuardada);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [inputLoginNomina, setInputLoginNomina] = useState('');
+  const [inputLoginPin, setInputLoginPin] = useState('');
+  const [errorLogin, setErrorLogin] = useState('');
+
+  // Estados de navegación
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
@@ -252,6 +295,13 @@ export const App: React.FC = () => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  // Sincronizar auditor cuando se inicia sesión
+  useEffect(() => {
+    if (usuarioActivo) {
+      setAuditor(usuarioActivo.nombre);
+    }
+  }, [usuarioActivo]);
+
   useEffect(() => {
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
       const docs = snapshot.docs.map((docSnap) => {
@@ -319,13 +369,51 @@ export const App: React.FC = () => {
         : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
     : [];
 
-  // --- DETECCIÓN DE HALLAZGOS REINCIDENTES / REPETIDOS ---
+  // --- ACCIONES DE INICIO Y CIERRE DE SESIÓN ---
+  const handleIniciarSesion = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorLogin('');
+
+    if (!inputLoginNomina.trim()) {
+      setErrorLogin('Por favor selecciona o ingresa tu número de nómina.');
+      return;
+    }
+
+    const usuarioEncontrado = USUARIOS_SISTEMA.find(
+      (u) => u.nomina === inputLoginNomina.trim() && u.activo
+    );
+
+    if (!usuarioEncontrado) {
+      setErrorLogin('Número de nómina no encontrado o perfil inactivo.');
+      return;
+    }
+
+    if (usuarioEncontrado.pin !== inputLoginPin.trim()) {
+      setErrorLogin('PIN de 4 dígitos incorrecto.');
+      return;
+    }
+
+    setUsuarioActivo(usuarioEncontrado);
+    setAuditor(usuarioEncontrado.nombre);
+    localStorage.setItem('impredimex_user_session', JSON.stringify(usuarioEncontrado));
+    setInputLoginPin('');
+    setErrorLogin('');
+  };
+
+  const handleCerrarSesion = () => {
+    if (confirm('¿Deseas cerrar tu sesión actual?')) {
+      setUsuarioActivo(null);
+      localStorage.removeItem('impredimex_user_session');
+      setVista('LAUNCHER');
+    }
+  };
+
+  // --- DETECCIÓN DE HALLAZGOS REINCIDENTES ---
   const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
     setRespuestas((prev) => ({ ...prev, [puntoId]: valor }));
     const key = `punto_${puntoId}`;
 
     if (valor === 'SI') {
-      // Si cambia a SÍ, remover de hallazgos y de reincidentes
       if (hallazgos[key]) {
         setHallazgos((prev) => {
           const copy = { ...prev };
@@ -340,7 +428,6 @@ export const App: React.FC = () => {
     if (valor === 'NO') {
       const item = itemsChecklistActivo.find((i) => i.id === puntoId);
       
-      // Buscar en el histórico si esta máquina ya tuvo fallas en este punto
       const hallazgosAnteriores: any[] = [];
       historial.forEach((aud) => {
         if (aud.maquinaNombre === maquinaSeleccionada?.nombre && aud.hallazgos && Array.isArray(aud.hallazgos)) {
@@ -357,7 +444,6 @@ export const App: React.FC = () => {
       });
 
       if (hallazgosAnteriores.length > 0) {
-        // Disparar modal de reincidencia
         setModalReincidencia({
           abierto: true,
           puntoId,
@@ -365,7 +451,6 @@ export const App: React.FC = () => {
           hallazgosPrevios: hallazgosAnteriores
         });
       } else {
-        // Flujo normal sin reincidencia previa
         if (!hallazgos[key]) {
           setHallazgos((prev) => ({
             ...prev,
@@ -386,13 +471,11 @@ export const App: React.FC = () => {
     }
   };
 
-  // Confirmar acción desde el modal de reincidencia
   const handleConfirmarReincidencia = (marcarComoNuevo: boolean) => {
     const { puntoId, itemCheck } = modalReincidencia;
     const key = `punto_${puntoId}`;
 
     if (marcarComoNuevo) {
-      // Flujo normal: se carga en la sección de desviaciones y en el Gantt con indicador de reincidente
       setHallazgos((prev) => ({
         ...prev,
         [key]: {
@@ -409,7 +492,6 @@ export const App: React.FC = () => {
       }));
       setPuntosSoloReincidentes((prev) => prev.filter((id) => id !== puntoId));
     } else {
-      // Marcar solo como reincidente: computa en el check como NO pero no genera tarea ni entra al Gantt
       if (hallazgos[key]) {
         setHallazgos((prev) => {
           const copy = { ...prev };
@@ -508,7 +590,6 @@ export const App: React.FC = () => {
       setPuntosSoloReincidentes([]);
       setHallazgos({});
       setOrdenTrabajo('');
-      setAuditor('');
       setNominaAuditado('');
       setNominaSupervisor('');
       setVista('HISTORIAL');
@@ -768,7 +849,6 @@ export const App: React.FC = () => {
 
         if (filtroCumplimientoGantt && estatus !== filtroCumplimientoGantt) return null;
 
-        // Comprobar si es reincidente por bandera o por hallazgo previo
         const esReincidente = h.esReincidente || (h.hallazgo && h.hallazgo.toLowerCase().includes('reincidente'));
 
         return {
@@ -814,7 +894,6 @@ export const App: React.FC = () => {
     };
   });
 
-  // --- EXPORTAR A EXCEL CON FORMATO Y COLUMNA REINCIDENTE ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -931,10 +1010,95 @@ export const App: React.FC = () => {
     window.print();
   };
 
+  // --- PANTALLA DE BLOQUEO / INICIO DE SESIÓN RÁPIDO SI NO HAY USUARIO ---
+  if (!usuarioActivo) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg, #F0F4F8 0%, #D9E2EC 100%)',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", padding: '16px'
+      }}>
+        <div style={{
+          ...STYLES.glassCard, maxWidth: '440px', width: '100%', padding: '2rem',
+          textAlign: 'center', boxShadow: '0 20px 40px rgba(0,32,96,0.15)'
+        }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#002060', letterSpacing: '.02em' }}>IMPREDIMEX</div>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: '#003580', marginTop: '2px' }}>Control de Proceso y 5S</div>
+          <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '4px', marginBottom: '1.5rem' }}>
+            Ingreso Rápido de Personal Operativo y Supervisión
+          </div>
+
+          <form onSubmit={handleIniciarSesion} style={{ textAlign: 'left' }}>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+                Selecciona tu Perfil / Nómina:
+              </label>
+              <select
+                value={inputLoginNomina}
+                onChange={(e) => {
+                  setInputLoginNomina(e.target.value);
+                  setErrorLogin('');
+                }}
+                style={{ ...STYLES.input, fontSize: '13px', fontWeight: 600 }}
+                required
+              >
+                <option value="">-- Elige tu usuario --</option>
+                {USUARIOS_SISTEMA.map((u) => (
+                  <option key={u.nomina} value={u.nomina} disabled={!u.activo}>
+                    {u.activo ? `Nóm. ${u.nomina} — ${u.nombre} (${u.puesto})` : `[VACANTE] ${u.puesto}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+                PIN de Acceso (4 dígitos):
+              </label>
+              <input
+                type="password"
+                maxLength={4}
+                placeholder="••••"
+                value={inputLoginPin}
+                onChange={(e) => {
+                  setInputLoginPin(e.target.value);
+                  setErrorLogin('');
+                }}
+                style={{ ...STYLES.input, fontSize: '18px', textAlign: 'center', letterSpacing: '8px', fontWeight: 700 }}
+                required
+              />
+            </div>
+
+            {errorLogin && (
+              <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '8px 12px', borderRadius: '6px', fontSize: '11.5px', marginBottom: '14px', textAlign: 'center', fontWeight: 600 }}>
+                {errorLogin}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              style={{
+                width: '100%', padding: '12px', background: '#003580', color: '#ffffff',
+                border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,53,128,0.3)', letterSpacing: '.02em'
+              }}
+            >
+              Ingresar al Sistema →
+            </button>
+          </form>
+
+          <div style={{ marginTop: '1.5rem', fontSize: '10.5px', color: '#8A9AB0' }}>
+            Planta Industrial · Sistema de Aseguramiento de Calidad
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS */}
+      {/* HEADER GLASS CON IDENTIDAD DEL USUARIO */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.75rem 1.5rem', background: 'rgba(255,255,255,0.88)',
@@ -950,7 +1114,17 @@ export const App: React.FC = () => {
           </div>
         </div>
 
+        {/* Perfil activo y acciones */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#002060' }}>
+              👤 {usuarioActivo.nombre}
+            </span>
+            <span style={{ fontSize: '10px', color: '#5A6A80' }}>
+              Nóm. {usuarioActivo.nomina} · {usuarioActivo.puesto}
+            </span>
+          </div>
+
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
               background: 'transparent', border: '1.5px solid rgba(0,32,96,0.12)', color: '#003580',
@@ -964,6 +1138,17 @@ export const App: React.FC = () => {
             padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
           }}>
             <span>Histórico ({historial.length})</span>
+          </button>
+
+          <button
+            onClick={handleCerrarSesion}
+            title="Cerrar sesión activa"
+            style={{
+              background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5',
+              padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700
+            }}
+          >
+            Salir ⏻
           </button>
         </div>
       </header>
@@ -1231,7 +1416,7 @@ export const App: React.FC = () => {
                 {itemsChecklistActivo.length > 0 && (
                   <div style={{ textAlign: 'right', background: '#E8EEF8', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(0,53,128,0.2)' }}>
                     <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Cumplimiento</div>
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: totalNo > 0 ? '#C8102E' : '#0F7A55' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: (totalNo > 0 || puntosSoloReincidentes.length > 0) ? '#C8102E' : '#0F7A55' }}>
                       {cumplimiento}%
                     </div>
                     <div style={{ fontSize: '10px', color: '#5A6A80' }}>{totalRespondidos} de {itemsChecklistActivo.length} evaluados</div>
