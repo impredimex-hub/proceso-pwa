@@ -295,7 +295,6 @@ export const App: React.FC = () => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Sincronizar auditor cuando se inicia sesión
   useEffect(() => {
     if (usuarioActivo) {
       setAuditor(usuarioActivo.nombre);
@@ -375,7 +374,7 @@ export const App: React.FC = () => {
     setErrorLogin('');
 
     if (!inputLoginNomina.trim()) {
-      setErrorLogin('Por favor selecciona o ingresa tu número de nómina.');
+      setErrorLogin('Por favor selecciona tu número de nómina.');
       return;
     }
 
@@ -894,6 +893,7 @@ export const App: React.FC = () => {
     };
   });
 
+  // --- EXPORTAR A EXCEL CON FORMATO ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -1010,7 +1010,7 @@ export const App: React.FC = () => {
     window.print();
   };
 
-  // --- PANTALLA DE BLOQUEO / INICIO DE SESIÓN RÁPIDO SI NO HAY USUARIO ---
+  // --- PANTALLA DE INGRESO ACTUALIZADA (MODIFICACIONES SOLICITADAS) ---
   if (!usuarioActivo) {
     return (
       <div style={{
@@ -1019,19 +1019,18 @@ export const App: React.FC = () => {
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", padding: '16px'
       }}>
         <div style={{
-          ...STYLES.glassCard, maxWidth: '440px', width: '100%', padding: '2rem',
+          ...STYLES.glassCard, maxWidth: '440px', width: '100%', padding: '2.5rem 2rem',
           textAlign: 'center', boxShadow: '0 20px 40px rgba(0,32,96,0.15)'
         }}>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#002060', letterSpacing: '.02em' }}>IMPREDIMEX</div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: '#003580', marginTop: '2px' }}>Control de Proceso y 5S</div>
-          <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '4px', marginBottom: '1.5rem' }}>
-            Ingreso Rápido de Personal Operativo y Supervisión
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#002060', letterSpacing: '.02em' }}>IMPREDIMEX</div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#003580', marginTop: '4px', marginBottom: '2rem' }}>
+            Departamento de operaciones
           </div>
 
           <form onSubmit={handleIniciarSesion} style={{ textAlign: 'left' }}>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
-                Selecciona tu Perfil / Nómina:
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
+                Nomina:
               </label>
               <select
                 value={inputLoginNomina}
@@ -1039,20 +1038,20 @@ export const App: React.FC = () => {
                   setInputLoginNomina(e.target.value);
                   setErrorLogin('');
                 }}
-                style={{ ...STYLES.input, fontSize: '13px', fontWeight: 600 }}
+                style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
                 required
               >
-                <option value="">-- Elige tu usuario --</option>
-                {USUARIOS_SISTEMA.map((u) => (
-                  <option key={u.nomina} value={u.nomina} disabled={!u.activo}>
-                    {u.activo ? `Nóm. ${u.nomina} — ${u.nombre} (${u.puesto})` : `[VACANTE] ${u.puesto}`}
+                <option value="">-- Elige tu nómina --</option>
+                {USUARIOS_SISTEMA.filter(u => u.activo).map((u) => (
+                  <option key={u.nomina} value={u.nomina}>
+                    {u.nomina}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#002060', marginBottom: '4px' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
                 PIN de Acceso (4 dígitos):
               </label>
               <input
@@ -1086,10 +1085,6 @@ export const App: React.FC = () => {
               Ingresar al Sistema →
             </button>
           </form>
-
-          <div style={{ marginTop: '1.5rem', fontSize: '10.5px', color: '#8A9AB0' }}>
-            Planta Industrial · Sistema de Aseguramiento de Calidad
-          </div>
         </div>
       </div>
     );
