@@ -891,6 +891,7 @@ export const App: React.FC = () => {
     };
   });
 
+  // --- EXPORTAR A EXCEL CON FORMATO ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -1090,47 +1091,36 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS MINIMALISTA Y RESPONSIVO */}
+      {/* HEADER GLASS MINIMALISTA: NOMBRE Y PUESTO DEBAJO DE CONTROL DE PROCESO */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.92)',
+        padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
         borderBottom: '0.5px solid rgba(0,32,96,0.08)',
         boxShadow: '0 2px 8px rgba(0,32,96,0.04)', position: 'sticky', top: 0, zIndex: 100,
         gap: '8px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }} onClick={() => setVista('LAUNCHER')}>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: '#002060', letterSpacing: '.02em', lineHeight: 1.1 }}>IMPREDIMEX</div>
-            <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#003580', marginTop: '1px', letterSpacing: '.01em' }}>Control de Proceso</div>
+        <div style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', flex: '1 1 auto', minWidth: 0 }} onClick={() => setVista('LAUNCHER')}>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#002060', letterSpacing: '.02em', lineHeight: 1.1 }}>
+            IMPREDIMEX
+          </div>
+          <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#003580', marginTop: '1px' }}>
+            Control de Proceso
+          </div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#002060', marginTop: '2px', lineHeight: 1.2 }}>
+            {usuarioActivo.nombre}
+          </div>
+          <div style={{ fontSize: '9px', color: '#5A6A80', marginTop: '1px', lineHeight: 1.1 }}>
+            {usuarioActivo.puesto}
           </div>
         </div>
 
-        {/* Identidad de usuario en 2 renglones y botones compactos */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, justifyContent: 'flex-end' }}>
-          <div style={{
-            textAlign: 'right', display: 'flex', flexDirection: 'column',
-            justifyContent: 'center', minWidth: 0, maxWidth: '140px'
-          }}>
-            <span style={{
-              fontSize: '10.5px', fontWeight: 700, color: '#002060',
-              lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis'
-            }}>
-              {usuarioActivo.nombre}
-            </span>
-            <span style={{
-              fontSize: '9px', color: '#5A6A80', marginTop: '1px',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-            }}>
-              {usuarioActivo.puesto}
-            </span>
-          </div>
-
+        {/* Botones compactos a la derecha */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, alignSelf: 'center' }}>
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
               background: 'transparent', border: '1px solid rgba(0,32,96,0.15)', color: '#003580',
-              padding: '5px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+              padding: '6px 9px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
               flexShrink: 0
             }}>
               ←
@@ -1139,7 +1129,7 @@ export const App: React.FC = () => {
 
           <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }} style={{
             background: '#003580', color: '#ffffff', border: 'none',
-            padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+            padding: '7px 11px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
             whiteSpace: 'nowrap', flexShrink: 0
           }}>
             <span>Histórico ({historial.length})</span>
@@ -1150,7 +1140,7 @@ export const App: React.FC = () => {
             title="Cerrar sesión"
             style={{
               background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5',
-              padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+              padding: '7px 9px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
               flexShrink: 0
             }}
           >
@@ -2219,6 +2209,7 @@ export const App: React.FC = () => {
                                 {diasTotal}
                               </td>
 
+                              {/* Columna Cumplimiento con Leyenda Reincidente */}
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
@@ -2715,7 +2706,7 @@ export const App: React.FC = () => {
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
                         <input
                           type="text"
-                          placeholder="Nombre responsable"
+                          placeholder="Nombre del responsable"
                           value={respNuevoHallazgoModal}
                           onChange={(e) => setRespNuevoHallazgoModal(e.target.value)}
                           style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
