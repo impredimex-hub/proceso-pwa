@@ -122,38 +122,35 @@ const FAMILIAS_TODAS = Array.from(new Set(CATALOGO.map((m) => m.tipo)));
 const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
 const FAMILIAS_5S = Array.from(new Set(CATALOGO.filter((m) => m.modulo5S).map((m) => m.tipo)));
 
-// --- MATRIZ DE ASIGNACIÓN DE SUPERVISORES POR MÁQUINA / ÁREA ---
+// --- MATRIZ DE SUPERVISORES POR MÁQUINA ---
 const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] => {
   if (!maquina) return [];
 
-  let nominasPermitidas: string[] = [];
+  const maqId = maquina.id;
+  const tipo = maquina.tipo;
 
-  // Reglas específicas por ID de máquina o área
-  if (maquina.id === 'DEP1') {
-    nominasPermitidas = ['2308', '2398', '2159'];
-  } else if (maquina.id === 'DEP2') {
-    nominasPermitidas = ['1853', '2377'];
-  } else if (maquina.id === 'area-tintas') {
-    nominasPermitidas = ['2129'];
-  } else if (maquina.id === 'area-mp' || maquina.id === 'area-pt') {
-    nominasPermitidas = ['1802'];
-  } else if (maquina.id === 'area-mant') {
-    nominasPermitidas = ['2432'];
-  } else if (maquina.id === 'area-banos') {
-    nominasPermitidas = ['2308', '2398', '2159', '1853', '2377'];
-  } else if (maquina.id === 'area-prep' || maquina.id === 'area-cal') {
-    nominasPermitidas = []; // Pendientes / Vacantes
-  } 
-  // Reglas por Categoría / Familia
-  else if (['Rotograbado', 'Flexografía', 'Laminado'].includes(maquina.tipo)) {
-    nominasPermitidas = ['2308', '2398', '2159'];
-  } else if (['Digital', 'Suajado'].includes(maquina.tipo)) {
-    nominasPermitidas = ['885'];
-  } else if (['Refilado', 'Pegado', 'Revisión', 'Corte'].includes(maquina.tipo)) {
-    nominasPermitidas = ['1853', '2377'];
+  if (tipo === 'Digital' || tipo === 'Suajado') {
+    return USUARIOS_SISTEMA.filter((u) => u.nomina === '885');
   }
-
-  return USUARIOS_SISTEMA.filter((u) => nominasPermitidas.includes(u.nomina) && u.activo);
+  if (tipo === 'Rotograbado' || tipo === 'Flexografía' || tipo === 'Laminado' || maqId === 'DEP1') {
+    return USUARIOS_SISTEMA.filter((u) => ['2308', '2398', '2159'].includes(u.nomina));
+  }
+  if (['Refilado', 'Pegado', 'Revisión', 'Corte'].includes(tipo) || maqId === 'DEP2') {
+    return USUARIOS_SISTEMA.filter((u) => ['1853', '2377'].includes(u.nomina));
+  }
+  if (maqId === 'area-tintas') {
+    return USUARIOS_SISTEMA.filter((u) => u.nomina === '2129');
+  }
+  if (maqId === 'area-mp' || maqId === 'area-pt') {
+    return USUARIOS_SISTEMA.filter((u) => u.nomina === '1802');
+  }
+  if (maqId === 'area-mant') {
+    return USUARIOS_SISTEMA.filter((u) => u.nomina === '2432');
+  }
+  if (maqId === 'area-banos') {
+    return USUARIOS_SISTEMA.filter((u) => ['2308', '2398', '2159', '1853', '2377'].includes(u.nomina));
+  }
+  return [];
 };
 
 interface ItemChecklist {
@@ -312,8 +309,7 @@ export const App: React.FC = () => {
   const [ordenTrabajo, setOrdenTrabajo] = useState('');
   const [auditor, setAuditor] = useState('');
   const [nominaAuditado, setNominaAuditado] = useState('');
-  const [nominaSupervisor, setNominaSupervisor] = useState('');
-  const [nombreSupervisor, setNombreSupervisor] = useState('');
+  const [supervisorNomina, setSupervisorNomina] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   const [respuestas, setRespuestas] = useState<Record<number, 'SI' | 'NO' | null>>({});
   const [puntosSoloReincidentes, setPuntosSoloReincidentes] = useState<number[]>([]);
@@ -335,6 +331,10 @@ export const App: React.FC = () => {
       setAuditor(usuarioActivo.nombre);
     }
   }, [usuarioActivo]);
+
+  useEffect(() => {
+    setSupervisorNomina('');
+  }, [maquinaSeleccionada, vista]);
 
   useEffect(() => {
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
@@ -404,6 +404,14 @@ export const App: React.FC = () => {
     : [];
 
   const supervisoresDisponibles = obtenerSupervisoresPorMaquina(maquinaSeleccionada);
+
+  // --- FILTRO DE SEGURIDAD POR PERFIL (2435 VE TODO, DEMÁS SOLO LO PROPIO) ---
+  const esAdminTotal = usuarioActivo?.nomina === '2435';
+
+  const historialPermitido = historial.filter((item) => {
+    if (esAdminTotal) return true;
+    return item.nominaSupervisor === usuarioActivo?.nomina;
+  });
 
   const handleIniciarSesion = (e: React.FormEvent) => {
     e.preventDefault();
@@ -589,11 +597,18 @@ export const App: React.FC = () => {
       alert('Por favor ingrese la Orden de Trabajo (OP).');
       return;
     }
+    if (supervisoresDisponibles.length > 0 && !supervisorNomina) {
+      alert('Por favor selecciona el Nombre del Supervisor de la lista.');
+      return;
+    }
 
     if (itemsChecklistActivo.length > 0 && totalRespondidos < itemsChecklistActivo.length) {
       alert(`Faltan responder ${itemsChecklistActivo.length - totalRespondidos} puntos del checklist.`);
       return;
     }
+
+    const supObj = USUARIOS_SISTEMA.find((u) => u.nomina === supervisorNomina);
+    const supNombre = supObj ? supObj.nombre : (supervisorNomina || 'N/A');
 
     setGuardando(true);
     try {
@@ -605,8 +620,8 @@ export const App: React.FC = () => {
         ordenTrabajo: ordenTrabajo.trim() || 'N/A 5S',
         auditor: auditor.trim(),
         nominaAuditado: nominaAuditado.trim(),
-        nominaSupervisor: nominaSupervisor.trim(),
-        nombreSupervisor: nombreSupervisor.trim() || nominaSupervisor.trim(),
+        nominaSupervisor: supervisorNomina || 'N/A',
+        nombreSupervisor: supNombre,
         turno,
         cumplimiento,
         totalSi: itemsChecklistActivo.length > 0 ? totalSi : (listaHallazgos.length === 0 ? 1 : 0),
@@ -626,8 +641,7 @@ export const App: React.FC = () => {
       setHallazgos({});
       setOrdenTrabajo('');
       setNominaAuditado('');
-      setNominaSupervisor('');
-      setNombreSupervisor('');
+      setSupervisorNomina('');
       setVista('HISTORIAL');
       setSubVistaHistorial('AUDITORIAS');
     } catch (error) {
@@ -855,7 +869,8 @@ export const App: React.FC = () => {
     }
   };
 
-  const hallazgosFiltradosGantt = historial.flatMap((auditoria) => {
+  // --- HALLAZGOS FILTRADOS GANTT (CON RESPETO DE PERMISOS) ---
+  const hallazgosFiltradosGantt = historialPermitido.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
     if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) return [];
@@ -905,7 +920,8 @@ export const App: React.FC = () => {
       .filter(Boolean);
   });
 
-  const auditoriasFiltradas = historial.filter((item) => {
+  // --- AUDITORÍAS FILTRADAS (CON RESPETO DE PERMISOS) ---
+  const auditoriasFiltradas = historialPermitido.filter((item) => {
     const tipoDoc = item.tipoAuditoria || 'PROCESO';
     if (filtroAudTipoRevision && tipoDoc !== filtroAudTipoRevision) return false;
     if (filtroAudFamilia && item.tipoMaquina !== filtroAudFamilia) return false;
@@ -930,7 +946,7 @@ export const App: React.FC = () => {
     };
   });
 
-  // --- EXPORTAR A EXCEL CON FORMATO ---
+  // --- EXPORTAR A EXCEL ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -1171,7 +1187,7 @@ export const App: React.FC = () => {
             padding: '7px 11px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
             whiteSpace: 'nowrap', flexShrink: 0
           }}>
-            <span>Histórico ({historial.length})</span>
+            <span>Histórico ({historialPermitido.length})</span>
           </button>
 
           <button
@@ -1306,8 +1322,6 @@ export const App: React.FC = () => {
                   if (m) {
                     setMaquinaSeleccionada(m);
                     setTipoAuditoriaActiva('PROCESO');
-                    setNominaSupervisor('');
-                    setNombreSupervisor('');
                     setVista('EVALUACION');
                   }
                 }}
@@ -1391,8 +1405,6 @@ export const App: React.FC = () => {
                   if (m) {
                     setMaquinaSeleccionada(m);
                     setTipoAuditoriaActiva('5S');
-                    setNominaSupervisor('');
-                    setNombreSupervisor('');
                     setVista('EVALUACION');
                   }
                 }}
@@ -1415,7 +1427,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN CON SELECTOR DINÁMICO DE SUPERVISOR */}
+        {/* 4. VISTA DE EVALUACIÓN CON SELECTOR DE SUPERVISOR */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1479,42 +1491,27 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                {/* SELECTOR DE SUPERVISOR SEGÚN MATRIZ DE ASIGNACIÓN */}
+                {/* SELECTOR DESPLEGABLE DE SUPERVISOR AUDITABLE */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>
                     Nombre del supervisor:
                   </label>
-                  {supervisoresDisponibles.length > 0 ? (
-                    <select
-                      value={nominaSupervisor}
-                      onChange={(e) => {
-                        const nom = e.target.value;
-                        setNominaSupervisor(nom);
-                        const supObj = supervisoresDisponibles.find((s) => s.nomina === nom);
-                        setNombreSupervisor(supObj ? supObj.nombre : nom);
-                      }}
-                      style={{ ...STYLES.input, fontWeight: 600 }}
-                      required
-                    >
-                      <option value="">-- Selecciona supervisor --</option>
-                      {supervisoresDisponibles.map((s) => (
-                        <option key={s.nomina} value={s.nomina}>
-                          {s.nombre} ({s.nomina})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <select
-                      value={nominaSupervisor}
-                      onChange={(e) => {
-                        setNominaSupervisor(e.target.value);
-                        setNombreSupervisor(e.target.value);
-                      }}
-                      style={{ ...STYLES.input, color: '#8A9AB0' }}
-                    >
-                      <option value="PENDIENTE">Pendiente / Sin supervisor asignado</option>
-                    </select>
-                  )}
+                  <select
+                    value={supervisorNomina}
+                    onChange={(e) => setSupervisorNomina(e.target.value)}
+                    style={{ ...STYLES.input, fontWeight: 600 }}
+                  >
+                    <option value="">
+                      {supervisoresDisponibles.length > 0
+                        ? '-- Selecciona el supervisor --'
+                        : '-- Sin supervisor asignado (Pendiente) --'}
+                    </option>
+                    {supervisoresDisponibles.map((sup) => (
+                      <option key={sup.nomina} value={sup.nomina}>
+                        {sup.nombre} (Nóm. {sup.nomina})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -1759,7 +1756,7 @@ export const App: React.FC = () => {
         {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS */}
         {vista === 'EDITOR_PLANTILLAS' && (
           <div>
-            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'gap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Listas de Verificación</div>
                 <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configuración integral para Proceso y Condiciones 5S</div>
@@ -2017,7 +2014,11 @@ export const App: React.FC = () => {
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico y Cronograma Gantt</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Consolidación de auditorías ({historial.length}) y plan de acción</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>
+                  {esAdminTotal
+                    ? `Vista de Administrador · Consolidación global (${historialPermitido.length} registros)`
+                    : `Mis Auditorías Asignadas (${historialPermitido.length} registros)`}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -2030,7 +2031,7 @@ export const App: React.FC = () => {
                     fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  <span>Auditorías ({historial.length})</span>
+                  <span>Auditorías ({historialPermitido.length})</span>
                 </button>
                 <button
                   onClick={() => setSubVistaHistorial('GANTT')}
@@ -2196,7 +2197,7 @@ export const App: React.FC = () => {
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '120px' }} rowSpan={2}>Cumplimiento</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '130px' }} rowSpan={2}>Cumplimiento</th>
 
                           <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
                             Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
@@ -2435,7 +2436,9 @@ export const App: React.FC = () => {
 
                 {auditoriasFiltradas.length === 0 ? (
                   <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    Sin auditorías encontradas con los filtros seleccionados.
+                    {esAdminTotal
+                      ? 'Sin auditorías encontradas con los filtros seleccionados.'
+                      : 'No tienes auditorías registradas como supervisor auditado.'}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
