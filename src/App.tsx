@@ -1152,28 +1152,10 @@ export const App: React.FC = () => {
       {/* CONTENEDOR PRINCIPAL */}
       <main style={{ maxWidth: '1220px', margin: '0 auto', padding: '1.2rem 1rem 3rem' }}>
 
-        {/* 1. VISTA LAUNCHER */}
+        {/* 1. VISTA LAUNCHER (SIN TARJETAS AZULES SUPERIORES) */}
         {vista === 'LAUNCHER' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '1.5rem' }}>
-              <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Total Auditorías</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>{historial.length}</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Registros sincronizados</div>
-              </div>
-              <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Máquinas Activas</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>26</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>En catálogo</div>
-              </div>
-              <div style={STYLES.metricCard}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '6px' }}>Áreas y Máquinas 5S</div>
-                <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1 }}>33</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Puntos de control</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '0.5rem' }}>
               
               {/* Tarjeta Proceso */}
               <div onClick={() => setVista('MODULO_PROCESO')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
@@ -2209,7 +2191,6 @@ export const App: React.FC = () => {
                                 {diasTotal}
                               </td>
 
-                              {/* Columna Cumplimiento con Leyenda Reincidente */}
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
@@ -2481,7 +2462,6 @@ export const App: React.FC = () => {
               El punto <strong>"#{modalReincidencia.puntoId} - {modalReincidencia.itemCheck?.queObservar}"</strong> ya cuenta con antecedentes de no conformidad en revisiones previas:
             </p>
 
-            {/* Antecedentes previos */}
             <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {modalReincidencia.hallazgosPrevios.slice(0, 3).map((prevH, pIdx) => (
                 <div key={pIdx} style={{ background: '#FFF5F5', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px', fontSize: '11.5px' }}>
@@ -2826,9 +2806,9 @@ export const App: React.FC = () => {
         );
       })()}
 
-      {/* FOOTER */}
+      {/* FOOTER MINIMALISTA */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
-        <strong style={{ color: '#003580' }}>IMPREDIMEX</strong> — Impresión y Diseño de México S.A. de C.V. &nbsp;·&nbsp; Sistema de Control Operativo &nbsp;·&nbsp; Planta Industrial
+        Sistema de Control Operativo
       </footer>
     </div>
   );
