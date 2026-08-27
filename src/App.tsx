@@ -197,7 +197,7 @@ const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
 };
 
 export const App: React.FC = () => {
-  // --- ESTADO DE SESIÓN / AUTENTICACIÓN RÁPIDA ---
+  // --- ESTADO DE SESIÓN ---
   const [usuarioActivo, setUsuarioActivo] = useState<UserProfile | null>(() => {
     const sesionGuardada = localStorage.getItem('impredimex_user_session');
     if (sesionGuardada) {
@@ -368,7 +368,6 @@ export const App: React.FC = () => {
         : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
     : [];
 
-  // --- ACCIONES DE INICIO Y CIERRE DE SESIÓN ---
   const handleIniciarSesion = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorLogin('');
@@ -407,7 +406,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- DETECCIÓN DE HALLAZGOS REINCIDENTES ---
   const handleRespuesta = (puntoId: number, valor: 'SI' | 'NO') => {
     setRespuestas((prev) => ({ ...prev, [puntoId]: valor }));
     const key = `punto_${puntoId}`;
@@ -893,7 +891,6 @@ export const App: React.FC = () => {
     };
   });
 
-  // --- EXPORTAR A EXCEL CON FORMATO ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt con los filtros actuales para exportar.');
@@ -1010,7 +1007,7 @@ export const App: React.FC = () => {
     window.print();
   };
 
-  // --- PANTALLA DE INGRESO ACTUALIZADA (MODIFICACIONES SOLICITADAS) ---
+  // --- PANTALLA DE INGRESO ---
   if (!usuarioActivo) {
     return (
       <div style={{
@@ -1019,7 +1016,7 @@ export const App: React.FC = () => {
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", padding: '16px'
       }}>
         <div style={{
-          ...STYLES.glassCard, maxWidth: '440px', width: '100%', padding: '2.5rem 2rem',
+          ...STYLES.glassCard, maxWidth: '420px', width: '100%', padding: '2.4rem 2rem',
           textAlign: 'center', boxShadow: '0 20px 40px rgba(0,32,96,0.15)'
         }}>
           <div style={{ fontSize: '22px', fontWeight: 800, color: '#002060', letterSpacing: '.02em' }}>IMPREDIMEX</div>
@@ -1093,54 +1090,68 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS CON IDENTIDAD DEL USUARIO */}
+      {/* HEADER GLASS MINIMALISTA Y RESPONSIVO */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0.75rem 1.5rem', background: 'rgba(255,255,255,0.88)',
+        padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
         borderBottom: '0.5px solid rgba(0,32,96,0.08)',
-        boxShadow: '0 2px 8px rgba(0,32,96,0.05)', position: 'sticky', top: 0, zIndex: 100
+        boxShadow: '0 2px 8px rgba(0,32,96,0.04)', position: 'sticky', top: 0, zIndex: 100,
+        gap: '8px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }} onClick={() => setVista('LAUNCHER')}>
+        <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }} onClick={() => setVista('LAUNCHER')}>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', letterSpacing: '.02em' }}>IMPREDIMEX</div>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#003580', marginTop: '1px', letterSpacing: '.01em' }}>Control de Proceso y 5S</div>
-            <div style={{ fontSize: '10px', color: '#8A9AB0', marginTop: '1px' }}>Sistema de Operaciones · Verificación de Línea</div>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#002060', letterSpacing: '.02em', lineHeight: 1.1 }}>IMPREDIMEX</div>
+            <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#003580', marginTop: '1px', letterSpacing: '.01em' }}>Control de Proceso</div>
           </div>
         </div>
 
-        {/* Perfil activo y acciones */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#002060' }}>
-              👤 {usuarioActivo.nombre}
+        {/* Identidad de usuario en 2 renglones y botones compactos */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, justifyContent: 'flex-end' }}>
+          <div style={{
+            textAlign: 'right', display: 'flex', flexDirection: 'column',
+            justifyContent: 'center', minWidth: 0, maxWidth: '140px'
+          }}>
+            <span style={{
+              fontSize: '10.5px', fontWeight: 700, color: '#002060',
+              lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis'
+            }}>
+              {usuarioActivo.nombre}
             </span>
-            <span style={{ fontSize: '10px', color: '#5A6A80' }}>
-              Nóm. {usuarioActivo.nomina} · {usuarioActivo.puesto}
+            <span style={{
+              fontSize: '9px', color: '#5A6A80', marginTop: '1px',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+            }}>
+              {usuarioActivo.puesto}
             </span>
           </div>
 
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
-              background: 'transparent', border: '1.5px solid rgba(0,32,96,0.12)', color: '#003580',
-              padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600
+              background: 'transparent', border: '1px solid rgba(0,32,96,0.15)', color: '#003580',
+              padding: '5px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+              flexShrink: 0
             }}>
-              ← Tablero
+              ←
             </button>
           )}
+
           <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }} style={{
             background: '#003580', color: '#ffffff', border: 'none',
-            padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, letterSpacing: '.02em'
+            padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+            whiteSpace: 'nowrap', flexShrink: 0
           }}>
             <span>Histórico ({historial.length})</span>
           </button>
 
           <button
             onClick={handleCerrarSesion}
-            title="Cerrar sesión activa"
+            title="Cerrar sesión"
             style={{
               background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5',
-              padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700
+              padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+              flexShrink: 0
             }}
           >
             Salir ⏻
@@ -2208,7 +2219,6 @@ export const App: React.FC = () => {
                                 {diasTotal}
                               </td>
 
-                              {/* Columna Cumplimiento con Leyenda Reincidente */}
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
