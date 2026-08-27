@@ -122,6 +122,40 @@ const FAMILIAS_TODAS = Array.from(new Set(CATALOGO.map((m) => m.tipo)));
 const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
 const FAMILIAS_5S = Array.from(new Set(CATALOGO.filter((m) => m.modulo5S).map((m) => m.tipo)));
 
+// --- MATRIZ DE ASIGNACIÓN DE SUPERVISORES POR MÁQUINA / ÁREA ---
+const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] => {
+  if (!maquina) return [];
+
+  let nominasPermitidas: string[] = [];
+
+  // Reglas específicas por ID de máquina o área
+  if (maquina.id === 'DEP1') {
+    nominasPermitidas = ['2308', '2398', '2159'];
+  } else if (maquina.id === 'DEP2') {
+    nominasPermitidas = ['1853', '2377'];
+  } else if (maquina.id === 'area-tintas') {
+    nominasPermitidas = ['2129'];
+  } else if (maquina.id === 'area-mp' || maquina.id === 'area-pt') {
+    nominasPermitidas = ['1802'];
+  } else if (maquina.id === 'area-mant') {
+    nominasPermitidas = ['2432'];
+  } else if (maquina.id === 'area-banos') {
+    nominasPermitidas = ['2308', '2398', '2159', '1853', '2377'];
+  } else if (maquina.id === 'area-prep' || maquina.id === 'area-cal') {
+    nominasPermitidas = []; // Pendientes / Vacantes
+  } 
+  // Reglas por Categoría / Familia
+  else if (['Rotograbado', 'Flexografía', 'Laminado'].includes(maquina.tipo)) {
+    nominasPermitidas = ['2308', '2398', '2159'];
+  } else if (['Digital', 'Suajado'].includes(maquina.tipo)) {
+    nominasPermitidas = ['885'];
+  } else if (['Refilado', 'Pegado', 'Revisión', 'Corte'].includes(maquina.tipo)) {
+    nominasPermitidas = ['1853', '2377'];
+  }
+
+  return USUARIOS_SISTEMA.filter((u) => nominasPermitidas.includes(u.nomina) && u.activo);
+};
+
 interface ItemChecklist {
   id: number;
   seccion: string;
@@ -279,6 +313,7 @@ export const App: React.FC = () => {
   const [auditor, setAuditor] = useState('');
   const [nominaAuditado, setNominaAuditado] = useState('');
   const [nominaSupervisor, setNominaSupervisor] = useState('');
+  const [nombreSupervisor, setNombreSupervisor] = useState('');
   const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   const [respuestas, setRespuestas] = useState<Record<number, 'SI' | 'NO' | null>>({});
   const [puntosSoloReincidentes, setPuntosSoloReincidentes] = useState<number[]>([]);
@@ -367,6 +402,8 @@ export const App: React.FC = () => {
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
         : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
     : [];
+
+  const supervisoresDisponibles = obtenerSupervisoresPorMaquina(maquinaSeleccionada);
 
   const handleIniciarSesion = (e: React.FormEvent) => {
     e.preventDefault();
@@ -569,6 +606,7 @@ export const App: React.FC = () => {
         auditor: auditor.trim(),
         nominaAuditado: nominaAuditado.trim(),
         nominaSupervisor: nominaSupervisor.trim(),
+        nombreSupervisor: nombreSupervisor.trim() || nominaSupervisor.trim(),
         turno,
         cumplimiento,
         totalSi: itemsChecklistActivo.length > 0 ? totalSi : (listaHallazgos.length === 0 ? 1 : 0),
@@ -589,6 +627,7 @@ export const App: React.FC = () => {
       setOrdenTrabajo('');
       setNominaAuditado('');
       setNominaSupervisor('');
+      setNombreSupervisor('');
       setVista('HISTORIAL');
       setSubVistaHistorial('AUDITORIAS');
     } catch (error) {
@@ -1091,7 +1130,7 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS MINIMALISTA: NOMBRE Y PUESTO DEBAJO DE CONTROL DE PROCESO */}
+      {/* HEADER GLASS MINIMALISTA */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.92)',
@@ -1152,7 +1191,7 @@ export const App: React.FC = () => {
       {/* CONTENEDOR PRINCIPAL */}
       <main style={{ maxWidth: '1220px', margin: '0 auto', padding: '1.2rem 1rem 3rem' }}>
 
-        {/* 1. VISTA LAUNCHER (SIN TARJETAS AZULES SUPERIORES) */}
+        {/* 1. VISTA LAUNCHER */}
         {vista === 'LAUNCHER' && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '0.5rem' }}>
@@ -1267,6 +1306,8 @@ export const App: React.FC = () => {
                   if (m) {
                     setMaquinaSeleccionada(m);
                     setTipoAuditoriaActiva('PROCESO');
+                    setNominaSupervisor('');
+                    setNombreSupervisor('');
                     setVista('EVALUACION');
                   }
                 }}
@@ -1350,6 +1391,8 @@ export const App: React.FC = () => {
                   if (m) {
                     setMaquinaSeleccionada(m);
                     setTipoAuditoriaActiva('5S');
+                    setNominaSupervisor('');
+                    setNombreSupervisor('');
                     setVista('EVALUACION');
                   }
                 }}
@@ -1372,7 +1415,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN */}
+        {/* 4. VISTA DE EVALUACIÓN CON SELECTOR DINÁMICO DE SUPERVISOR */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1435,16 +1478,45 @@ export const App: React.FC = () => {
                     style={STYLES.input}
                   />
                 </div>
+
+                {/* SELECTOR DE SUPERVISOR SEGÚN MATRIZ DE ASIGNACIÓN */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Nómina supervisor:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. 2012"
-                    value={nominaSupervisor}
-                    onChange={(e) => setNominaSupervisor(e.target.value)}
-                    style={STYLES.input}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>
+                    Nombre del supervisor:
+                  </label>
+                  {supervisoresDisponibles.length > 0 ? (
+                    <select
+                      value={nominaSupervisor}
+                      onChange={(e) => {
+                        const nom = e.target.value;
+                        setNominaSupervisor(nom);
+                        const supObj = supervisoresDisponibles.find((s) => s.nomina === nom);
+                        setNombreSupervisor(supObj ? supObj.nombre : nom);
+                      }}
+                      style={{ ...STYLES.input, fontWeight: 600 }}
+                      required
+                    >
+                      <option value="">-- Selecciona supervisor --</option>
+                      {supervisoresDisponibles.map((s) => (
+                        <option key={s.nomina} value={s.nomina}>
+                          {s.nombre} ({s.nomina})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={nominaSupervisor}
+                      onChange={(e) => {
+                        setNominaSupervisor(e.target.value);
+                        setNombreSupervisor(e.target.value);
+                      }}
+                      style={{ ...STYLES.input, color: '#8A9AB0' }}
+                    >
+                      <option value="PENDIENTE">Pendiente / Sin supervisor asignado</option>
+                    </select>
+                  )}
                 </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Turno:</label>
                   <select value={turno} onChange={(e) => setTurno(e.target.value)} style={STYLES.input}>
@@ -2124,7 +2196,7 @@ export const App: React.FC = () => {
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
                           <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '130px' }} rowSpan={2}>Cumplimiento</th>
+                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '120px' }} rowSpan={2}>Cumplimiento</th>
 
                           <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
                             Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
@@ -2191,6 +2263,7 @@ export const App: React.FC = () => {
                                 {diasTotal}
                               </td>
 
+                              {/* Columna Cumplimiento con Leyenda Reincidente */}
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
@@ -2404,9 +2477,9 @@ export const App: React.FC = () => {
                           <div style={{ fontSize: '12px', color: '#5A6A80' }}>
                             <span>Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · {item.tipoAuditoria === '5S' ? '' : `OP: ${item.ordenTrabajo || 'S/N'} · `}Auditor: <strong>{item.auditor}</strong> · {item.turno}</span>
                           </div>
-                          {(item.nominaAuditado || item.nominaSupervisor) && (
+                          {(item.nominaAuditado || item.nominaSupervisor || item.nombreSupervisor) && (
                             <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                              <span>Auditado (Nóm): <strong>{item.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{item.nominaSupervisor || 'N/A'}</strong></span>
+                              <span>Auditado (Nóm): <strong>{item.nominaAuditado || 'N/A'}</strong> · Supervisor: <strong>{item.nombreSupervisor || item.nominaSupervisor || 'N/A'}</strong></span>
                             </div>
                           )}
                         </div>
@@ -2544,9 +2617,9 @@ export const App: React.FC = () => {
                   <div style={{ fontSize: '12px', color: '#5A6A80', marginTop: '4px' }}>
                     <span>Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}</span>
                   </div>
-                  {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor) && (
+                  {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor || auditoriaDetalleModal.nombreSupervisor) && (
                     <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                      <span>Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor (Nóm): <strong>{auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong></span>
+                      <span>Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor: <strong>{auditoriaDetalleModal.nombreSupervisor || auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong></span>
                     </div>
                   )}
                 </div>
