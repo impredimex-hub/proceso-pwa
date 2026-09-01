@@ -57,7 +57,7 @@ const USUARIOS_SISTEMA: UserProfile[] = [
   { nomina: '2308', nombre: 'CASTRUITA CRUZ SERGIO', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8032', activo: true },
   { nomina: '2377', nombre: 'AVALOS MONREAL JOSE DAVID', puesto: 'SUPERVISOR DE ACONDICIONADO', pin: '7732', activo: true },
   { nomina: '2159', nombre: 'SOTO MENESES OSCAR', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '9512', activo: true },
-  { nomina: '2435', nombre: 'JOSELYNE MAGDALENA MENDOZA PARRA', puesto: 'INGENIERO DE PROCESOS', pin: '5342', activo: true },
+  { nomina: '2435', nombre: 'JOCELYNE MENDOZA PARRA', puesto: 'INGENIERO DE PROCESOS', pin: '5342', activo: true },
   { nomina: '2432', nombre: 'EMMANUEL TEJEDA CAMPOS', puesto: 'ANALISTA DE MANTENIMIENTO', pin: '2342', activo: true },
   { nomina: '2398', nombre: 'ZARATE MONROY SAMUEL', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8932', activo: true },
   // Plazas Vacantes Pendientes
@@ -233,7 +233,12 @@ export const App: React.FC = () => {
     const sesionGuardada = localStorage.getItem('impredimex_user_session');
     if (sesionGuardada) {
       try {
-        return JSON.parse(sesionGuardada);
+        const u = JSON.parse(sesionGuardada);
+        // Actualizar nombre si tenía la versión anterior
+        if (u.nomina === '2435') {
+          u.nombre = 'JOCELYNE MENDOZA PARRA';
+        }
+        return u;
       } catch (e) {
         return null;
       }
@@ -1756,7 +1761,7 @@ export const App: React.FC = () => {
         {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS */}
         {vista === 'EDITOR_PLANTILLAS' && (
           <div>
-            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'gap', gap: '12px' }}>
+            <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Editor de Plantillas y Listas de Verificación</div>
                 <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configuración integral para Proceso y Condiciones 5S</div>
@@ -2183,7 +2188,9 @@ export const App: React.FC = () => {
                 <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
                   {hallazgosFiltradosGantt.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                      No se encontraron hallazgos registrados para el criterio seleccionado.
+                      {esAdminTotal
+                        ? 'No se encontraron hallazgos registrados para el criterio seleccionado.'
+                        : 'No tienes hallazgos registrados en tus auditorías asignadas.'}
                     </div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
