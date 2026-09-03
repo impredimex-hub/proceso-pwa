@@ -851,7 +851,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- TRANSICIÓN DE ESTADOS EN GANTT: PERMITE SALIR DE PEND. ATRASADO A TERMINADO ---
+  // --- TRANSICIÓN DE ESTADOS EN GANTT ---
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
@@ -878,7 +878,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- HALLAZGOS FILTRADOS GANTT (CON RESPETO DE ESTATUS TERMINADO Y PERMISOS) ---
+  // --- HALLAZGOS FILTRADOS GANTT ---
   const hallazgosFiltradosGantt = historialPermitido.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
@@ -893,7 +893,6 @@ export const App: React.FC = () => {
         const fFin = h.fechaCierre || todayStr;
         let estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
 
-        // Solo se calcula PENDIENTE_ATRASADO si el usuario NO lo ha marcado como TERMINADO
         if (estatus !== 'TERMINADO' && todayStr > fFin) {
           estatus = 'PENDIENTE_ATRASADO';
         }
@@ -1180,7 +1179,7 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Botones compactos con Botón de Salir Discreto */}
+        {/* Botones compactos con Botón Circular de Histórico y Botón de Salir */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, alignSelf: 'center' }}>
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
@@ -1192,12 +1191,30 @@ export const App: React.FC = () => {
             </button>
           )}
 
-          <button onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }} style={{
-            background: '#003580', color: '#ffffff', border: 'none',
-            padding: '7px 11px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
-            whiteSpace: 'nowrap', flexShrink: 0
-          }}>
-            <span>Histórico ({historialPermitido.length})</span>
+          {/* Botón Circular de Histórico */}
+          <button
+            onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }}
+            title={`Histórico: ${historialPermitido.length} auditorías`}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: '#002060',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              flexShrink: 0,
+              boxShadow: '0 2px 5px rgba(0,32,96,0.25)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            {historialPermitido.length}
           </button>
 
           {/* Botón Discreto Circular (Icono de Apagado) */}
