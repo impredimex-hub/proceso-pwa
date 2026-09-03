@@ -409,7 +409,7 @@ export const App: React.FC = () => {
 
   const supervisoresDisponibles = obtenerSupervisoresPorMaquina(maquinaSeleccionada);
 
-  // --- FILTRO DE SEGURIDAD POR PERFIL (2435 VE TODO, DEMÁS SOLO LO PROPIO) ---
+  // --- FILTRO DE SEGURIDAD POR PERFIL ---
   const esAdminTotal = usuarioActivo?.nomina === '2435';
 
   const historialPermitido = historial.filter((item) => {
@@ -851,12 +851,17 @@ export const App: React.FC = () => {
     }
   };
 
+  // --- TRANSICIÓN DE ESTADOS EN GANTT: PERMITE SALIR DE PEND. ATRASADO A TERMINADO ---
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
-      if (estadoActual === 'PENDIENTE' || !estadoActual) nuevoEstado = 'TERMINADO';
-      else if (estadoActual === 'TERMINADO') nuevoEstado = 'PENDIENTE_ATRASADO';
-      else if (estadoActual === 'PENDIENTE_ATRASADO') nuevoEstado = 'PENDIENTE';
+      if (estadoActual === 'PENDIENTE' || !estadoActual) {
+        nuevoEstado = 'TERMINADO';
+      } else if (estadoActual === 'TERMINADO') {
+        nuevoEstado = 'PENDIENTE';
+      } else if (estadoActual === 'PENDIENTE_ATRASADO') {
+        nuevoEstado = 'TERMINADO';
+      }
 
       const docEncontrado = historial.find((h) => h.id === docId);
       if (docEncontrado && docEncontrado.hallazgos) {
@@ -873,7 +878,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- HALLAZGOS FILTRADOS GANTT (CON RESPETO DE PERMISOS) ---
+  // --- HALLAZGOS FILTRADOS GANTT (CON RESPETO DE ESTATUS TERMINADO Y PERMISOS) ---
   const hallazgosFiltradosGantt = historialPermitido.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
 
@@ -888,6 +893,7 @@ export const App: React.FC = () => {
         const fFin = h.fechaCierre || todayStr;
         let estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
 
+        // Solo se calcula PENDIENTE_ATRASADO si el usuario NO lo ha marcado como TERMINADO
         if (estatus !== 'TERMINADO' && todayStr > fFin) {
           estatus = 'PENDIENTE_ATRASADO';
         }
@@ -924,7 +930,7 @@ export const App: React.FC = () => {
       .filter(Boolean);
   });
 
-  // --- AUDITORÍAS FILTRADAS (CON RESPETO DE PERMISOS) ---
+  // --- AUDITORÍAS FILTRADAS ---
   const auditoriasFiltradas = historialPermitido.filter((item) => {
     const tipoDoc = item.tipoAuditoria || 'PROCESO';
     if (filtroAudTipoRevision && tipoDoc !== filtroAudTipoRevision) return false;
@@ -1150,7 +1156,7 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS CON BOTÓN DE SALIDA DISCRETO / MINIMALISTA */}
+      {/* HEADER GLASS MINIMALISTA */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.92)',
@@ -2311,7 +2317,7 @@ export const App: React.FC = () => {
                                       estatus === 'TERMINADO' ? '#085041' :
                                       estatus === 'PENDIENTE_ATRASADO' ? '#7A0B1D' : '#7A4500'
                                   }}
-                                  title="Haz clic para alternar: PENDIENTE → TERMINADO → PENDIENTE ATRASADO"
+                                  title="Haz clic para alternar: PENDIENTE ↔ TERMINADO (incluso si está atrasado)"
                                 >
                                   <span>{estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}</span>
                                 </button>
