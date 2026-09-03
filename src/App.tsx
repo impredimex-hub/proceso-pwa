@@ -206,48 +206,54 @@ const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
   return 'PROCESO';
 };
 
-// --- DEFINICIÓN DE COORDENADAS 3D DEL LAYOUT (ACONDICIONADO / CORTE / SERVICIOS) ---
+// --- GEOMETRÍA ISOMÉTRICA CON AMPLITUD REAL DE PASILLOS ---
 interface ElementoLayout3D {
   id: string;
   label: string;
   tipoEntidad: 'MAQUINA' | 'AREA_SOPORTE' | 'ZONA';
   maquinaCatalogoId?: string;
-  x: number;
-  y: number;
-  w: number;
-  d: number;
-  h: number;
+  gridX: number; // Coordenada X en cuadrícula de nave
+  gridY: number; // Coordenada Y en cuadrícula de nave
+  width: number;
+  depth: number;
+  height: number;
 }
 
 const ELEMENTOS_LAYOUT_3D: ElementoLayout3D[] = [
-  { id: 'comedor', label: 'Comedor', tipoEntidad: 'AREA_SOPORTE', x: 40, y: 30, w: 100, d: 50, h: 22 },
-  { id: 'compresor', label: 'Compresor / Secador', tipoEntidad: 'AREA_SOPORTE', x: 155, y: 30, w: 90, d: 50, h: 22 },
-  { id: 'banos', label: 'Baños de Producción', tipoEntidad: 'AREA_SOPORTE', maquinaCatalogoId: 'area-banos', x: 260, y: 30, w: 110, d: 50, h: 22 },
-  { id: 'recepcion', label: 'Recepción / Médicos', tipoEntidad: 'AREA_SOPORTE', x: 385, y: 30, w: 110, d: 50, h: 22 },
-  { id: 'lockers', label: 'Lockers', tipoEntidad: 'AREA_SOPORTE', x: 510, y: 30, w: 75, d: 50, h: 20 },
+  // Franja Superior: Soporte y Servicios (Y = 20)
+  { id: 'comedor', label: 'Comedor', tipoEntidad: 'AREA_SOPORTE', gridX: 30, gridY: 20, width: 85, depth: 55, height: 20 },
+  { id: 'compresor', label: 'Compresor / Secador', tipoEntidad: 'AREA_SOPORTE', gridX: 135, gridY: 20, width: 85, depth: 55, height: 22 },
+  { id: 'banos', label: 'Baños Producción', tipoEntidad: 'AREA_SOPORTE', maquinaCatalogoId: 'area-banos', gridX: 240, gridY: 20, width: 95, depth: 55, height: 22 },
+  { id: 'recepcion', label: 'Recepción / Médico', tipoEntidad: 'AREA_SOPORTE', gridX: 355, gridY: 20, width: 95, depth: 55, height: 22 },
+  { id: 'lockers', label: 'Lockers', tipoEntidad: 'AREA_SOPORTE', gridX: 470, gridY: 20, width: 75, depth: 55, height: 18 },
 
-  { id: 'ref1', label: 'REF 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF1', x: 45, y: 115, w: 75, d: 65, h: 32 },
-  { id: 'ref2', label: 'REF 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF2', x: 170, y: 115, w: 85, d: 75, h: 36 },
-  { id: 'ref3', label: 'REF 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF3', x: 305, y: 115, w: 80, d: 65, h: 34 },
-  { id: 'calidad-nueva', label: 'Laboratorio Calidad', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'area-cal', x: 440, y: 120, w: 75, d: 55, h: 24 },
+  // Bloque Refilado (Y = 120, calle de 45px respecto al comedor)
+  { id: 'ref1', label: 'REF 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF1', gridX: 40, gridY: 120, width: 75, depth: 70, height: 28 },
+  { id: 'ref2', label: 'REF 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF2', gridX: 160, gridY: 120, width: 80, depth: 75, height: 32 },
+  { id: 'ref3', label: 'REF 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF3', gridX: 285, gridY: 120, width: 75, depth: 70, height: 30 },
+  { id: 'calidad-nueva', label: 'Lab. Calidad', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'area-cal', gridX: 430, gridY: 120, width: 85, depth: 65, height: 22 },
 
-  { id: 'peg1', label: 'PEG 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG1', x: 60, y: 225, w: 75, d: 115, h: 42 },
-  { id: 'peg2', label: 'PEG 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG2', x: 195, y: 225, w: 75, d: 115, h: 42 },
-  { id: 'rev8', label: 'REV 8', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV8', x: 315, y: 225, w: 55, d: 60, h: 28 },
-  { id: 'dep2', label: 'DEP 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'DEP2', x: 420, y: 225, w: 65, d: 70, h: 30 },
+  // Bloque Pegado y Depuración (Y = 260, pasillo central amplio de 65px)
+  { id: 'peg1', label: 'PEG 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG1', gridX: 45, gridY: 260, width: 75, depth: 110, height: 38 },
+  { id: 'peg2', label: 'PEG 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG2', gridX: 175, gridY: 260, width: 75, depth: 110, height: 38 },
+  { id: 'rev8', label: 'REV 8', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV8', gridX: 305, gridY: 260, width: 55, depth: 65, height: 25 },
+  { id: 'dep2', label: 'DEP 2 (Etiquetas)', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'DEP2', gridX: 420, gridY: 260, width: 65, depth: 75, height: 28 },
 
-  { id: 'rev1', label: 'REV 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV1', x: 50, y: 380, w: 50, d: 55, h: 26 },
-  { id: 'rev2', label: 'REV 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV2', x: 120, y: 380, w: 50, d: 55, h: 26 },
-  { id: 'rev3', label: 'REV 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV3', x: 190, y: 380, w: 50, d: 55, h: 26 },
-  { id: 'rev6', label: 'REV 6', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV6', x: 290, y: 380, w: 55, d: 55, h: 28 },
+  // Bloque Revisadoras (Y = 445, sin REV5 ni REV7)
+  { id: 'rev1', label: 'REV 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV1', gridX: 35, gridY: 445, width: 50, depth: 60, height: 24 },
+  { id: 'rev2', label: 'REV 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV2', gridX: 105, gridY: 445, width: 50, depth: 60, height: 24 },
+  { id: 'rev3', label: 'REV 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV3', gridX: 175, gridY: 445, width: 50, depth: 60, height: 24 },
+  { id: 'rev6', label: 'REV 6', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV6', gridX: 275, gridY: 445, width: 55, depth: 60, height: 25 },
 
-  { id: 'cor1', label: 'COR 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR1', x: 50, y: 470, w: 90, d: 45, h: 26 },
-  { id: 'cor2', label: 'COR 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR2', x: 50, y: 530, w: 90, d: 45, h: 26 },
-  { id: 'cor3', label: 'COR 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR3', x: 50, y: 590, w: 90, d: 45, h: 26 },
+  // Batería Cortadoras (Y escalonada con 25px de separación vertical)
+  { id: 'cor1', label: 'COR 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR1', gridX: 35, gridY: 555, width: 85, depth: 45, height: 24 },
+  { id: 'cor2', label: 'COR 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR2', gridX: 35, gridY: 625, width: 85, depth: 45, height: 24 },
+  { id: 'cor3', label: 'COR 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR3', gridX: 35, gridY: 695, width: 85, depth: 45, height: 24 },
 
-  { id: 'empacadora', label: 'Empacadora', tipoEntidad: 'AREA_SOPORTE', x: 240, y: 470, w: 85, d: 85, h: 30 },
-  { id: 'area-empaque', label: 'Área de Empaque', tipoEntidad: 'AREA_SOPORTE', x: 345, y: 470, w: 100, d: 85, h: 18 },
-  { id: 'cajas-carton', label: 'Almacén Cajas Cartón', tipoEntidad: 'AREA_SOPORTE', x: 460, y: 470, w: 85, d: 85, h: 18 }
+  // Empaque y Almacenaje
+  { id: 'empacadora', label: 'Empacadora', tipoEntidad: 'AREA_SOPORTE', gridX: 220, gridY: 565, width: 85, depth: 85, height: 28 },
+  { id: 'area-empaque', label: 'Área Empaque', tipoEntidad: 'AREA_SOPORTE', gridX: 330, gridY: 565, width: 95, depth: 85, height: 16 },
+  { id: 'cajas-carton', label: 'Almacén Cajas', tipoEntidad: 'AREA_SOPORTE', gridX: 445, gridY: 565, width: 85, depth: 85, height: 16 }
 ];
 
 export const App: React.FC = () => {
@@ -302,7 +308,7 @@ export const App: React.FC = () => {
     hallazgosPrevios: []
   });
 
-  // Estados Formulario Nueva Desviación Modal
+  // Estados Formulario Desviación
   const [mostrarFormNuevoHallazgoModal, setMostrarFormNuevoHallazgoModal] = useState(false);
   const [tipoNuevoHallazgoModal, setTipoNuevoHallazgoModal] = useState<'PREESTABLECIDO' | 'EXTRA'>('PREESTABLECIDO');
   const [puntoSeleccionadoModal, setPuntoSeleccionadoModal] = useState<string>('');
@@ -410,9 +416,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
-    const baseDefault = moduloEditor === 'PROCESO'
-      ? (tipoSeleccionadoEditor === 'Pegado' ? CHECKLIST_BASE_PEGADO : [])
-      : CHECKLIST_OFICIAL_5S;
+    const baseDefault = moduloEditor === 'PROCESO' ? (tipoSeleccionadoEditor === 'Pegado' ? CHECKLIST_BASE_PEGADO : []) : CHECKLIST_OFICIAL_5S;
     const items = fuente[tipoSeleccionadoEditor] || baseDefault;
     setChecklistEnEdicion(Array.isArray(items) ? [...items] : []);
     cancelarEdicionPregunta();
@@ -463,15 +467,15 @@ export const App: React.FC = () => {
     return false;
   });
 
-  // --- CÁLCULO DE ESTADO Y COLOR PASTEL 3D POR EQUIPO ---
+  // --- CÁLCULO DE ESTADO Y COLOR PASTEL 3D (40% TRANSPARENCIA) ---
   const obtenerEstadoEquipoLayout = (maqCatalogoId?: string) => {
     if (!maqCatalogoId) {
       return {
-        estado: 'NEUTRO',
-        fillTop: 'rgba(226, 232, 240, 0.4)',
-        fillFront: 'rgba(203, 213, 225, 0.4)',
-        fillSide: 'rgba(148, 163, 184, 0.4)',
-        border: '#94A3B8',
+        fillTop: 'rgba(226, 232, 240, 0.45)',
+        fillFront: 'rgba(203, 213, 225, 0.45)',
+        fillSide: 'rgba(148, 163, 184, 0.45)',
+        stroke: '#64748B',
+        badgeColor: '#64748B',
         texto: 'Sin auditorías'
       };
     }
@@ -479,11 +483,11 @@ export const App: React.FC = () => {
     const auds = historial.filter((h) => h.maquinaId === maqCatalogoId);
     if (auds.length === 0) {
       return {
-        estado: 'NEUTRO',
-        fillTop: 'rgba(226, 232, 240, 0.4)',
-        fillFront: 'rgba(203, 213, 225, 0.4)',
-        fillSide: 'rgba(148, 163, 184, 0.4)',
-        border: '#94A3B8',
+        fillTop: 'rgba(226, 232, 240, 0.45)',
+        fillFront: 'rgba(203, 213, 225, 0.45)',
+        fillSide: 'rgba(148, 163, 184, 0.45)',
+        stroke: '#64748B',
+        badgeColor: '#64748B',
         texto: 'Sin auditorías'
       };
     }
@@ -506,44 +510,39 @@ export const App: React.FC = () => {
 
     if (tieneAtrasados) {
       return {
-        estado: 'ATRASADO',
-        fillTop: 'rgba(254, 202, 202, 0.4)',
-        fillFront: 'rgba(252, 165, 165, 0.4)',
-        fillSide: 'rgba(248, 113, 113, 0.4)',
-        border: '#DC2626',
+        fillTop: 'rgba(254, 202, 202, 0.45)',   // Rojo Pastel 40%
+        fillFront: 'rgba(252, 165, 165, 0.45)',
+        fillSide: 'rgba(248, 113, 113, 0.45)',
+        stroke: '#DC2626',
+        badgeColor: '#DC2626',
         texto: 'Atrasado'
       };
     }
 
     if (tienePendientes) {
       return {
-        estado: 'PENDIENTE',
-        fillTop: 'rgba(254, 240, 138, 0.4)',
-        fillFront: 'rgba(253, 224, 71, 0.4)',
-        fillSide: 'rgba(234, 179, 8, 0.4)',
-        border: '#D97706',
+        fillTop: 'rgba(254, 240, 138, 0.45)',   // Amarillo Pastel 40%
+        fillFront: 'rgba(253, 224, 71, 0.45)',
+        fillSide: 'rgba(234, 179, 8, 0.45)',
+        stroke: '#D97706',
+        badgeColor: '#D97706',
         texto: 'Pendiente'
       };
     }
 
     return {
-      estado: 'EXCELENTE',
-      fillTop: 'rgba(167, 243, 208, 0.4)',
-      fillFront: 'rgba(110, 231, 183, 0.4)',
-      fillSide: 'rgba(52, 211, 153, 0.4)',
-      border: '#059669',
-      texto: '100% Cumplimiento'
+      fillTop: 'rgba(167, 243, 208, 0.45)',     // Verde Pastel 40%
+      fillFront: 'rgba(110, 231, 183, 0.45)',
+      fillSide: 'rgba(52, 211, 153, 0.45)',
+      stroke: '#059669',
+      badgeColor: '#059669',
+      texto: '100% OK'
     };
   };
 
   const handleAbrirDetalleElementoLayout = (elem: ElementoLayout3D) => {
-    const maquinaEncontrada = elem.maquinaCatalogoId
-      ? CATALOGO.find((m) => m.id === elem.maquinaCatalogoId) || null
-      : null;
-
-    const auds = elem.maquinaCatalogoId
-      ? historial.filter((h) => h.maquinaId === elem.maquinaCatalogoId)
-      : [];
+    const maquinaEncontrada = elem.maquinaCatalogoId ? CATALOGO.find((m) => m.id === elem.maquinaCatalogoId) || null : null;
+    const auds = elem.maquinaCatalogoId ? historial.filter((h) => h.maquinaId === elem.maquinaCatalogoId) : [];
 
     const hallazgosPend: any[] = [];
     let sumaCumplimiento = 0;
@@ -553,11 +552,7 @@ export const App: React.FC = () => {
       if (a.hallazgos && Array.isArray(a.hallazgos)) {
         a.hallazgos.forEach((h: any) => {
           if (h.estadoSeguimiento !== 'TERMINADO') {
-            hallazgosPend.push({
-              ...h,
-              fechaAuditoria: a.fechaAuditoria,
-              auditor: a.auditor
-            });
+            hallazgosPend.push({ ...h, fechaAuditoria: a.fechaAuditoria, auditor: a.auditor });
           }
         });
       }
@@ -592,15 +587,11 @@ export const App: React.FC = () => {
       return;
     }
 
-    const usuarioEncontrado = USUARIOS_SISTEMA.find(
-      (u) => u.nomina === inputLoginNomina.trim() && u.activo
-    );
-
+    const usuarioEncontrado = USUARIOS_SISTEMA.find((u) => u.nomina === inputLoginNomina.trim() && u.activo);
     if (!usuarioEncontrado) {
       setErrorLogin('Número de nómina no encontrado o perfil inactivo.');
       return;
     }
-
     if (usuarioEncontrado.pin !== inputLoginPin.trim()) {
       setErrorLogin('PIN de 4 dígitos incorrecto.');
       return;
@@ -644,23 +635,14 @@ export const App: React.FC = () => {
         if (aud.maquinaNombre === maquinaSeleccionada?.nombre && aud.hallazgos && Array.isArray(aud.hallazgos)) {
           aud.hallazgos.forEach((h: any) => {
             if (h.puntoId === puntoId) {
-              hallazgosAnteriores.push({
-                ...h,
-                fechaAuditoria: aud.fechaAuditoria || 'Fecha no registrada',
-                auditor: aud.auditor
-              });
+              hallazgosAnteriores.push({ ...h, fechaAuditoria: aud.fechaAuditoria || 'Fecha no registrada', auditor: aud.auditor });
             }
           });
         }
       });
 
       if (hallazgosAnteriores.length > 0) {
-        setModalReincidencia({
-          abierto: true,
-          puntoId,
-          itemCheck: item || null,
-          hallazgosPrevios: hallazgosAnteriores
-        });
+        setModalReincidencia({ abierto: true, puntoId, itemCheck: item || null, hallazgosPrevios: hallazgosAnteriores });
       } else {
         if (!hallazgos[key]) {
           setHallazgos((prev) => ({
@@ -712,7 +694,6 @@ export const App: React.FC = () => {
       }
       setPuntosSoloReincidentes((prev) => Array.from(new Set([...prev, puntoId])));
     }
-
     setModalReincidencia({ abierto: false, puntoId: 0, itemCheck: null, hallazgosPrevios: [] });
   };
 
@@ -742,10 +723,7 @@ export const App: React.FC = () => {
   };
 
   const handleHallazgoChange = (key: string, campo: keyof Hallazgo, valor: string) => {
-    setHallazgos((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], [campo]: valor }
-    }));
+    setHallazgos((prev) => ({ ...prev, [key]: { ...prev[key], [campo]: valor } }));
   };
 
   const totalRespondidos = Object.values(respuestas).filter((v) => v !== null).length;
@@ -797,14 +775,14 @@ export const App: React.FC = () => {
         totalNo: itemsChecklistActivo.length > 0 ? totalNo : listaHallazgos.length,
         fechaAuditoria: todayStr,
         respuestas: itemsChecklistActivo.length > 0 ? respuestas : {},
-        puntosSoloReincidentes: puntosSoloReincidentes,
+        puntosSoloReincidentes,
         hallazgos: listaHallazgos,
         itemsSnapshot: itemsChecklistActivo,
         estadoFinal: (itemsChecklistActivo.length > 0 ? totalNo === 0 : listaHallazgos.length === 0) ? 'APROBADO' : 'CON_HALLAZGOS',
         createdAt: serverTimestamp()
       });
 
-      alert('✅ Auditoría guardada y sincronizada correctamente.');
+      alert('✅ Auditoría guardada correctamente.');
       setRespuestas({});
       setPuntosSoloReincidentes([]);
       setHallazgos({});
@@ -836,9 +814,8 @@ export const App: React.FC = () => {
   const handleGuardarDesviacionModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auditoriaDetalleModal) return;
-
     if (tipoNuevoHallazgoModal === 'PREESTABLECIDO' && !puntoSeleccionadoModal) {
-      alert('Por favor selecciona el punto del checklist preestablecido.');
+      alert('Por favor selecciona el punto del checklist.');
       return;
     }
     if (!descNuevoHallazgoModal.trim()) {
@@ -915,8 +892,7 @@ export const App: React.FC = () => {
       setAccionNuevoHallazgoModal('');
       setRespNuevoHallazgoModal('');
       setFechaCierreNuevoHallazgoModal('');
-
-      alert('✅ Desviación agregada con éxito y sincronizada.');
+      alert('✅ Desviación agregada con éxito.');
     } catch (error) {
       console.error('Error:', error);
       alert('Error al guardar desviación.');
@@ -928,7 +904,7 @@ export const App: React.FC = () => {
   const handleGuardarOEditarPregunta = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoQueObservar.trim() || !nuevoComoVerifica.trim()) {
-      alert('Completa la descripción de lo que se observa y cómo se verifica.');
+      alert('Completa los campos.');
       return;
     }
 
@@ -972,7 +948,7 @@ export const App: React.FC = () => {
   };
 
   const handleEliminarPregunta = (id: number) => {
-    if (confirm(`¿Deseas eliminar el punto #${id} del checklist?`)) {
+    if (confirm(`¿Deseas eliminar el punto #${id}?`)) {
       setChecklistEnEdicion((prev) => prev.filter((item) => item.id !== id));
       if (editandoId === id) cancelarEdicionPregunta();
     }
@@ -1004,7 +980,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- TRANSICIÓN DE ESTADOS EN GANTT ---
+  // --- ALTERNAR ESTADO EN GANTT ---
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
@@ -1023,11 +999,11 @@ export const App: React.FC = () => {
         await updateDoc(docRef, { hallazgos: nuevosHallazgos });
       }
     } catch (error) {
-      console.error('Error al actualizar estado:', error);
+      console.error('Error al actualizar:', error);
     }
   };
 
-  // --- HALLAZGOS FILTRADOS GANTT ---
+  // --- HALLAZGOS GANTT ---
   const hallazgosFiltradosGantt = historialPermitido.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
     if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) return [];
@@ -1105,7 +1081,7 @@ export const App: React.FC = () => {
   // --- EXPORTAR A EXCEL ---
   const handleExportarExcelGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
-      alert('No hay datos en el Gantt con los filtros actuales para exportar.');
+      alert('No hay datos en el Gantt.');
       return;
     }
 
@@ -1114,68 +1090,36 @@ export const App: React.FC = () => {
       const dFin = new Date(item.fechaFin);
       const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
       const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-      const isEven = index % 2 === 0;
-      const rowBg = isEven ? '#FFFFFF' : '#F4F8FD';
-
-      let statusColor = '#7A4500';
-      let statusBg = '#FFF4E5';
-      if (item.estadoSeguimiento === 'TERMINADO') {
-        statusColor = '#0F7A55';
-        statusBg = '#E0F2EC';
-      } else if (item.estadoSeguimiento === 'PENDIENTE_ATRASADO') {
-        statusColor = '#C8102E';
-        statusBg = '#FDE8EB';
-      }
 
       return `
-        <tr style="background-color: ${rowBg};">
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${index + 1}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; color: #002060;">${item.tipoAuditoria}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaAuditoria}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; font-weight: bold; color: #003580;">${item.maquinaNombre}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.ordenTrabajo || 'N/A'}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px;">${item.auditor}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; white-space: normal;">${item.hallazgo || ''}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; white-space: normal;">${item.accion || 'Sin acción'}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px;">${item.responsable || 'No asignado'}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaInicio}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaFin}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold;">${diasTotal}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; background-color: ${statusBg}; color: ${statusColor};">
-            ${item.estadoSeguimiento} ${item.esReincidente ? '<br/><span style="color:#C8102E; font-size:9pt;">(Reincidente)</span>' : ''}
-          </td>
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.tipoAuditoria}</td>
+          <td>${item.fechaAuditoria}</td>
+          <td>${item.maquinaNombre}</td>
+          <td>${item.ordenTrabajo || 'N/A'}</td>
+          <td>${item.auditor}</td>
+          <td>${item.hallazgo || ''}</td>
+          <td>${item.accion || 'Sin acción'}</td>
+          <td>${item.responsable || 'No asignado'}</td>
+          <td>${item.fechaInicio}</td>
+          <td>${item.fechaFin}</td>
+          <td>${diasTotal}</td>
+          <td>${item.estadoSeguimiento}</td>
         </tr>
       `;
     }).join('');
 
     const excelTemplate = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-          <style>
-            table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
-            th { background-color: #002060; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #001030; padding: 10px 8px; vertical-align: middle; }
-          </style>
-        </head>
+        <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
         <body>
-          <h2 style="color: #002060; font-family: Calibri, Arial, sans-serif;">IMPREDIMEX — Reporte de Cronograma Gantt</h2>
-          <p style="color: #5A6A80; font-family: Calibri, Arial, sans-serif; font-size: 10pt;">Generado el: <strong>${todayStr}</strong></p>
+          <h2>IMPREDIMEX — Reporte de Cronograma Gantt</h2>
           <table border="1">
             <thead>
               <tr>
-                <th style="width: 40px;">#</th>
-                <th style="width: 140px;">Tipo</th>
-                <th style="width: 110px;">Fecha</th>
-                <th style="width: 160px;">Máquina / Área</th>
-                <th style="width: 90px;">OP</th>
-                <th style="width: 140px;">Auditor</th>
-                <th style="width: 320px;">Desviación</th>
-                <th style="width: 260px;">Acción Correctiva</th>
-                <th style="width: 140px;">Responsable</th>
-                <th style="width: 100px;">Inicio</th>
-                <th style="width: 100px;">Compromiso</th>
-                <th style="width: 50px;">Días</th>
-                <th style="width: 130px;">Cumplimiento</th>
+                <th>#</th><th>Tipo</th><th>Fecha</th><th>Máquina</th><th>OP</th><th>Auditor</th>
+                <th>Desviación</th><th>Acción</th><th>Responsable</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Estatus</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -1187,8 +1131,8 @@ export const App: React.FC = () => {
     const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Gantt_IMPREDIMEX_${todayStr}.xls`);
+    link.href = url;
+    link.download = `Gantt_IMPREDIMEX_${todayStr}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1196,7 +1140,7 @@ export const App: React.FC = () => {
 
   const handleExportarPDFGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
-      alert('No hay datos en el Gantt con los filtros actuales para exportar.');
+      alert('No hay datos en el Gantt.');
       return;
     }
     window.print();
@@ -1305,8 +1249,7 @@ export const App: React.FC = () => {
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
               background: 'transparent', border: '1px solid rgba(0,32,96,0.15)', color: '#003580',
-              padding: '6px 9px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
-              flexShrink: 0
+              padding: '6px 9px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, flexShrink: 0
             }}>
               ←
             </button>
@@ -1416,10 +1359,7 @@ export const App: React.FC = () => {
                 </label>
                 <select
                   value={filtroProcesoFamilia}
-                  onChange={(e) => {
-                    setFiltroProcesoFamilia(e.target.value);
-                    setFiltroProcesoMaquinaId('');
-                  }}
+                  onChange={(e) => { setFiltroProcesoFamilia(e.target.value); setFiltroProcesoMaquinaId(''); }}
                   style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
                 >
                   <option value="">-- Elige un proceso --</option>
@@ -1490,10 +1430,7 @@ export const App: React.FC = () => {
                 </label>
                 <select
                   value={filtro5SFamilia}
-                  onChange={(e) => {
-                    setFiltro5SFamilia(e.target.value);
-                    setFiltro5SMaquinaId('');
-                  }}
+                  onChange={(e) => { setFiltro5SFamilia(e.target.value); setFiltro5SMaquinaId(''); }}
                   style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
                 >
                   <option value="">-- Elige un proceso / área --</option>
@@ -1894,10 +1831,7 @@ export const App: React.FC = () => {
               </label>
               <select
                 value={tipoSeleccionadoEditor}
-                onChange={(e) => {
-                  setTipoSeleccionadoEditor(e.target.value);
-                  cancelarEdicionPregunta();
-                }}
+                onChange={(e) => { setTipoSeleccionadoEditor(e.target.value); cancelarEdicionPregunta(); }}
                 style={{ ...STYLES.input, maxWidth: '320px', fontWeight: 600 }}
               >
                 {(moduloEditor === 'PROCESO' ? FAMILIAS_PROCESO : FAMILIAS_5S).map((fam) => (
@@ -2049,10 +1983,9 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* TABLA GANTT */}
+            {/* TABLA GANTT CON FILTROS RESTAURADOS */}
             {subVistaHistorial === 'GANTT' && (
               <div>
-                {/* FILTROS GANTT RESTAURADOS */}
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                     <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
@@ -2065,9 +1998,7 @@ export const App: React.FC = () => {
                         onClick={handleExportarExcelGantt}
                         style={{
                           background: '#0F7A55', color: '#ffffff', border: 'none',
-                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                          boxShadow: '0 2px 6px rgba(15,122,85,0.25)'
+                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                         }}
                       >
                         📊 Exportar Excel
@@ -2077,9 +2008,7 @@ export const App: React.FC = () => {
                         onClick={handleExportarPDFGantt}
                         style={{
                           background: '#003580', color: '#ffffff', border: 'none',
-                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                          boxShadow: '0 2px 6px rgba(0,53,128,0.25)'
+                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                         }}
                       >
                         📄 Exportar PDF
@@ -2241,10 +2170,9 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* SUBVISTA AUDITORÍAS */}
+            {/* SUBVISTA AUDITORÍAS CON FILTROS Y CLICK RESTAURADO */}
             {subVistaHistorial === 'AUDITORIAS' && (
               <div>
-                {/* FILTROS AUDITORÍAS RESTAURADOS */}
                 <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
                     Filtros de Búsqueda de Auditorías
@@ -2274,12 +2202,7 @@ export const App: React.FC = () => {
                       style={STYLES.input}
                     >
                       <option value="">Selecciona Proceso/Familia</option>
-                      {(filtroAudTipoRevision === 'PROCESO'
-                        ? FAMILIAS_PROCESO
-                        : filtroAudTipoRevision === '5S'
-                        ? FAMILIAS_5S
-                        : FAMILIAS_TODAS
-                      ).map((fam) => (
+                      {(filtroAudTipoRevision === 'PROCESO' ? FAMILIAS_PROCESO : filtroAudTipoRevision === '5S' ? FAMILIAS_5S : FAMILIAS_TODAS).map((fam) => (
                         <option key={`aud-fam-${fam}`} value={fam}>{fam}</option>
                       ))}
                     </select>
@@ -2338,7 +2261,7 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* LISTA DE TARJETAS DE AUDITORÍA CON CLICK HABILITADO */}
+                {/* LISTA CON APERTURA DE MODAL HABILITADA */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {auditoriasFiltradas.length === 0 ? (
                     <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
@@ -2443,7 +2366,7 @@ export const App: React.FC = () => {
         </svg>
       </button>
 
-      {/* MODAL DETALLE DE CHECKLIST REALIZADO CON AGREGAR DESVIACIÓN RESTAURADO */}
+      {/* MODAL DETALLE DE CHECKLIST REALIZADO */}
       {auditoriaDetalleModal && (() => {
         const plantillaActual = obtenerPlantillaAuditoriaModal(auditoriaDetalleModal);
 
@@ -2653,7 +2576,7 @@ export const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Checklist Realizado con Mapeo Fiel */}
+              {/* Checklist Realizado */}
               <div style={{ marginBottom: '16px' }}>
                 {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2725,10 +2648,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setAuditoriaDetalleModal(null)}
-                  style={{
-                    padding: '8px 20px', background: '#003580', color: '#ffffff',
-                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                  }}
+                  style={{ padding: '8px 20px', background: '#003580', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   Cerrar Detalle
                 </button>
@@ -2738,7 +2658,7 @@ export const App: React.FC = () => {
         );
       })()}
 
-      {/* MODAL DEL LAYOUT ISOMÉTRICO 3D */}
+      {/* MODAL DEL LAYOUT ISOMÉTRICO 3D CON PASILLOS AMPLIOS */}
       {modalLayout3DAbierto && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -2746,7 +2666,7 @@ export const App: React.FC = () => {
           zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px'
         }}>
           <div style={{
-            background: '#ffffff', borderRadius: '18px', maxWidth: '1080px', width: '100%',
+            background: '#ffffff', borderRadius: '18px', maxWidth: '1140px', width: '100%',
             maxHeight: '94vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
             border: '1px solid rgba(0,32,96,0.15)', overflow: 'hidden'
           }}>
@@ -2759,25 +2679,25 @@ export const App: React.FC = () => {
                   <span>🗺️ Layout de Planta 3D — Acondicionado y Servicios</span>
                 </div>
                 <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                  Visualización de estatus en tiempo real con colores pastel (40% opacidad). Toca cualquier equipo para auditar o ver hallazgos.
+                  Proyección isométrica con pasillos despejados. Colores pastel translúcidos (40%). Toca cualquier equipo para auditar o ver hallazgos.
                 </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#065F46', fontWeight: 700 }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(167, 243, 208, 0.55)', border: '1.5px solid #059669' }}></span>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(167, 243, 208, 0.6)', border: '1.5px solid #059669' }}></span>
                   100% OK
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#92400E', fontWeight: 700 }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(254, 240, 138, 0.55)', border: '1.5px solid #D97706' }}></span>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(254, 240, 138, 0.6)', border: '1.5px solid #D97706' }}></span>
                   Pendiente
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#991B1B', fontWeight: 700 }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(254, 202, 202, 0.55)', border: '1.5px solid #DC2626' }}></span>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(254, 202, 202, 0.6)', border: '1.5px solid #DC2626' }}></span>
                   Atrasado
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#475569', fontWeight: 700 }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(226, 232, 240, 0.55)', border: '1.5px solid #94A3B8' }}></span>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(226, 232, 240, 0.6)', border: '1.5px solid #64748B' }}></span>
                   Sin datos
                 </div>
 
@@ -2793,43 +2713,50 @@ export const App: React.FC = () => {
               </div>
             </div>
 
+            {/* LIENZO SVG ISOMÉTRICO 3D REAL (CON CÁLCULOS TRIGONOMÉTRICOS DE 30 GRADOS) */}
             <div style={{
-              flex: 1, overflow: 'auto', background: 'radial-gradient(circle at center, #F1F5F9 0%, #E2E8F0 100%)',
+              flex: 1, overflow: 'auto', background: 'radial-gradient(circle at center, #F8FAFC 0%, #E2E8F0 100%)',
               padding: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center'
             }}>
               <svg
-                viewBox="0 0 1080 840"
-                style={{ width: '100%', minWidth: '820px', height: 'auto', filter: 'drop-shadow(0 15px 25px rgba(0,32,96,0.12))' }}
+                viewBox="0 0 1120 860"
+                style={{ width: '100%', minWidth: '860px', height: 'auto', filter: 'drop-shadow(0 15px 30px rgba(0,32,96,0.12))' }}
               >
                 <defs>
                   <pattern id="grid-piso-3d" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,32,96,0.04)" strokeWidth="1" />
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,32,96,0.035)" strokeWidth="1" />
                   </pattern>
                 </defs>
 
-                <polygon points="140,40  960,40  960,780  140,780" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
-                <rect x="140" y="40" width="820" height="740" fill="url(#grid-piso-3d)" />
+                {/* Suelo Nave */}
+                <polygon points="120,30  1040,30  1040,820  120,820" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
+                <rect x="120" y="30" width="920" height="790" fill="url(#grid-piso-3d)" />
 
-                <text x="890" y="320" fill="#94A3B8" fontSize="12" fontWeight="800" transform="rotate(90 890,320)" letterSpacing="4">
-                  SALIDA DE EMERGENCIA 🚪
-                </text>
-                <text x="560" y="270" fill="#94A3B8" fontSize="11" fontWeight="700" letterSpacing="3">
+                {/* Pasillo Principal Central Rotulado Despejado */}
+                <rect x="130" y="275" width="900" height="55" fill="rgba(0, 32, 96, 0.025)" rx="4" />
+                <text x="580" y="308" fill="#94A3B8" fontSize="11" fontWeight="800" letterSpacing="5" textAnchor="middle">
                   PASILLO PRINCIPAL CENTRAL
                 </text>
 
+                <text x="980" y="370" fill="#94A3B8" fontSize="12" fontWeight="800" transform="rotate(90 980,370)" letterSpacing="4">
+                  SALIDA DE EMERGENCIA 🚪
+                </text>
+
+                {/* Renderizado de Bloques Isométricos 3D */}
                 {ELEMENTOS_LAYOUT_3D.map((elem) => {
                   const estadoColor = obtenerEstadoEquipoLayout(elem.maquinaCatalogoId);
-                  const ISO_SCALE_X = 1.35;
-                  const ISO_SCALE_Y = 1.05;
-                  const baseX = 170 + (elem.x * ISO_SCALE_X);
-                  const baseY = 60 + (elem.y * ISO_SCALE_Y);
-                  const w = elem.w * ISO_SCALE_X;
-                  const d = elem.d * ISO_SCALE_Y;
-                  const h = elem.h;
+                  const SCALE_X = 1.48;
+                  const SCALE_Y = 1.0;
+                  const x = 145 + (elem.gridX * SCALE_X);
+                  const y = 40 + (elem.gridY * SCALE_Y);
+                  const w = elem.width * SCALE_X;
+                  const d = elem.depth * SCALE_Y;
+                  const h = elem.height;
 
-                  const pTop = `${baseX},${baseY - h} ${baseX + w},${baseY - h} ${baseX + w},${baseY + d - h} ${baseX},${baseY + d - h}`;
-                  const pFront = `${baseX},${baseY + d - h} ${baseX + w},${baseY + d - h} ${baseX + w},${baseY + d} ${baseX},${baseY + d}`;
-                  const pSide = `${baseX + w},${baseY - h} ${baseX + w + (h * 0.35)},${baseY - (h * 0.7)} ${baseX + w + (h * 0.35)},${baseY + d - (h * 0.7)} ${baseX + w},${baseY + d - h}`;
+                  // Coordenadas axonométricas 3D
+                  const pTop = `${x},${y - h} ${x + w},${y - h} ${x + w},${y + d - h} ${x},${y + d - h}`;
+                  const pFront = `${x},${y + d - h} ${x + w},${y + d - h} ${x + w},${y + d} ${x},${y + d}`;
+                  const pSide = `${x + w},${y - h} ${x + w + (h * 0.4)},${y - (h * 0.6)} ${x + w + (h * 0.4)},${y + d - (h * 0.6)} ${x + w},${y + d - h}`;
 
                   return (
                     <g
@@ -2837,14 +2764,43 @@ export const App: React.FC = () => {
                       onClick={() => handleAbrirDetalleElementoLayout(elem)}
                       style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
                     >
-                      <rect x={baseX + 4} y={baseY + 4} width={w} height={d} fill="rgba(0, 32, 96, 0.07)" rx="4" />
-                      <polygon points={pFront} fill={estadoColor.fillFront} stroke={estadoColor.border} strokeWidth="1.2" />
-                      <polygon points={pSide} fill={estadoColor.fillSide} stroke={estadoColor.border} strokeWidth="1.2" />
-                      <polygon points={pTop} fill={estadoColor.fillTop} stroke={estadoColor.border} strokeWidth="1.5" />
-                      <text x={baseX + (w / 2)} y={baseY + (d / 2) - h - 2} fill="#002060" fontSize="11" fontWeight="800" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>
+                      {/* Sombra de suelo suave */}
+                      <rect x={x + 3} y={y + 3} width={w} height={d} fill="rgba(0, 32, 96, 0.06)" rx="4" />
+
+                      {/* Cara Frontal */}
+                      <polygon points={pFront} fill={estadoColor.fillFront} stroke={estadoColor.stroke} strokeWidth="1.2" />
+
+                      {/* Cara Lateral Derecha */}
+                      <polygon points={pSide} fill={estadoColor.fillSide} stroke={estadoColor.stroke} strokeWidth="1.2" />
+
+                      {/* Cara Superior (Techo) */}
+                      <polygon points={pTop} fill={estadoColor.fillTop} stroke={estadoColor.stroke} strokeWidth="1.5" />
+
+                      {/* Etiqueta Nombre */}
+                      <text
+                        x={x + (w / 2)}
+                        y={y + (d / 2) - h - 3}
+                        fill="#002060"
+                        fontSize="11"
+                        fontWeight="800"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ pointerEvents: 'none' }}
+                      >
                         {elem.label}
                       </text>
-                      <text x={baseX + (w / 2)} y={baseY + (d / 2) - h + 11} fill={estadoColor.border} fontSize="9" fontWeight="700" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>
+
+                      {/* Badge Estado */}
+                      <text
+                        x={x + (w / 2)}
+                        y={y + (d / 2) - h + 11}
+                        fill={estadoColor.badgeColor}
+                        fontSize="9"
+                        fontWeight="800"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ pointerEvents: 'none' }}
+                      >
                         {estadoColor.texto}
                       </text>
                     </g>
@@ -2854,17 +2810,17 @@ export const App: React.FC = () => {
             </div>
 
             <div style={{ padding: '0.75rem 1.4rem', background: '#FFFFFF', borderTop: '1px solid #E8EEF8', fontSize: '11px', color: '#5A6A80', textAlign: 'center' }}>
-              Plano digitalizado conforme al layout de nave[cite: 1] · Actualizado: Calidad trasladada a posición REF4, REV5/REV7/REF4 removidas[cite: 1].
+              Plano de Nave Acondicionado[cite: 1] · Calidad en ubicación REF4, REV5/REV7/REF4 retiradas[cite: 1].
             </div>
           </div>
         </div>
       )}
 
-      {/* TARJETA FLOTANTE DE DOBLE ACCIÓN */}
+      {/* MODAL DETALLE DE MÁQUINA DESDE EL LAYOUT (OPCIÓN C) */}
       {detalleElementoLayout && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 32, 96, 0.4)', backdropFilter: 'blur(4px)',
+          background: 'rgba(0, 32, 96, 0.45)', backdropFilter: 'blur(4px)',
           zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
         }}>
           <div style={{
@@ -2892,12 +2848,12 @@ export const App: React.FC = () => {
 
             <div style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#002060', marginBottom: '6px', textTransform: 'uppercase' }}>
-                Desviaciones Pendientes en este equipo ({detalleElementoLayout.hallazgosPendientes.length})
+                Desviaciones Pendientes ({detalleElementoLayout.hallazgosPendientes.length})
               </div>
 
               {detalleElementoLayout.hallazgosPendientes.length === 0 ? (
                 <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '10px 14px', borderRadius: '8px', fontSize: '11.5px', color: '#166534' }}>
-                  ✓ Sin hallazgos pendientes. Este equipo se encuentra al 100% de cumplimiento.
+                  ✓ Sin hallazgos pendientes. 100% de cumplimiento.
                 </div>
               ) : (
                 <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
