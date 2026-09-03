@@ -234,7 +234,6 @@ export const App: React.FC = () => {
     if (sesionGuardada) {
       try {
         const u = JSON.parse(sesionGuardada);
-        // Actualizar nombre si tenía la versión anterior
         if (u.nomina === '2435') {
           u.nombre = 'JOCELYNE MENDOZA PARRA';
         }
@@ -1151,7 +1150,7 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
       
-      {/* HEADER GLASS MINIMALISTA */}
+      {/* HEADER GLASS CON BOTÓN DE SALIDA DISCRETO / MINIMALISTA */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.92)',
@@ -1175,8 +1174,8 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Botones compactos a la derecha */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, alignSelf: 'center' }}>
+        {/* Botones compactos con Botón de Salir Discreto */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, alignSelf: 'center' }}>
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
               background: 'transparent', border: '1px solid rgba(0,32,96,0.15)', color: '#003580',
@@ -1195,16 +1194,38 @@ export const App: React.FC = () => {
             <span>Histórico ({historialPermitido.length})</span>
           </button>
 
+          {/* Botón Discreto Circular (Icono de Apagado) */}
           <button
             onClick={handleCerrarSesion}
             title="Cerrar sesión"
             style={{
-              background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5',
-              padding: '7px 9px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
-              flexShrink: 0
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'rgba(0, 32, 96, 0.04)',
+              border: '1px solid rgba(0, 32, 96, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: 0,
+              flexShrink: 0,
+              transition: 'all 0.15s ease'
             }}
           >
-            Salir ⏻
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#6B7280"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+              <line x1="12" y1="2" x2="12" y2="12" />
+            </svg>
           </button>
         </div>
       </header>
