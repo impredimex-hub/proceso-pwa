@@ -60,7 +60,6 @@ const USUARIOS_SISTEMA: UserProfile[] = [
   { nomina: '2435', nombre: 'JOCELYNE MENDOZA PARRA', puesto: 'INGENIERO DE PROCESOS', pin: '5342', activo: true },
   { nomina: '2432', nombre: 'EMMANUEL TEJEDA CAMPOS', puesto: 'ANALISTA DE MANTENIMIENTO', pin: '2342', activo: true },
   { nomina: '2398', nombre: 'ZARATE MONROY SAMUEL', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8932', activo: true },
-  // Plazas Vacantes Pendientes
   { nomina: 'VAC-01', nombre: '[VACANTE] JEFE DE ASEGURAMIENTO DE CALIDAD', puesto: 'JEFE DE ASEGURAMIENTO DE CALIDAD', pin: '0000', activo: false },
   { nomina: 'VAC-02', nombre: '[VACANTE] JEFE DE PRODUCCIÓN', puesto: 'JEFE DE PRODUCCIÓN', pin: '0000', activo: false }
 ];
@@ -75,40 +74,32 @@ interface Maquina {
 }
 
 const CATALOGO: Maquina[] = [
-  // Flexografía
   { id: 'FL1', nombre: 'FL1 (Flexográfica 1)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL2', nombre: 'FL2 (Flexográfica 2)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL3', nombre: 'FL3 (Flexográfica 3)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL4', nombre: 'FL4 (Flexográfica 4)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
-  // Rotograbado
   { id: 'RT5', nombre: 'RT5 (Rotograbado 5)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
   { id: 'RT6', nombre: 'RT6 (Rotograbado 6)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
   { id: 'RT7', nombre: 'RT7 (Rotograbado 7)', tipo: 'Rotograbado', moduloProceso: true, modulo5S: true },
-  // Laminado, Depuración Impresión y Digital
   { id: 'LAM1', nombre: 'LAM1 (Laminadora)', tipo: 'Laminado', moduloProceso: true, modulo5S: true },
   { id: 'DEP1', nombre: 'DEP1 (Depuradora Impresión)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'ZEI1', nombre: 'ZEI1 (Impresora Digital)', tipo: 'Digital', moduloProceso: true, modulo5S: true },
   { id: 'OME1', nombre: 'OME1 (Suajadora)', tipo: 'Suajado', moduloProceso: true, modulo5S: true },
-  // Refilado
   { id: 'REF1', nombre: 'REF1 (Refiladora 1)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'REF2', nombre: 'REF2 (Refiladora 2)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'REF3', nombre: 'REF3 (Refiladora 3)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
-  // Pegadoras
   { id: 'PEG1', nombre: 'PEG1 (Pegadora 1)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
   { id: 'PEG2', nombre: 'PEG2 (Pegadora 2)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
-  // Revisadoras
   { id: 'REV1', nombre: 'REV1 (Revisadora 1)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV2', nombre: 'REV2 (Revisadora 2)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV3', nombre: 'REV3 (Revisadora 3)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV4', nombre: 'REV4 (Revisadora 4)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV6', nombre: 'REV6 (Revisadora 6)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV8', nombre: 'REV8 (Revisadora 8)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  // Depuración Etiquetas y Corte
   { id: 'DEP2', nombre: 'DEP2 (Depuración Etiquetas)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR3', nombre: 'COR3 (Cortadora 3)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
-  // Áreas Auxiliares y Soporte
   { id: 'area-tintas', nombre: 'Área de Tintas', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-banos', nombre: 'Baños de Producción', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-mp', nombre: 'Almacén Materia Prima', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
@@ -125,7 +116,6 @@ const FAMILIAS_5S = Array.from(new Set(CATALOGO.filter((m) => m.modulo5S).map((m
 // --- MATRIZ DE SUPERVISORES POR MÁQUINA ---
 const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] => {
   if (!maquina) return [];
-
   const maqId = maquina.id;
   const tipo = maquina.tipo;
 
@@ -138,18 +128,10 @@ const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] =
   if (['Refilado', 'Pegado', 'Revisión', 'Corte'].includes(tipo) || maqId === 'DEP2') {
     return USUARIOS_SISTEMA.filter((u) => ['1853', '2377'].includes(u.nomina));
   }
-  if (maqId === 'area-tintas') {
-    return USUARIOS_SISTEMA.filter((u) => u.nomina === '2129');
-  }
-  if (maqId === 'area-mp' || maqId === 'area-pt') {
-    return USUARIOS_SISTEMA.filter((u) => u.nomina === '1802');
-  }
-  if (maqId === 'area-mant') {
-    return USUARIOS_SISTEMA.filter((u) => u.nomina === '2432');
-  }
-  if (maqId === 'area-banos') {
-    return USUARIOS_SISTEMA.filter((u) => ['2308', '2398', '2159', '1853', '2377'].includes(u.nomina));
-  }
+  if (maqId === 'area-tintas') return USUARIOS_SISTEMA.filter((u) => u.nomina === '2129');
+  if (maqId === 'area-mp' || maqId === 'area-pt') return USUARIOS_SISTEMA.filter((u) => u.nomina === '1802');
+  if (maqId === 'area-mant') return USUARIOS_SISTEMA.filter((u) => u.nomina === '2432');
+  if (maqId === 'area-banos') return USUARIOS_SISTEMA.filter((u) => ['2308', '2398', '2159', '1853', '2377'].includes(u.nomina));
   return [];
 };
 
@@ -220,12 +202,62 @@ const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
   const tipoOriginal = (docData.tipoAuditoria || '').toUpperCase();
   const tipoMaq = docData.tipoMaquina || '';
   const totalRespuestas = Object.keys(docData.respuestas || {}).length;
-
   if (totalRespuestas >= 17 || tipoOriginal === '5S' || (tipoMaq !== 'Pegado' && totalRespuestas > 0)) {
     return '5S';
   }
   return 'PROCESO';
 };
+
+// --- DEFINICIÓN DE COORDENADAS 3D DEL LAYOUT (ACONDICIONADO / CORTE / SERVICIOS) ---
+interface ElementoLayout3D {
+  id: string;
+  label: string;
+  tipoEntidad: 'MAQUINA' | 'AREA_SOPORTE' | 'ZONA';
+  maquinaCatalogoId?: string;
+  x: number;
+  y: number;
+  w: number;
+  d: number;
+  h: number;
+}
+
+const ELEMENTOS_LAYOUT_3D: ElementoLayout3D[] = [
+  // Franja Superior: Servicios y Soporte
+  { id: 'comedor', label: 'Comedor', tipoEntidad: 'AREA_SOPORTE', x: 40, y: 30, w: 100, d: 50, h: 22 },
+  { id: 'compresor', label: 'Compresor / Secador', tipoEntidad: 'AREA_SOPORTE', x: 155, y: 30, w: 90, d: 50, h: 22 },
+  { id: 'banos', label: 'Baños de Producción', tipoEntidad: 'AREA_SOPORTE', maquinaCatalogoId: 'area-banos', x: 260, y: 30, w: 110, d: 50, h: 22 },
+  { id: 'recepcion', label: 'Recepción / Médicos', tipoEntidad: 'AREA_SOPORTE', x: 385, y: 30, w: 110, d: 50, h: 22 },
+  { id: 'lockers', label: 'Lockers', tipoEntidad: 'AREA_SOPORTE', x: 510, y: 30, w: 75, d: 50, h: 20 },
+
+  // Bloque Refilado
+  { id: 'ref1', label: 'REF 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF1', x: 45, y: 115, w: 75, d: 65, h: 32 },
+  { id: 'ref2', label: 'REF 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF2', x: 170, y: 115, w: 85, d: 75, h: 36 },
+  { id: 'ref3', label: 'REF 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF3', x: 305, y: 115, w: 80, d: 65, h: 34 },
+  // Calidad reubicada físicamente donde estaba REF4
+  { id: 'calidad-nueva', label: 'Laboratorio Calidad', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'area-cal', x: 440, y: 120, w: 75, d: 55, h: 24 },
+
+  // Bloque Pegadoras y Depuración
+  { id: 'peg1', label: 'PEG 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG1', x: 60, y: 225, w: 75, d: 115, h: 42 },
+  { id: 'peg2', label: 'PEG 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG2', x: 195, y: 225, w: 75, d: 115, h: 42 },
+  { id: 'rev8', label: 'REV 8', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV8', x: 315, y: 225, w: 55, d: 60, h: 28 },
+  { id: 'dep2', label: 'DEP 2 (Etiquetas)', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'DEP2', x: 420, y: 225, w: 65, d: 70, h: 30 },
+
+  // Bloque Revisadoras (Sin REV5 ni REV7)
+  { id: 'rev1', label: 'REV 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV1', x: 50, y: 380, w: 50, d: 55, h: 26 },
+  { id: 'rev2', label: 'REV 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV2', x: 120, y: 380, w: 50, d: 55, h: 26 },
+  { id: 'rev3', label: 'REV 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV3', x: 190, y: 380, w: 50, d: 55, h: 26 },
+  { id: 'rev6', label: 'REV 6', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV6', x: 290, y: 380, w: 55, d: 55, h: 28 },
+
+  // Bloque Cortadoras (Inferior Izquierda)
+  { id: 'cor1', label: 'COR 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR1', x: 50, y: 470, w: 90, d: 45, h: 26 },
+  { id: 'cor2', label: 'COR 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR2', x: 50, y: 530, w: 90, d: 45, h: 26 },
+  { id: 'cor3', label: 'COR 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'COR3', x: 50, y: 590, w: 90, d: 45, h: 26 },
+
+  // Bloque Empaque y Almacenaje (Inferior Derecha)
+  { id: 'empacadora', label: 'Empacadora', tipoEntidad: 'AREA_SOPORTE', x: 240, y: 470, w: 85, d: 85, h: 30 },
+  { id: 'area-empaque', label: 'Área de Empaque', tipoEntidad: 'AREA_SOPORTE', x: 345, y: 470, w: 100, d: 85, h: 18 },
+  { id: 'cajas-carton', label: 'Almacén Cajas Cartón', tipoEntidad: 'AREA_SOPORTE', x: 460, y: 470, w: 85, d: 85, h: 18 }
+];
 
 export const App: React.FC = () => {
   // --- ESTADO DE SESIÓN ---
@@ -234,9 +266,7 @@ export const App: React.FC = () => {
     if (sesionGuardada) {
       try {
         const u = JSON.parse(sesionGuardada);
-        if (u.nomina === '2435') {
-          u.nombre = 'JOCELYNE MENDOZA PARRA';
-        }
+        if (u.nomina === '2435') u.nombre = 'JOCELYNE MENDOZA PARRA';
         return u;
       } catch (e) {
         return null;
@@ -255,10 +285,20 @@ export const App: React.FC = () => {
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
-  // Modal para ver auditoría en detalle
+  // Modal Layout 3D
+  const [modalLayout3DAbierto, setModalLayout3DAbierto] = useState(false);
+  const [detalleElementoLayout, setDetalleElementoLayout] = useState<{
+    elem: ElementoLayout3D;
+    maquina: Maquina | null;
+    auditoriasRelacionadas: any[];
+    hallazgosPendientes: any[];
+    cumplimientoPromedio: number;
+  } | null>(null);
+
+  // Modal Detalle Auditoría
   const [auditoriaDetalleModal, setAuditoriaDetalleModal] = useState<any | null>(null);
 
-  // Modal para alerta de Reincidencia
+  // Modal Reincidencia
   const [modalReincidencia, setModalReincidencia] = useState<{
     abierto: boolean;
     puntoId: number;
@@ -271,7 +311,7 @@ export const App: React.FC = () => {
     hallazgosPrevios: []
   });
 
-  // Estados para agregar desviación desde el Modal de Detalle
+  // Estados Formulario Nueva Desviación Modal
   const [mostrarFormNuevoHallazgoModal, setMostrarFormNuevoHallazgoModal] = useState(false);
   const [tipoNuevoHallazgoModal, setTipoNuevoHallazgoModal] = useState<'PREESTABLECIDO' | 'EXTRA'>('PREESTABLECIDO');
   const [puntoSeleccionadoModal, setPuntoSeleccionadoModal] = useState<string>('');
@@ -281,22 +321,20 @@ export const App: React.FC = () => {
   const [fechaCierreNuevoHallazgoModal, setFechaCierreNuevoHallazgoModal] = useState('');
   const [guardandoHallazgoModal, setGuardandoHallazgoModal] = useState(false);
 
-  // Selectores dependientes en captura
+  // Selectores dependientes
   const [filtroProcesoFamilia, setFiltroProcesoFamilia] = useState('');
   const [filtroProcesoMaquinaId, setFiltroProcesoMaquinaId] = useState('');
   const [filtro5SFamilia, setFiltro5SFamilia] = useState('');
   const [filtro5SMaquinaId, setFiltro5SMaquinaId] = useState('');
 
-  // Filtros en pestaña Auditorías
+  // Filtros Auditorías
   const [filtroAudTipoRevision, setFiltroAudTipoRevision] = useState('');
   const [filtroAudFamilia, setFiltroAudFamilia] = useState('');
   const [filtroAudMaquinaId, setFiltroAudMaquinaId] = useState('');
   const [filtroAudMes, setFiltroAudMes] = useState('');
 
   // Plantillas dinámicas
-  const [plantillasProceso, setPlantillasProceso] = useState<Record<string, ItemChecklist[]>>({
-    Pegado: CHECKLIST_BASE_PEGADO
-  });
+  const [plantillasProceso, setPlantillasProceso] = useState<Record<string, ItemChecklist[]>>({ Pegado: CHECKLIST_BASE_PEGADO });
   const [plantillas5S, setPlantillas5S] = useState<Record<string, ItemChecklist[]>>({});
 
   // Editor de plantillas
@@ -331,9 +369,7 @@ export const App: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    if (usuarioActivo) {
-      setAuditor(usuarioActivo.nombre);
-    }
+    if (usuarioActivo) setAuditor(usuarioActivo.nombre);
   }, [usuarioActivo]);
 
   useEffect(() => {
@@ -345,26 +381,16 @@ export const App: React.FC = () => {
       const docs = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
         const tipoCorregido = resolverTipoAuditoria(data);
-        return {
-          id: docSnap.id,
-          ...data,
-          tipoAuditoria: tipoCorregido
-        };
+        return { id: docSnap.id, ...data, tipoAuditoria: tipoCorregido };
       });
-      docs.sort((a: any, b: any) => {
-        const tA = a.createdAt?.seconds || 0;
-        const tB = b.createdAt?.seconds || 0;
-        return tB - tA;
-      });
+      docs.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setHistorial(docs);
 
       if (auditoriaDetalleModal) {
         const docActivo = docs.find((d) => d.id === auditoriaDetalleModal.id);
         if (docActivo) setAuditoriaDetalleModal(docActivo);
       }
-    }, (error) => {
-      console.error('Error al escuchar Firestore:', error);
-    });
+    }, (error) => console.error('Error Firestore:', error));
 
     const unsubPlantillasProceso = onSnapshot(collection(db, 'plantillas_checklists'), (snapshot) => {
       const dataP: Record<string, ItemChecklist[]> = { Pegado: CHECKLIST_BASE_PEGADO };
@@ -414,8 +440,157 @@ export const App: React.FC = () => {
 
   const historialPermitido = historial.filter((item) => {
     if (esAdminTotal) return true;
-    return item.nominaSupervisor === usuarioActivo?.nomina;
+    if (!usuarioActivo) return false;
+
+    const nomUser = usuarioActivo.nomina.trim();
+    const nombrePartes = usuarioActivo.nombre.toUpperCase().split(' ').filter((p) => p.length > 2);
+
+    if (String(item.nominaSupervisor || '').trim() === nomUser) return true;
+    if (String(item.nominaAuditado || '').trim() === nomUser) return true;
+
+    const supTexto = String(item.nombreSupervisor || '').toUpperCase();
+    const auditadoTexto = String(item.nominaAuditado || '').toUpperCase();
+    if (nombrePartes.some((p) => supTexto.includes(p) || auditadoTexto.includes(p))) return true;
+
+    if (item.hallazgos && Array.isArray(item.hallazgos)) {
+      const asignado = item.hallazgos.some((h: any) => {
+        const resp = String(h.responsable || '').toUpperCase();
+        return resp.includes(nomUser) || nombrePartes.some((p) => resp.includes(p));
+      });
+      if (asignado) return true;
+    }
+
+    const maqId = item.maquinaId || '';
+    const tipo = item.tipoMaquina || '';
+    if (nomUser === '2129' && (maqId === 'area-tintas' || tipo.includes('Tintas'))) return true;
+    if (nomUser === '1802' && (maqId === 'area-mp' || maqId === 'area-pt' || tipo.includes('Almacén'))) return true;
+    if (nomUser === '2432' && (maqId === 'area-mant' || tipo.includes('Mantenimiento'))) return true;
+    if (nomUser === '885' && (tipo === 'Digital' || tipo === 'Suajado' || maqId === 'ZEI1' || maqId === 'OME1')) return true;
+    if (['1853', '2377'].includes(nomUser) && ['Refilado', 'Pegado', 'Revisión', 'Corte', 'Depuración'].includes(tipo)) return true;
+    if (['2308', '2398', '2159'].includes(nomUser) && ['Rotograbado', 'Flexografía', 'Laminado', 'Depuración'].includes(tipo)) return true;
+
+    return false;
   });
+
+  // --- CÁLCULO DE ESTADO Y COLOR PASTEL 3D (TRANSPARENCIA 40%) POR EQUIPO ---
+  const obtenerEstadoEquipoLayout = (maqCatalogoId?: string) => {
+    if (!maqCatalogoId) {
+      return {
+        estado: 'NEUTRO',
+        fillTop: 'rgba(226, 232, 240, 0.4)',
+        fillFront: 'rgba(203, 213, 225, 0.4)',
+        fillSide: 'rgba(148, 163, 184, 0.4)',
+        border: '#94A3B8',
+        texto: 'Sin auditorías'
+      };
+    }
+
+    const auds = historial.filter((h) => h.maquinaId === maqCatalogoId);
+    if (auds.length === 0) {
+      return {
+        estado: 'NEUTRO',
+        fillTop: 'rgba(226, 232, 240, 0.4)',
+        fillFront: 'rgba(203, 213, 225, 0.4)',
+        fillSide: 'rgba(148, 163, 184, 0.4)',
+        border: '#94A3B8',
+        texto: 'Sin auditorías'
+      };
+    }
+
+    let tieneAtrasados = false;
+    let tienePendientes = false;
+
+    auds.forEach((aud) => {
+      if (aud.hallazgos && Array.isArray(aud.hallazgos)) {
+        aud.hallazgos.forEach((h: any) => {
+          const est = h.estadoSeguimiento || 'PENDIENTE';
+          if (est === 'PENDIENTE_ATRASADO' || (est !== 'TERMINADO' && todayStr > (h.fechaCierre || todayStr))) {
+            tieneAtrasados = true;
+          } else if (est === 'PENDIENTE') {
+            tienePendientes = true;
+          }
+        });
+      }
+    });
+
+    if (tieneAtrasados) {
+      return {
+        estado: 'ATRASADO',
+        fillTop: 'rgba(254, 202, 202, 0.4)',     // Rojo Pastel 40%
+        fillFront: 'rgba(252, 165, 165, 0.4)',
+        fillSide: 'rgba(248, 113, 113, 0.4)',
+        border: '#DC2626',
+        texto: 'Atrasado'
+      };
+    }
+
+    if (tienePendientes) {
+      return {
+        estado: 'PENDIENTE',
+        fillTop: 'rgba(254, 240, 138, 0.4)',     // Amarillo Pastel 40%
+        fillFront: 'rgba(253, 224, 71, 0.4)',
+        fillSide: 'rgba(234, 179, 8, 0.4)',
+        border: '#D97706',
+        texto: 'Pendiente'
+      };
+    }
+
+    return {
+      estado: 'EXCELENTE',
+      fillTop: 'rgba(167, 243, 208, 0.4)',       // Verde Pastel 40%
+      fillFront: 'rgba(110, 231, 183, 0.4)',
+      fillSide: 'rgba(52, 211, 153, 0.4)',
+      border: '#059669',
+      texto: '100% Cumplimiento'
+    };
+  };
+
+  const handleAbrirDetalleElementoLayout = (elem: ElementoLayout3D) => {
+    const maquinaEncontrada = elem.maquinaCatalogoId
+      ? CATALOGO.find((m) => m.id === elem.maquinaCatalogoId) || null
+      : null;
+
+    const auds = elem.maquinaCatalogoId
+      ? historial.filter((h) => h.maquinaId === elem.maquinaCatalogoId)
+      : [];
+
+    const hallazgosPend: any[] = [];
+    let sumaCumplimiento = 0;
+
+    auds.forEach((a) => {
+      sumaCumplimiento += (a.cumplimiento || 0);
+      if (a.hallazgos && Array.isArray(a.hallazgos)) {
+        a.hallazgos.forEach((h: any) => {
+          if (h.estadoSeguimiento !== 'TERMINADO') {
+            hallazgosPend.push({
+              ...h,
+              fechaAuditoria: a.fechaAuditoria,
+              auditor: a.auditor
+            });
+          }
+        });
+      }
+    });
+
+    const prom = auds.length > 0 ? Math.round(sumaCumplimiento / auds.length) : 100;
+
+    setDetalleElementoLayout({
+      elem,
+      maquina: maquinaEncontrada,
+      auditoriasRelacionadas: auds,
+      hallazgosPendientes: hallazgosPend,
+      cumplimientoPromedio: prom
+    });
+  };
+
+  const handleIniciarAuditoriaDesdeLayout = (tipo: 'PROCESO' | '5S') => {
+    if (!detalleElementoLayout?.maquina) return;
+    setMaquinaSeleccionada(detalleElementoLayout.maquina);
+    setTipoAuditoriaActiva(tipo);
+    setDetalleElementoLayout(null);
+    setModalLayout3DAbierto(false);
+    setVista('EVALUACION');
+  };
 
   const handleIniciarSesion = (e: React.FormEvent) => {
     e.preventDefault();
@@ -473,7 +648,6 @@ export const App: React.FC = () => {
 
     if (valor === 'NO') {
       const item = itemsChecklistActivo.find((i) => i.id === puntoId);
-      
       const hallazgosAnteriores: any[] = [];
       historial.forEach((aud) => {
         if (aud.maquinaNombre === maquinaSeleccionada?.nombre && aud.hallazgos && Array.isArray(aud.hallazgos)) {
@@ -693,7 +867,6 @@ export const App: React.FC = () => {
       if (tipoNuevoHallazgoModal === 'PREESTABLECIDO') {
         const pId = parseInt(puntoSeleccionadoModal, 10);
         respuestasActuales[pId] = 'NO';
-
         nuevoHallazgoObj = {
           id: `punto_${pId}_${Date.now()}`,
           puntoId: pId,
@@ -752,10 +925,10 @@ export const App: React.FC = () => {
       setRespNuevoHallazgoModal('');
       setFechaCierreNuevoHallazgoModal('');
 
-      alert('✅ Desviación agregada con éxito y sincronizada en el Gantt y el Historial.');
+      alert('✅ Desviación agregada con éxito y sincronizada.');
     } catch (error) {
-      console.error('Error al agregar desviación:', error);
-      alert('Error al guardar la nueva desviación en Firebase.');
+      console.error('Error:', error);
+      alert('Error al guardar desviación.');
     } finally {
       setGuardandoHallazgoModal(false);
     }
@@ -772,21 +945,13 @@ export const App: React.FC = () => {
       setChecklistEnEdicion((prev) =>
         prev.map((item) =>
           item.id === editandoId
-            ? {
-                ...item,
-                seccion: nuevaSeccion.trim() || item.seccion,
-                queObservar: nuevoQueObservar.trim(),
-                comoVerifica: nuevoComoVerifica.trim()
-              }
+            ? { ...item, seccion: nuevaSeccion.trim() || item.seccion, queObservar: nuevoQueObservar.trim(), comoVerifica: nuevoComoVerifica.trim() }
             : item
         )
       );
       cancelarEdicionPregunta();
     } else {
-      const nuevoId = checklistEnEdicion.length > 0
-        ? Math.max(...checklistEnEdicion.map((item) => item.id)) + 1
-        : 1;
-
+      const nuevoId = checklistEnEdicion.length > 0 ? Math.max(...checklistEnEdicion.map((i) => i.id)) + 1 : 1;
       const seccionDefault = moduloEditor === '5S' ? '1. ORDEN Y 5S' : 'PARÁMETROS OPERATIVOS';
       const nuevoItem: ItemChecklist = {
         id: nuevoId,
@@ -794,7 +959,6 @@ export const App: React.FC = () => {
         queObservar: nuevoQueObservar.trim(),
         comoVerifica: nuevoComoVerifica.trim()
       };
-
       setChecklistEnEdicion((prev) => [...prev, nuevoItem]);
       setNuevoQueObservar('');
       setNuevoComoVerifica('');
@@ -828,7 +992,6 @@ export const App: React.FC = () => {
     try {
       const coleccionTarget = moduloEditor === 'PROCESO' ? 'plantillas_checklists' : 'plantillas_5s';
       const docRef = doc(db, coleccionTarget, tipoSeleccionadoEditor);
-      
       await setDoc(docRef, {
         tipo: tipoSeleccionadoEditor,
         modulo: moduloEditor,
@@ -841,11 +1004,10 @@ export const App: React.FC = () => {
       } else {
         setPlantillas5S((prev) => ({ ...prev, [tipoSeleccionadoEditor]: [...checklistEnEdicion] }));
       }
-
-      alert(`✅ Plantilla de ${moduloEditor} para "${tipoSeleccionadoEditor}" guardada y actualizada.`);
+      alert(`✅ Plantilla de ${moduloEditor} guardada.`);
     } catch (error) {
-      console.error('Error al guardar plantilla:', error);
-      alert('Error al guardar en Firebase.');
+      console.error('Error:', error);
+      alert('Error al guardar plantilla.');
     } finally {
       setGuardandoPlantilla(false);
     }
@@ -855,13 +1017,9 @@ export const App: React.FC = () => {
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
-      if (estadoActual === 'PENDIENTE' || !estadoActual) {
-        nuevoEstado = 'TERMINADO';
-      } else if (estadoActual === 'TERMINADO') {
-        nuevoEstado = 'PENDIENTE';
-      } else if (estadoActual === 'PENDIENTE_ATRASADO') {
-        nuevoEstado = 'TERMINADO';
-      }
+      if (estadoActual === 'PENDIENTE' || !estadoActual) nuevoEstado = 'TERMINADO';
+      else if (estadoActual === 'TERMINADO') nuevoEstado = 'PENDIENTE';
+      else if (estadoActual === 'PENDIENTE_ATRASADO') nuevoEstado = 'TERMINADO';
 
       const docEncontrado = historial.find((h) => h.id === docId);
       if (docEncontrado && docEncontrado.hallazgos) {
@@ -878,13 +1036,10 @@ export const App: React.FC = () => {
     }
   };
 
-  // --- HALLAZGOS FILTRADOS GANTT ---
   const hallazgosFiltradosGantt = historialPermitido.flatMap((auditoria) => {
     const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
-
     if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) return [];
     if (filtroMaquinaGantt && auditoria.maquinaNombre !== filtroMaquinaGantt) return [];
-
     if (!auditoria.hallazgos || !Array.isArray(auditoria.hallazgos)) return [];
 
     return auditoria.hallazgos
@@ -923,13 +1078,12 @@ export const App: React.FC = () => {
           fechaInicio: fAuditoria,
           fechaFin: fFin,
           estadoSeguimiento: estatus,
-          esReincidente: esReincidente
+          esReincidente
         };
       })
       .filter(Boolean);
   });
 
-  // --- AUDITORÍAS FILTRADAS ---
   const auditoriasFiltradas = historialPermitido.filter((item) => {
     const tipoDoc = item.tipoAuditoria || 'PROCESO';
     if (filtroAudTipoRevision && tipoDoc !== filtroAudTipoRevision) return false;
@@ -954,123 +1108,6 @@ export const App: React.FC = () => {
       mesNum: d.getMonth() + 1
     };
   });
-
-  // --- EXPORTAR A EXCEL ---
-  const handleExportarExcelGantt = () => {
-    if (hallazgosFiltradosGantt.length === 0) {
-      alert('No hay datos en el Gantt con los filtros actuales para exportar.');
-      return;
-    }
-
-    const rowsHtml = hallazgosFiltradosGantt.map((item: any, index: number) => {
-      const dIni = new Date(item.fechaInicio);
-      const dFin = new Date(item.fechaFin);
-      const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
-      const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-
-      const isEven = index % 2 === 0;
-      const rowBg = isEven ? '#FFFFFF' : '#F4F8FD';
-
-      let statusColor = '#7A4500';
-      let statusBg = '#FFF4E5';
-      if (item.estadoSeguimiento === 'TERMINADO') {
-        statusColor = '#0F7A55';
-        statusBg = '#E0F2EC';
-      } else if (item.estadoSeguimiento === 'PENDIENTE_ATRASADO') {
-        statusColor = '#C8102E';
-        statusBg = '#FDE8EB';
-      }
-
-      return `
-        <tr style="background-color: ${rowBg};">
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${index + 1}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; color: #002060;">${item.tipoAuditoria}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaAuditoria}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; font-weight: bold; color: #003580;">${item.maquinaNombre}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.ordenTrabajo || 'N/A'}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px;">${item.auditor}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; white-space: normal;">${item.hallazgo || ''}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px; white-space: normal;">${item.accion || 'Sin acción'}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: left; vertical-align: middle; padding: 6px;">${item.responsable || 'No asignado'}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaInicio}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px;">${item.fechaFin}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold;">${diasTotal}</td>
-          <td style="border: 1px solid #D1D5DB; text-align: center; vertical-align: middle; padding: 6px; font-weight: bold; background-color: ${statusBg}; color: ${statusColor};">
-            ${item.estadoSeguimiento} ${item.esReincidente ? '<br/><span style="color:#C8102E; font-size:9pt;">(Reincidente)</span>' : ''}
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    const excelTemplate = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-          <!--[if gte mso 9]>
-          <xml>
-            <x:ExcelWorkbook>
-              <x:ExcelWorksheets>
-                <x:ExcelWorksheet>
-                  <x:Name>Cronograma Gantt</x:Name>
-                  <x:WorksheetOptions>
-                    <x:DisplayGridlines/>
-                  </x:WorksheetOptions>
-                </x:ExcelWorksheet>
-              </x:ExcelWorksheets>
-            </x:ExcelWorkbook>
-          </xml>
-          <![endif]-->
-          <style>
-            table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
-            th { background-color: #002060; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #001030; padding: 10px 8px; vertical-align: middle; }
-          </style>
-        </head>
-        <body>
-          <h2 style="color: #002060; font-family: Calibri, Arial, sans-serif;">IMPREDIMEX — Reporte de Cronograma Gantt y Acciones</h2>
-          <p style="color: #5A6A80; font-family: Calibri, Arial, sans-serif; font-size: 10pt;">Generado el: <strong>${todayStr}</strong> · Total de registros filtrados: <strong>${hallazgosFiltradosGantt.length}</strong></p>
-          <table border="1">
-            <thead>
-              <tr>
-                <th style="width: 40px;">#</th>
-                <th style="width: 140px;">Tipo de Revisión</th>
-                <th style="width: 110px;">Fecha Auditoría</th>
-                <th style="width: 160px;">Máquina / Área</th>
-                <th style="width: 90px;">OP</th>
-                <th style="width: 140px;">Auditor</th>
-                <th style="width: 320px;">Actividad / Desviación</th>
-                <th style="width: 260px;">Acción Correctiva</th>
-                <th style="width: 140px;">Responsable</th>
-                <th style="width: 100px;">Inicio</th>
-                <th style="width: 100px;">Compromiso</th>
-                <th style="width: 50px;">Días</th>
-                <th style="width: 130px;">Cumplimiento</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Gantt_Acciones_IMPREDIMEX_${todayStr}.xls`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleExportarPDFGantt = () => {
-    if (hallazgosFiltradosGantt.length === 0) {
-      alert('No hay datos en el Gantt con los filtros actuales para exportar.');
-      return;
-    }
-    window.print();
-  };
 
   // --- PANTALLA DE INGRESO ---
   if (!usuarioActivo) {
@@ -1104,10 +1141,8 @@ export const App: React.FC = () => {
                 required
               >
                 <option value="">-- Elige tu nómina --</option>
-                {USUARIOS_SISTEMA.filter(u => u.activo).map((u) => (
-                  <option key={u.nomina} value={u.nomina}>
-                    {u.nomina}
-                  </option>
+                {USUARIOS_SISTEMA.filter((u) => u.activo).map((u) => (
+                  <option key={u.nomina} value={u.nomina}>{u.nomina}</option>
                 ))}
               </select>
             </div>
@@ -1153,9 +1188,9 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E', position: 'relative' }}>
       
-      {/* HEADER GLASS MINIMALISTA */}
+      {/* HEADER GLASS */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.92)',
@@ -1179,7 +1214,6 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Botones compactos con Botón Circular de Histórico y Botón de Salir */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, alignSelf: 'center' }}>
           {vista !== 'LAUNCHER' && (
             <button onClick={() => setVista('LAUNCHER')} style={{
@@ -1196,56 +1230,26 @@ export const App: React.FC = () => {
             onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }}
             title={`Histórico: ${historialPermitido.length} auditorías`}
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: '#002060',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '11px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
-              flexShrink: 0,
-              boxShadow: '0 2px 5px rgba(0,32,96,0.25)',
-              transition: 'all 0.15s ease'
+              width: '32px', height: '32px', borderRadius: '50%', background: '#002060',
+              color: '#ffffff', border: 'none', fontSize: '11px', fontWeight: 800, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0,
+              boxShadow: '0 2px 5px rgba(0,32,96,0.25)'
             }}
           >
             {historialPermitido.length}
           </button>
 
-          {/* Botón Discreto Circular (Icono de Apagado) */}
+          {/* Botón Circular Salir */}
           <button
             onClick={handleCerrarSesion}
             title="Cerrar sesión"
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: 'rgba(0, 32, 96, 0.04)',
-              border: '1px solid rgba(0, 32, 96, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: 0,
-              flexShrink: 0,
-              transition: 'all 0.15s ease'
+              width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0, 32, 96, 0.04)',
+              border: '1px solid rgba(0, 32, 96, 0.15)', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0
             }}
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#6B7280"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
               <line x1="12" y1="2" x2="12" y2="12" />
             </svg>
@@ -1261,7 +1265,6 @@ export const App: React.FC = () => {
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '0.5rem' }}>
               
-              {/* Tarjeta Proceso */}
               <div onClick={() => setVista('MODULO_PROCESO')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -1276,7 +1279,6 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
-              {/* Tarjeta 5S */}
               <div onClick={() => setVista('MODULO_5S')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -1291,7 +1293,6 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
-              {/* Tarjeta Editor de Formularios */}
               <div onClick={() => setVista('EDITOR_PLANTILLAS')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -1329,7 +1330,6 @@ export const App: React.FC = () => {
                   1. Selecciona el Proceso / Familia:
                 </label>
                 <select
-                  key="proceso-select-captura"
                   value={filtroProcesoFamilia}
                   onChange={(e) => {
                     setFiltroProcesoFamilia(e.target.value);
@@ -1350,7 +1350,6 @@ export const App: React.FC = () => {
                     2. Selecciona la Máquina:
                   </label>
                   <select
-                    key={`maquina-select-${filtroProcesoFamilia}`}
                     value={filtroProcesoMaquinaId}
                     onChange={(e) => setFiltroProcesoMaquinaId(e.target.value)}
                     style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
@@ -1375,16 +1374,9 @@ export const App: React.FC = () => {
                   }
                 }}
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: filtroProcesoMaquinaId ? '#003580' : '#E8EEF8',
-                  color: filtroProcesoMaquinaId ? '#ffffff' : '#8A9AB0',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed',
-                  boxShadow: filtroProcesoMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
+                  width: '100%', padding: '12px', background: filtroProcesoMaquinaId ? '#003580' : '#E8EEF8',
+                  color: filtroProcesoMaquinaId ? '#ffffff' : '#8A9AB0', border: 'none', borderRadius: '8px',
+                  fontSize: '13px', fontWeight: 700, cursor: filtroProcesoMaquinaId ? 'pointer' : 'not-allowed'
                 }}
               >
                 Iniciar Auditoría de Proceso →
@@ -1412,7 +1404,6 @@ export const App: React.FC = () => {
                   1. Selecciona el Proceso o Área:
                 </label>
                 <select
-                  key="5s-select-captura"
                   value={filtro5SFamilia}
                   onChange={(e) => {
                     setFiltro5SFamilia(e.target.value);
@@ -1433,7 +1424,6 @@ export const App: React.FC = () => {
                     2. Selecciona la Máquina o Área Auxiliar:
                   </label>
                   <select
-                    key={`maquina-5s-${filtro5SFamilia}`}
                     value={filtro5SMaquinaId}
                     onChange={(e) => setFiltro5SMaquinaId(e.target.value)}
                     style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
@@ -1458,16 +1448,9 @@ export const App: React.FC = () => {
                   }
                 }}
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: filtro5SMaquinaId ? '#003580' : '#E8EEF8',
-                  color: filtro5SMaquinaId ? '#ffffff' : '#8A9AB0',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: filtro5SMaquinaId ? 'pointer' : 'not-allowed',
-                  boxShadow: filtro5SMaquinaId ? '0 3px 10px rgba(0,53,128,0.3)' : 'none'
+                  width: '100%', padding: '12px', background: filtro5SMaquinaId ? '#003580' : '#E8EEF8',
+                  color: filtro5SMaquinaId ? '#ffffff' : '#8A9AB0', border: 'none', borderRadius: '8px',
+                  fontSize: '13px', fontWeight: 700, cursor: filtro5SMaquinaId ? 'pointer' : 'not-allowed'
                 }}
               >
                 Iniciar Auditoría 5S →
@@ -1476,7 +1459,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 4. VISTA DE EVALUACIÓN CON SELECTOR DE SUPERVISOR */}
+        {/* 4. VISTA DE EVALUACIÓN */}
         {vista === 'EVALUACION' && (
           <div>
             <div style={STYLES.glassCard}>
@@ -1523,7 +1506,6 @@ export const App: React.FC = () => {
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>Auditor:</label>
                   <input
                     type="text"
-                    placeholder="Nombre del auditor"
                     value={auditor}
                     onChange={(e) => setAuditor(e.target.value)}
                     style={STYLES.input}
@@ -1540,7 +1522,6 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                {/* SELECTOR DESPLEGABLE DE SUPERVISOR AUDITABLE */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#5A6A80', marginBottom: '4px' }}>
                     Nombre del supervisor:
@@ -1574,7 +1555,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Checklist Dinámico */}
+            {/* Checklist */}
             {itemsChecklistActivo.length > 0 ? (
               <div style={STYLES.glassCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
@@ -1662,7 +1643,7 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* SECCIÓN HALLAZGOS Y ACCIONES */}
+            {/* Hallazgos y Acciones */}
             <div style={{ ...STYLES.glassCard, border: listaHallazgos.length > 0 ? '1.5px solid #C8102E' : '1px solid rgba(0,32,96,0.07)', background: listaHallazgos.length > 0 ? '#F9E8EB' : 'rgba(255,255,255,0.88)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: listaHallazgos.length > 0 ? '2px solid rgba(200,16,46,0.2)' : '2px solid #E8EEF8' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1675,11 +1656,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddHallazgoExtra}
-                  style={{
-                    background: '#003580', color: '#ffffff', border: 'none',
-                    padding: '6px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                    cursor: 'pointer', letterSpacing: '.02em'
-                  }}
+                  style={{ background: '#003580', color: '#ffffff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   + Agregar Hallazgo Extra
                 </button>
@@ -1707,11 +1684,7 @@ export const App: React.FC = () => {
                             )}
                           </div>
                           {h.esExtra && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveHallazgoExtra(h.id)}
-                              style={{ background: 'none', border: 'none', color: '#C8102E', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                            >
+                            <button type="button" onClick={() => handleRemoveHallazgoExtra(h.id)} style={{ background: 'none', border: 'none', color: '#C8102E', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
                               ✕ Eliminar
                             </button>
                           )}
@@ -1721,7 +1694,6 @@ export const App: React.FC = () => {
                           <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Descripción del Hallazgo:</label>
                           <input
                             type="text"
-                            placeholder="Describe la desviación observada..."
                             value={h.hallazgo}
                             onChange={(e) => handleHallazgoChange(h.id, 'hallazgo', e.target.value)}
                             style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
@@ -1733,7 +1705,6 @@ export const App: React.FC = () => {
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Acción Correctiva Inmediata:</label>
                             <input
                               type="text"
-                              placeholder="Acción realizada..."
                               value={h.accion}
                               onChange={(e) => handleHallazgoChange(h.id, 'accion', e.target.value)}
                               style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
@@ -1743,27 +1714,18 @@ export const App: React.FC = () => {
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
                             <input
                               type="text"
-                              placeholder="Nombre del responsable"
                               value={h.responsable}
                               onChange={(e) => handleHallazgoChange(h.id, 'responsable', e.target.value)}
                               style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px' }}
                             />
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>
-                              Fecha de Cierre (Compromiso):
-                            </label>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Fecha de Cierre:</label>
                             <input
                               type="date"
                               value={h.fechaCierre}
                               onChange={(e) => handleHallazgoChange(h.id, 'fechaCierre', e.target.value)}
-                              style={{
-                                ...STYLES.input,
-                                fontSize: '12px',
-                                padding: '6px 10px',
-                                background: '#ffffff',
-                                cursor: 'pointer'
-                              }}
+                              style={{ ...STYLES.input, fontSize: '12px', padding: '6px 10px', background: '#ffffff', cursor: 'pointer' }}
                             />
                           </div>
                         </div>
@@ -1774,7 +1736,6 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            {/* Acciones */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -1791,18 +1752,16 @@ export const App: React.FC = () => {
                   padding: '11px 28px',
                   background: (listaHallazgos.length === 0 && puntosSoloReincidentes.length === 0) ? '#003580' : '#C8102E',
                   color: '#ffffff', border: 'none', borderRadius: '8px',
-                  fontSize: '13px', fontWeight: 700, letterSpacing: '.02em',
-                  cursor: guardando ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 3px 10px rgba(0,53,128,0.35)'
+                  fontSize: '13px', fontWeight: 700, cursor: guardando ? 'not-allowed' : 'pointer'
                 }}
               >
-                <span>{guardando ? 'Guardando en Firebase…' : 'Guardar Registro de Auditoría'}</span>
+                <span>{guardando ? 'Guardando…' : 'Guardar Registro de Auditoría'}</span>
               </button>
             </div>
           </div>
         )}
 
-        {/* 5. VISTA EDITOR DE PLANTILLAS Y CHECKLISTS */}
+        {/* 5. VISTA EDITOR DE PLANTILLAS */}
         {vista === 'EDITOR_PLANTILLAS' && (
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -1811,11 +1770,10 @@ export const App: React.FC = () => {
                 <div style={{ fontSize: '11px', color: '#5A6A80' }}>Configuración integral para Proceso y Condiciones 5S</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                Volver al Tablero
+                Volver
               </button>
             </div>
 
-            {/* Selector de Módulo */}
             <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
                 <button
@@ -1826,15 +1784,8 @@ export const App: React.FC = () => {
                     cancelarEdicionPregunta();
                   }}
                   style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    background: moduloEditor === 'PROCESO' ? '#003580' : '#E8EEF8',
-                    color: moduloEditor === 'PROCESO' ? '#ffffff' : '#003580'
+                    flex: 1, padding: '10px 14px', borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                    background: moduloEditor === 'PROCESO' ? '#003580' : '#E8EEF8', color: moduloEditor === 'PROCESO' ? '#ffffff' : '#003580'
                   }}
                 >
                   ⚙️ Checklists de Proceso
@@ -1847,26 +1798,18 @@ export const App: React.FC = () => {
                     cancelarEdicionPregunta();
                   }}
                   style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    background: moduloEditor === '5S' ? '#003580' : '#E8EEF8',
-                    color: moduloEditor === '5S' ? '#ffffff' : '#003580'
+                    flex: 1, padding: '10px 14px', borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                    background: moduloEditor === '5S' ? '#003580' : '#E8EEF8', color: moduloEditor === '5S' ? '#ffffff' : '#003580'
                   }}
                 >
-                  🧹 Listas de verificación de condiciones 5S
+                  🧹 Listas de verificación 5S
                 </button>
               </div>
 
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                <span>Selecciona la Familia o Categoría de {moduloEditor === '5S' ? '5S' : 'Proceso'}:</span>
+                <span>Selecciona la Familia o Categoría:</span>
               </label>
               <select
-                key={`editor-select-${moduloEditor}`}
                 value={tipoSeleccionadoEditor}
                 onChange={(e) => {
                   setTipoSeleccionadoEditor(e.target.value);
@@ -1880,23 +1823,19 @@ export const App: React.FC = () => {
               </select>
             </div>
 
-            {/* Formulario de Alta y Modificación de Pregunta */}
+            {/* Formulario pregunta */}
             <div style={{ ...STYLES.glassCard, textAlign: 'left', border: editandoId !== null ? '1.5px solid #003580' : '1px solid rgba(255, 255, 255, 0.98)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                 <div style={{ width: '3px', height: '18px', background: editandoId !== null ? '#16a34a' : '#003580', borderRadius: '2px' }}></div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-                  <span>{editandoId !== null
-                    ? `✏️ Modificar Punto #${editandoId} (${moduloEditor} - ${tipoSeleccionadoEditor})`
-                    : `+ Dar de Alta Nueva Pregunta (${moduloEditor} - ${tipoSeleccionadoEditor})`}</span>
+                  <span>{editandoId !== null ? `✏️ Modificar Punto #${editandoId}` : `+ Dar de Alta Nueva Pregunta`}</span>
                 </div>
               </div>
 
               <form onSubmit={handleGuardarOEditarPregunta}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>
-                      <span>{moduloEditor === '5S' ? 'Pilar 5S / Sección:' : 'Sección / Categoría:'}</span>
-                    </label>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '3px' }}>Sección / Categoría:</label>
                     <input
                       type="text"
                       placeholder={moduloEditor === '5S' ? 'Ej. 1. ORDEN Y 5S' : 'Ej. A · SOLVENTE Y APORTE'}
@@ -1910,7 +1849,6 @@ export const App: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Bandejas libres de derrames y herramientas delimitadas"
                       value={nuevoQueObservar}
                       onChange={(e) => setNuevoQueObservar(e.target.value)}
                       style={STYLES.input}
@@ -1921,7 +1859,6 @@ export const App: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Inspección visual directa y revisión de delimitaciones"
                       value={nuevoComoVerifica}
                       onChange={(e) => setNuevoComoVerifica(e.target.value)}
                       style={STYLES.input}
@@ -1930,36 +1867,11 @@ export const App: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="submit"
-                    style={{
-                      background: editandoId !== null ? '#0F7A55' : '#003580',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '9px 20px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span>{editandoId !== null ? '✓ Guardar Cambios del Punto' : '+ Agregar Pregunta a la Lista'}</span>
+                  <button type="submit" style={{ background: editandoId !== null ? '#0F7A55' : '#003580', color: '#ffffff', border: 'none', padding: '9px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                    <span>{editandoId !== null ? '✓ Guardar Cambios' : '+ Agregar Pregunta'}</span>
                   </button>
                   {editandoId !== null && (
-                    <button
-                      type="button"
-                      onClick={cancelarEdicionPregunta}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid rgba(0,32,96,0.12)',
-                        color: '#5A6A80',
-                        padding: '9px 16px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
+                    <button type="button" onClick={cancelarEdicionPregunta} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '9px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                       Cancelar Edición
                     </button>
                   )}
@@ -1967,7 +1879,7 @@ export const App: React.FC = () => {
               </form>
             </div>
 
-            {/* Lista de Preguntas Configurada */}
+            {/* Lista preguntas */}
             <div style={{ ...STYLES.glassCard, textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1981,77 +1893,38 @@ export const App: React.FC = () => {
                   type="button"
                   disabled={guardandoPlantilla}
                   onClick={handleGuardarPlantillaEnFirebase}
-                  style={{
-                    background: '#0F7A55', color: '#ffffff', border: 'none',
-                    padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                    cursor: guardandoPlantilla ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 2px 6px rgba(15,122,85,0.3)',
-                    display: 'flex', alignItems: 'center', gap: '6px'
-                  }}
+                  style={{ background: '#0F7A55', color: '#ffffff', border: 'none', padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: guardandoPlantilla ? 'not-allowed' : 'pointer' }}
                 >
-                  <span>{guardandoPlantilla ? 'Guardando en la Nube…' : `💾 Guardar Plantilla de ${moduloEditor} en Firebase`}</span>
+                  <span>{guardandoPlantilla ? 'Guardando…' : `💾 Guardar Plantilla de ${moduloEditor}`}</span>
                 </button>
               </div>
 
-              {checklistEnEdicion.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                  <span>No hay preguntas configuradas para esta categoría de {moduloEditor}. Utiliza el formulario superior para dar de alta la primera.</span>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {checklistEnEdicion.map((item) => {
-                    const estaSiendoEditado = editandoId === item.id;
-                    return (
-                      <div
-                        key={`edicion-item-${item.id}`}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '10px 14px', borderRadius: '8px',
-                          border: estaSiendoEditado ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
-                          background: estaSiendoEditado ? '#E8EEF8' : '#ffffff', gap: '10px', flexWrap: 'wrap'
-                        }}
-                      >
-                        <div style={{ flex: '1 1 300px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>
-                            <span>{item.seccion}</span>
-                          </div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>
-                            <span>#{item.id} {item.queObservar}</span>
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-                            <strong>Verificación:</strong> <span>{item.comoVerifica}</span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => iniciarEdicionPregunta(item)}
-                            style={{
-                              background: '#E8EEF8', color: '#002060', border: 'none',
-                              padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarPregunta(item.id)}
-                            style={{
-                              background: '#F9E8EB', color: '#C8102E', border: 'none',
-                              padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            🗑 Eliminar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {checklistEnEdicion.map((item) => (
+                  <div
+                    key={`edicion-item-${item.id}`}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px',
+                      borderRadius: '8px', border: editandoId === item.id ? '1.5px solid #003580' : '1px solid rgba(0,32,96,0.07)',
+                      background: editandoId === item.id ? '#E8EEF8' : '#ffffff', gap: '10px', flexWrap: 'wrap'
+                    }}
+                  >
+                    <div style={{ flex: '1 1 300px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>{item.seccion}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>#{item.id} {item.queObservar}</div>
+                      <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}><strong>Verificación:</strong> {item.comoVerifica}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button type="button" onClick={() => iniciarEdicionPregunta(item)} style={{ background: '#E8EEF8', color: '#002060', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                        ✏️ Editar
+                      </button>
+                      <button type="button" onClick={() => handleEliminarPregunta(item.id)} style={{ background: '#F9E8EB', color: '#C8102E', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                        🗑 Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
           </div>
@@ -2064,9 +1937,7 @@ export const App: React.FC = () => {
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico y Cronograma Gantt</div>
                 <div style={{ fontSize: '11px', color: '#5A6A80' }}>
-                  {esAdminTotal
-                    ? `Vista de Administrador · Consolidación global (${historialPermitido.length} registros)`
-                    : `Mis Auditorías Asignadas (${historialPermitido.length} registros)`}
+                  {esAdminTotal ? `Consolidación global (${historialPermitido.length} registros)` : `Mis Auditorías Asignadas (${historialPermitido.length} registros)`}
                 </div>
               </div>
 
@@ -2076,8 +1947,7 @@ export const App: React.FC = () => {
                   style={{
                     background: subVistaHistorial === 'AUDITORIAS' ? '#003580' : 'transparent',
                     color: subVistaHistorial === 'AUDITORIAS' ? '#ffffff' : '#003580',
-                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
-                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
                   <span>Auditorías ({historialPermitido.length})</span>
@@ -2087,8 +1957,7 @@ export const App: React.FC = () => {
                   style={{
                     background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
                     color: subVistaHistorial === 'GANTT' ? '#ffffff' : '#003580',
-                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px',
-                    fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                   }}
                 >
                   <span>Tabla Gantt ({hallazgosFiltradosGantt.length})</span>
@@ -2099,459 +1968,127 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* A. TABLA GANTT */}
+            {/* TABLA GANTT */}
             {subVistaHistorial === 'GANTT' && (
-              <div>
-                <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                      Filtros de Búsqueda para Cronograma
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={handleExportarExcelGantt}
-                        style={{
-                          background: '#0F7A55', color: '#ffffff', border: 'none',
-                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                          boxShadow: '0 2px 6px rgba(15,122,85,0.25)'
-                        }}
-                      >
-                        📊 Exportar Excel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleExportarPDFGantt}
-                        style={{
-                          background: '#003580', color: '#ffffff', border: 'none',
-                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                          boxShadow: '0 2px 6px rgba(0,53,128,0.25)'
-                        }}
-                      >
-                        📄 Exportar PDF
-                      </button>
-                    </div>
+              <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
+                {hallazgosFiltradosGantt.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
+                    No se encontraron hallazgos registrados.
                   </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                    <thead>
+                      <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
+                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '28px' }} rowSpan={2}>#</th>
+                        <th style={{ padding: '8px 8px', border: '1px solid #1A4D9A', width: '85px' }} rowSpan={2}>Fecha</th>
+                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '130px' }} rowSpan={2}>Máquina / Área</th>
+                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Desviación</th>
+                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '110px' }} rowSpan={2}>Responsable</th>
+                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
+                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
+                        <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
+                        <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '130px' }} rowSpan={2}>Cumplimiento</th>
+                        <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
+                          Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
+                        </th>
+                        <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#1A4D9A', fontSize: '11px', fontWeight: 700 }}>
+                          Semana 2 ({diasGantt[7].mesNum}/{diasGantt[7].diaNum})
+                        </th>
+                      </tr>
+                      <tr style={{ background: '#003580', color: '#ffffff', textAlign: 'center' }}>
+                        {diasGantt.map((d, i) => (
+                          <th key={`d-col-${i}`} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>{d.letra}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hallazgosFiltradosGantt.map((item: any, idx: number) => {
+                        const estatus: EstadoCumplimiento = item.estadoSeguimiento || 'PENDIENTE';
+                        const dIni = new Date(item.fechaInicio);
+                        const dFin = new Date(item.fechaFin);
+                        const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
+                        const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'center' }}>
-                    
-                    <select
-                      key="gantt-sel-orig"
-                      value={filtroOrigenGantt}
-                      onChange={(e) => setFiltroOrigenGantt(e.target.value)}
-                      style={STYLES.input}
-                    >
-                      <option value="">Todos los módulos</option>
-                      <option value="PROCESO">Validación de Proceso</option>
-                      <option value="5S">Condiciones y 5S</option>
-                    </select>
-
-                    <select
-                      key="gantt-sel-maq"
-                      value={filtroMaquinaGantt}
-                      onChange={(e) => setFiltroMaquinaGantt(e.target.value)}
-                      style={STYLES.input}
-                    >
-                      <option value="">Todas las máquinas y áreas</option>
-                      {CATALOGO.map((m) => (
-                        <option key={`gantt-maq-${m.id}`} value={m.nombre}>{m.nombre}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      key="gantt-sel-mes"
-                      value={filtroMesGantt}
-                      onChange={(e) => setFiltroMesGantt(e.target.value)}
-                      style={STYLES.input}
-                    >
-                      <option value="">Todos los meses</option>
-                      <option value="01">Enero</option>
-                      <option value="02">Febrero</option>
-                      <option value="03">Marzo</option>
-                      <option value="04">Abril</option>
-                      <option value="05">Mayo</option>
-                      <option value="06">Junio</option>
-                      <option value="07">Julio</option>
-                      <option value="08">Agosto</option>
-                      <option value="09">Septiembre</option>
-                      <option value="10">Octubre</option>
-                      <option value="11">Noviembre</option>
-                      <option value="12">Diciembre</option>
-                    </select>
-
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      placeholder="Día (1–31)"
-                      value={filtroDiaGantt}
-                      onChange={(e) => setFiltroDiaGantt(e.target.value)}
-                      style={STYLES.input}
-                    />
-
-                    <select
-                      key="gantt-sel-cumpl"
-                      value={filtroCumplimientoGantt}
-                      onChange={(e) => setFiltroCumplimientoGantt(e.target.value)}
-                      style={STYLES.input}
-                    >
-                      <option value="">Todos los estados</option>
-                      <option value="PENDIENTE">PENDIENTE</option>
-                      <option value="TERMINADO">TERMINADO</option>
-                      <option value="PENDIENTE_ATRASADO">PENDIENTE ATRASADO</option>
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFiltroOrigenGantt('');
-                        setFiltroMaquinaGantt('');
-                        setFiltroMesGantt('');
-                        setFiltroDiaGantt('');
-                        setFiltroCumplimientoGantt('');
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid rgba(0,32,96,0.12)',
-                        color: '#5A6A80',
-                        padding: '10px 8px',
-                        borderRadius: '8px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Limpiar Filtros
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
-                  {hallazgosFiltradosGantt.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                      {esAdminTotal
-                        ? 'No se encontraron hallazgos registrados para el criterio seleccionado.'
-                        : 'No tienes hallazgos registrados en tus auditorías asignadas.'}
-                    </div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                      <thead>
-                        <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '28px' }} rowSpan={2}>#</th>
-                          <th style={{ padding: '8px 8px', border: '1px solid #1A4D9A', width: '85px' }} rowSpan={2}>Fecha Auditoría</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '130px' }} rowSpan={2}>Máquina / Área</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Actividad / Hallazgo</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '110px' }} rowSpan={2}>Responsable</th>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '130px' }} rowSpan={2}>Cumplimiento</th>
-
-                          <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
-                            Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
-                          </th>
-                          <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#1A4D9A', fontSize: '11px', fontWeight: 700 }}>
-                            Semana 2 ({diasGantt[7].mesNum}/{diasGantt[7].diaNum})
-                          </th>
-                        </tr>
-
-                        <tr style={{ background: '#003580', color: '#ffffff', textAlign: 'center' }}>
-                          {diasGantt.map((d, i) => (
-                            <th key={`d-col-${i}`} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>
-                              {d.letra}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {hallazgosFiltradosGantt.map((item: any, idx: number) => {
-                          const estatus: EstadoCumplimiento = item.estadoSeguimiento || 'PENDIENTE';
-                          
-                          const dIni = new Date(item.fechaInicio);
-                          const dFin = new Date(item.fechaFin);
-                          const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
-                          const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-
-                          return (
-                            <tr key={`gantt-row-${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>
-                                {idx + 1}
-                              </td>
-
-                              <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#002060', fontWeight: 600 }}>
-                                <span>{item.fechaAuditoria}</span>
-                              </td>
-
-                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
-                                <span style={{ fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
-                                  {item.maquinaNombre}
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
-                                <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
-                                <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                                  <span>{item.tipoAuditoria === '5S' ? '5S' : `OP: ${item.ordenTrabajo || 'S/N'}`} · {item.accion || 'Sin acción'}</span>
-                                </div>
-                              </td>
-
-                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>
-                                <span>{item.responsable || 'No asignado'}</span>
-                              </td>
-
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
-                                <span>{item.fechaInicio}</span>
-                              </td>
-
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', color: '#5A6A80' }}>
-                                <span>{item.fechaFin}</span>
-                              </td>
-
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#002060' }}>
-                                {diasTotal}
-                              </td>
-
-                              {/* Columna Cumplimiento con Leyenda Reincidente */}
-                              <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
-                                <button
-                                  onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
-                                  style={{
-                                    padding: '4px 8px',
-                                    borderRadius: '10px',
-                                    border: 'none',
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    width: '100%',
-                                    background:
-                                      estatus === 'TERMINADO' ? '#E0F2EC' :
-                                      estatus === 'PENDIENTE_ATRASADO' ? '#F9E8EB' : '#FDF0D8',
-                                    color:
-                                      estatus === 'TERMINADO' ? '#085041' :
-                                      estatus === 'PENDIENTE_ATRASADO' ? '#7A0B1D' : '#7A4500'
-                                  }}
-                                  title="Haz clic para alternar: PENDIENTE ↔ TERMINADO (incluso si está atrasado)"
-                                >
-                                  <span>{estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}</span>
-                                </button>
-                                {item.esReincidente && (
-                                  <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#C8102E', marginTop: '3px', textTransform: 'uppercase', letterSpacing: '.03em' }}>
-                                    Reincidente
-                                  </div>
-                                )}
-                              </td>
-
-                              {diasGantt.map((diaCol, dIdx) => {
-                                const celdaEnRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
-                                let bgCelda = 'transparent';
-
-                                if (celdaEnRango) {
-                                  bgCelda =
-                                    estatus === 'TERMINADO' ? '#0F7A55' :
-                                    estatus === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#D4840A';
-                                }
-
-                                return (
-                                  <td
-                                    key={`celda-${idx}-${dIdx}`}
-                                    style={{
-                                      border: '1px solid rgba(0,32,96,0.06)',
-                                      background: bgCelda,
-                                      padding: 0,
-                                      height: '24px'
-                                    }}
-                                    title={`${diaCol.iso} - ${estatus}`}
-                                  ></td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
+                        return (
+                          <tr key={`gantt-row-${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
+                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>{idx + 1}</td>
+                            <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaAuditoria}</td>
+                            <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
+                              <span style={{ fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                                {item.maquinaNombre}
+                              </span>
+                            </td>
+                            <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
+                              <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
+                              <div style={{ fontSize: '10px', color: '#8A9AB0' }}>{item.accion || 'Sin acción'}</div>
+                            </td>
+                            <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>{item.responsable || 'No asignado'}</td>
+                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaInicio}</td>
+                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaFin}</td>
+                            <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700 }}>{diasTotal}</td>
+                            <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
+                                style={{
+                                  padding: '4px 8px', borderRadius: '10px', border: 'none', fontSize: '10px', fontWeight: 700, cursor: 'pointer', width: '100%',
+                                  background: estatus === 'TERMINADO' ? '#E0F2EC' : estatus === 'PENDIENTE_ATRASADO' ? '#F9E8EB' : '#FDF0D8',
+                                  color: estatus === 'TERMINADO' ? '#085041' : estatus === 'PENDIENTE_ATRASADO' ? '#7A0B1D' : '#7A4500'
+                                }}
+                              >
+                                {estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}
+                              </button>
+                            </td>
+                            {diasGantt.map((diaCol, dIdx) => {
+                              const enRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
+                              let bg = 'transparent';
+                              if (enRango) {
+                                bg = estatus === 'TERMINADO' ? '#0F7A55' : estatus === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#D4840A';
+                              }
+                              return (
+                                <td key={`celda-${idx}-${dIdx}`} style={{ border: '1px solid rgba(0,32,96,0.06)', background: bg, padding: 0, height: '24px' }}></td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             )}
 
-            {/* B. SUBVISTA AUDITORÍAS */}
+            {/* SUBVISTA AUDITORÍAS */}
             {subVistaHistorial === 'AUDITORIAS' && (
-              <div>
-                <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem', textAlign: 'left' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                    Filtros de Búsqueda de Auditorías
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', alignItems: 'center' }}>
-                    
-                    <select
-                      key="aud-sel-rev"
-                      value={filtroAudTipoRevision}
-                      onChange={(e) => {
-                        setFiltroAudTipoRevision(e.target.value);
-                        setFiltroAudFamilia('');
-                        setFiltroAudMaquinaId('');
-                      }}
-                      style={STYLES.input}
-                    >
-                      <option value="">Tipo de revisión: Todos</option>
-                      <option value="PROCESO">Validación de Proceso</option>
-                      <option value="5S">Condiciones y 5S</option>
-                    </select>
-
-                    <select
-                      key={`aud-select-familia-${filtroAudTipoRevision}`}
-                      value={filtroAudFamilia}
-                      onChange={(e) => {
-                        setFiltroAudFamilia(e.target.value);
-                        setFiltroAudMaquinaId('');
-                      }}
-                      style={STYLES.input}
-                    >
-                      <option value="">Selecciona Proceso/Familia</option>
-                      {(filtroAudTipoRevision === 'PROCESO'
-                        ? FAMILIAS_PROCESO
-                        : filtroAudTipoRevision === '5S'
-                        ? FAMILIAS_5S
-                        : FAMILIAS_TODAS
-                      ).map((fam) => (
-                        <option key={`aud-fam-${fam}`} value={fam}>{fam}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      key={`aud-select-maquina-${filtroAudFamilia}-${filtroAudTipoRevision}`}
-                      value={filtroAudMaquinaId}
-                      onChange={(e) => setFiltroAudMaquinaId(e.target.value)}
-                      style={STYLES.input}
-                    >
-                      <option value="">Selecciona la Máquina/Área</option>
-                      {CATALOGO.filter((m) => {
-                        if (filtroAudTipoRevision === 'PROCESO' && !m.moduloProceso) return false;
-                        if (filtroAudTipoRevision === '5S' && !m.modulo5S) return false;
-                        if (filtroAudFamilia && m.tipo !== filtroAudFamilia) return false;
-                        return true;
-                      }).map((m) => (
-                        <option key={`aud-maq-${m.id}`} value={m.id}>{m.nombre}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      key="aud-sel-mes"
-                      value={filtroAudMes}
-                      onChange={(e) => setFiltroAudMes(e.target.value)}
-                      style={STYLES.input}
-                    >
-                      <option value="">Todos los meses</option>
-                      <option value="01">Enero</option>
-                      <option value="02">Febrero</option>
-                      <option value="03">Marzo</option>
-                      <option value="04">Abril</option>
-                      <option value="05">Mayo</option>
-                      <option value="06">Junio</option>
-                      <option value="07">Julio</option>
-                      <option value="08">Agosto</option>
-                      <option value="09">Septiembre</option>
-                      <option value="10">Octubre</option>
-                      <option value="11">Noviembre</option>
-                      <option value="12">Diciembre</option>
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFiltroAudTipoRevision('');
-                        setFiltroAudFamilia('');
-                        setFiltroAudMaquinaId('');
-                        setFiltroAudMes('');
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid rgba(0,32,96,0.12)',
-                        color: '#5A6A80',
-                        padding: '10px 8px',
-                        borderRadius: '8px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Limpiar Filtros
-                    </button>
-                  </div>
-                </div>
-
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {auditoriasFiltradas.length === 0 ? (
                   <div style={{ ...STYLES.glassCard, textAlign: 'center', padding: '2.5rem', color: '#5A6A80', fontSize: '13px' }}>
-                    {esAdminTotal
-                      ? 'Sin auditorías encontradas con los filtros seleccionados.'
-                      : 'No tienes auditorías registradas como supervisor auditado.'}
+                    {esAdminTotal ? 'Sin auditorías encontradas.' : 'No tienes auditorías registradas como supervisor auditado.'}
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {auditoriasFiltradas.map((item) => (
-                      <div
-                        key={`aud-card-${item.id}`}
-                        onClick={() => {
-                          setAuditoriaDetalleModal(item);
-                          setMostrarFormNuevoHallazgoModal(false);
-                        }}
-                        style={{
-                          ...STYLES.glassCard,
-                          marginBottom: 0,
-                          padding: '14px 18px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          flexWrap: 'wrap',
-                          gap: '10px',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                        title="Haz clic para ver el checklist y hallazgos detallados de esta auditoría"
-                      >
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
-                            <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
-                            <span style={{
-                              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                              background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
-                              color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
-                            }}>
-                              {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
-                            </span>
-                            <span style={{ fontSize: '10px', color: '#003580', background: '#E8EEF8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                              {item.tipoAuditoria || 'PROCESO'}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                            <span>Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · {item.tipoAuditoria === '5S' ? '' : `OP: ${item.ordenTrabajo || 'S/N'} · `}Auditor: <strong>{item.auditor}</strong> · {item.turno}</span>
-                          </div>
-                          {(item.nominaAuditado || item.nominaSupervisor || item.nombreSupervisor) && (
-                            <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                              <span>Auditado (Nóm): <strong>{item.nominaAuditado || 'N/A'}</strong> · Supervisor: <strong>{item.nombreSupervisor || item.nominaSupervisor || 'N/A'}</strong></span>
-                            </div>
-                          )}
+                  auditoriasFiltradas.map((item) => (
+                    <div
+                      key={`aud-card-${item.id}`}
+                      onClick={() => { setAuditoriaDetalleModal(item); setMostrarFormNuevoHallazgoModal(false); }}
+                      style={{ ...STYLES.glassCard, marginBottom: 0, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', cursor: 'pointer' }}
+                    >
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '3px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '14px', color: '#0D1A2E' }}>{item.maquinaNombre}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: item.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB', color: item.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D' }}>
+                            {item.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
+                          </span>
                         </div>
-
-                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                          <div>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                              <span>{item.cumplimiento}%</span>
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#8A9AB0' }}>
-                              <span>{item.totalSi} SÍ / {item.totalNo} NO · {item.hallazgos?.length || 0} Hallazgos</span>
-                            </div>
-                          </div>
-                          <span style={{ fontSize: '13px', color: '#003580', fontWeight: 700 }}>🔍 Ver Check</span>
+                        <div style={{ fontSize: '12px', color: '#5A6A80' }}>
+                          Fecha: <strong>{item.fechaAuditoria || todayStr}</strong> · Auditor: <strong>{item.auditor}</strong> · {item.turno}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '18px', fontWeight: 700, color: item.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
+                          {item.cumplimiento}%
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}
@@ -2561,377 +2098,325 @@ export const App: React.FC = () => {
 
       </main>
 
-      {/* MODAL DE ALERTA: HALLAZGO REINCIDENTE DETECTADO */}
-      {modalReincidencia.abierto && (
+      {/* BOTÓN FLOTANTE CIRCULAR EN LA ESQUINA INFERIOR IZQUIERDA (MAPA 3D) */}
+      <button
+        onClick={() => setModalLayout3DAbierto(true)}
+        title="Abrir Layout Interactivo 3D de Planta"
+        style={{
+          position: 'fixed',
+          bottom: '22px',
+          left: '22px',
+          width: '52px',
+          height: '52px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #002060 0%, #003580 100%)',
+          color: '#ffffff',
+          border: '2px solid rgba(255, 255, 255, 0.9)',
+          boxShadow: '0 8px 24px rgba(0, 32, 96, 0.35), 0 2px 6px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 900,
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+          <line x1="8" y1="2" x2="8" y2="18"></line>
+          <line x1="16" y1="6" x2="16" y2="22"></line>
+        </svg>
+      </button>
+
+      {/* MODAL DEL LAYOUT ISOMÉTRICO 3D INTERACTIVO (COLORES PASTEL CON TRANSPARENCIA 40%) */}
+      {modalLayout3DAbierto && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 32, 96, 0.6)', backdropFilter: 'blur(6px)',
-          zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+          background: 'rgba(0, 32, 96, 0.65)', backdropFilter: 'blur(8px)',
+          zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px'
         }}>
           <div style={{
-            background: '#ffffff', borderRadius: '16px', maxWidth: '600px', width: '100%',
-            padding: '1.6rem', boxShadow: '0 24px 48px rgba(0,0,0,0.3)', textAlign: 'left',
-            border: '2px solid #C8102E'
+            background: '#ffffff', borderRadius: '18px', maxWidth: '1080px', width: '100%',
+            maxHeight: '94vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+            border: '1px solid rgba(0,32,96,0.15)', overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid #FEE2E2', paddingBottom: '10px', marginBottom: '14px' }}>
-              <span style={{ fontSize: '24px' }}>⚠️</span>
+            {/* Header del Layout */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '1rem 1.4rem', borderBottom: '1px solid #E8EEF8', background: '#F8FAFD'
+            }}>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: '#991B1B', textTransform: 'uppercase' }}>
-                  Hallazgo Repetitivo / Reincidente Detectado
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#002060', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🗺️ Layout de Planta 3D — Acondicionado y Servicios</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#5A6A80' }}>
-                  Máquina: <strong>{maquinaSeleccionada?.nombre}</strong> · Punto #{modalReincidencia.puntoId}
+                <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
+                  Visualización de estatus en tiempo real con colores pastel (40% opacidad). Toca cualquier equipo para auditar o ver hallazgos.
                 </div>
+              </div>
+
+              {/* Leyenda de Colores Pastel */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#065F46', fontWeight: 700 }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(167, 243, 208, 0.55)', border: '1.5px solid #059669' }}></span>
+                  100% OK
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#92400E', fontWeight: 700 }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(254, 240, 138, 0.55)', border: '1.5px solid #D97706' }}></span>
+                  Pendiente
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#991B1B', fontWeight: 700 }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(254, 202, 202, 0.55)', border: '1.5px solid #DC2626' }}></span>
+                  Atrasado
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#475569', fontWeight: 700 }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'rgba(226, 232, 240, 0.55)', border: '1.5px solid #94A3B8' }}></span>
+                  Sin datos
+                </div>
+
+                <button
+                  onClick={() => { setModalLayout3DAbierto(false); setDetalleElementoLayout(null); }}
+                  style={{
+                    background: '#E8EEF8', border: 'none', color: '#003580', width: '30px', height: '30px',
+                    borderRadius: '50%', cursor: 'pointer', fontWeight: 800, fontSize: '13px', marginLeft: '6px'
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            <p style={{ fontSize: '13px', color: '#1F2937', lineHeight: 1.5, margin: '0 0 12px' }}>
-              El punto <strong>"#{modalReincidencia.puntoId} - {modalReincidencia.itemCheck?.queObservar}"</strong> ya cuenta con antecedentes de no conformidad en revisiones previas:
-            </p>
+            {/* Lienzo SVG 3D Isométrico */}
+            <div style={{
+              flex: 1, overflow: 'auto', background: 'radial-gradient(circle at center, #F1F5F9 0%, #E2E8F0 100%)',
+              padding: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}>
+              <svg
+                viewBox="0 0 1080 840"
+                style={{ width: '100%', minWidth: '820px', height: 'auto', filter: 'drop-shadow(0 15px 25px rgba(0,32,96,0.12))' }}
+              >
+                <defs>
+                  {/* Patrón sutil del piso industrial */}
+                  <pattern id="grid-piso-3d" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,32,96,0.04)" strokeWidth="1" />
+                  </pattern>
+                </defs>
 
-            <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-              {modalReincidencia.hallazgosPrevios.slice(0, 3).map((prevH, pIdx) => (
-                <div key={pIdx} style={{ background: '#FFF5F5', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px', fontSize: '11.5px' }}>
-                  <div style={{ fontWeight: 700, color: '#991B1B', marginBottom: '3px' }}>
-                    📅 Fecha: {prevH.fechaAuditoria} · Auditor: {prevH.auditor}
-                  </div>
-                  <div style={{ color: '#374151', marginBottom: '2px' }}>
-                    <strong>Desviación:</strong> {prevH.hallazgo}
-                  </div>
-                  <div style={{ color: '#4B5563' }}>
-                    <strong>Acción previa:</strong> {prevH.accion || 'Sin registrar'} · <strong>Responsable:</strong> {prevH.responsable || 'No asignado'}
-                  </div>
-                </div>
-              ))}
+                {/* Suelo Nave 3D Isométrica */}
+                <polygon
+                  points="140,40  960,40  960,780  140,780"
+                  fill="#FFFFFF"
+                  stroke="#CBD5E1"
+                  strokeWidth="2"
+                />
+                <rect x="140" y="40" width="820" height="740" fill="url(#grid-piso-3d)" />
+
+                {/* Rotulación de Pasillos y Salida de Emergencia */}
+                <text x="890" y="320" fill="#94A3B8" fontSize="12" fontWeight="800" transform="rotate(90 890,320)" letterSpacing="4">
+                  SALIDA DE EMERGENCIA 🚪
+                </text>
+                <text x="560" y="270" fill="#94A3B8" fontSize="11" fontWeight="700" letterSpacing="3">
+                  PASILLO PRINCIPAL CENTRAL
+                </text>
+
+                {/* Renderizado de Bloques 3D */}
+                {ELEMENTOS_LAYOUT_3D.map((elem) => {
+                  const estadoColor = obtenerEstadoEquipoLayout(elem.maquinaCatalogoId);
+
+                  // Coordenadas base en proyección axonométrica 3D
+                  const ISO_SCALE_X = 1.35;
+                  const ISO_SCALE_Y = 1.05;
+                  const baseX = 170 + (elem.x * ISO_SCALE_X);
+                  const baseY = 60 + (elem.y * ISO_SCALE_Y);
+                  const w = elem.w * ISO_SCALE_X;
+                  const d = elem.d * ISO_SCALE_Y;
+                  const h = elem.h;
+
+                  // Caras del prisma 3D extruido
+                  // 1. Techo (Top Face)
+                  const pTop = `${baseX},${baseY - h} ${baseX + w},${baseY - h} ${baseX + w},${baseY + d - h} ${baseX},${baseY + d - h}`;
+                  // 2. Frontal (Front Face)
+                  const pFront = `${baseX},${baseY + d - h} ${baseX + w},${baseY + d - h} ${baseX + w},${baseY + d} ${baseX},${baseY + d}`;
+                  // 3. Lateral Derecho (Side Face)
+                  const pSide = `${baseX + w},${baseY - h} ${baseX + w + (h * 0.35)},${baseY - (h * 0.7)} ${baseX + w + (h * 0.35)},${baseY + d - (h * 0.7)} ${baseX + w},${baseY + d - h}`;
+
+                  return (
+                    <g
+                      key={`layout-3d-${elem.id}`}
+                      onClick={() => handleAbrirDetalleElementoLayout(elem)}
+                      style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                    >
+                      {/* Sombra de suelo */}
+                      <rect
+                        x={baseX + 4}
+                        y={baseY + 4}
+                        width={w}
+                        height={d}
+                        fill="rgba(0, 32, 96, 0.07)"
+                        rx="4"
+                      />
+
+                      {/* Cara Frontal 3D */}
+                      <polygon
+                        points={pFront}
+                        fill={estadoColor.fillFront}
+                        stroke={estadoColor.border}
+                        strokeWidth="1.2"
+                      />
+
+                      {/* Cara Lateral 3D */}
+                      <polygon
+                        points={pSide}
+                        fill={estadoColor.fillSide}
+                        stroke={estadoColor.border}
+                        strokeWidth="1.2"
+                      />
+
+                      {/* Cara Superior / Techo 3D */}
+                      <polygon
+                        points={pTop}
+                        fill={estadoColor.fillTop}
+                        stroke={estadoColor.border}
+                        strokeWidth="1.5"
+                      />
+
+                      {/* Etiqueta del equipo centrada en el techo */}
+                      <text
+                        x={baseX + (w / 2)}
+                        y={baseY + (d / 2) - h - 2}
+                        fill="#002060"
+                        fontSize="11"
+                        fontWeight="800"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {elem.label}
+                      </text>
+
+                      {/* Estatus sutil bajo el nombre */}
+                      <text
+                        x={baseX + (w / 2)}
+                        y={baseY + (d / 2) - h + 11}
+                        fill={estadoColor.border}
+                        fontSize="9"
+                        fontWeight="700"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {estadoColor.texto}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
             </div>
 
-            <p style={{ fontSize: '12.5px', fontWeight: 600, color: '#002060', margin: '0 0 16px' }}>
-              ¿Cómo deseas registrar esta no conformidad en la auditoría actual?
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => handleConfirmarReincidencia(true)}
-                style={{
-                  background: '#003580', color: '#ffffff', border: 'none',
-                  padding: '11px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700,
-                  cursor: 'pointer', textAlign: 'center', boxShadow: '0 2px 6px rgba(0,53,128,0.25)'
-                }}
-              >
-                ✓ Registrar Nueva Desviación y Acción Correctiva (Flujo Normal + Gantt)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleConfirmarReincidencia(false)}
-                style={{
-                  background: '#FFF1F2', color: '#991B1B', border: '1.5px solid #FCA5A5',
-                  padding: '11px 16px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700,
-                  cursor: 'pointer', textAlign: 'center'
-                }}
-              >
-                ⚠️ Solo Marcar como Reincidente (Afecta Cumplimiento pero no duplica en Gantt)
-              </button>
+            {/* Footer con información rápida */}
+            <div style={{ padding: '0.75rem 1.4rem', background: '#FFFFFF', borderTop: '1px solid #E8EEF8', fontSize: '11px', color: '#5A6A80', textAlign: 'center' }}>
+              Plano digitalizado conforme al layout de nave[cite: 1] · Actualizado: Calidad trasladada a posición REF4, REV5/REV7/REF4 removidas[cite: 1].
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL DETALLE DE CHECKLIST REALIZADO CON AGREGAR DESVIACIÓN */}
-      {auditoriaDetalleModal && (() => {
-        const plantillaActual = obtenerPlantillaAuditoriaModal(auditoriaDetalleModal);
-
-        return (
+      {/* TARJETA FLOTANTE DE DOBLE ACCIÓN (OPCIÓN C): RESUMEN + BOTONES AUDITAR */}
+      {detalleElementoLayout && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 32, 96, 0.4)', backdropFilter: 'blur(4px)',
+          zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
           <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0, 32, 96, 0.45)', backdropFilter: 'blur(6px)',
-            zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+            background: '#ffffff', borderRadius: '16px', maxWidth: '520px', width: '100%',
+            padding: '1.6rem', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', textAlign: 'left',
+            border: '1.5px solid rgba(0,32,96,0.1)'
           }}>
-            <div style={{
-              background: '#ffffff', borderRadius: '16px', maxWidth: '850px', width: '100%',
-              maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-              textAlign: 'left', border: '1px solid rgba(0,32,96,0.1)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E8EEF8', paddingBottom: '12px', marginBottom: '14px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{auditoriaDetalleModal.maquinaNombre}</span>
-                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#E8EEF8', color: '#003580' }}>
-                      {auditoriaDetalleModal.tipoAuditoria}
-                    </span>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
-                      background: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#E0F2EC' : '#F9E8EB',
-                      color: auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '#085041' : '#7A0B1D'
-                    }}>
-                      {auditoriaDetalleModal.estadoFinal === 'APROBADO' ? '✓ APROBADO' : '⚠️ CON HALLAZGOS'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#5A6A80', marginTop: '4px' }}>
-                    <span>Fecha: <strong>{auditoriaDetalleModal.fechaAuditoria}</strong> · {auditoriaDetalleModal.tipoAuditoria === 'PROCESO' ? `OP: ${auditoriaDetalleModal.ordenTrabajo || 'S/N'} · ` : ''}Auditor: <strong>{auditoriaDetalleModal.auditor}</strong> · {auditoriaDetalleModal.turno}</span>
-                  </div>
-                  {(auditoriaDetalleModal.nominaAuditado || auditoriaDetalleModal.nominaSupervisor || auditoriaDetalleModal.nombreSupervisor) && (
-                    <div style={{ fontSize: '11px', color: '#8A9AB0', marginTop: '2px' }}>
-                      <span>Auditado (Nóm): <strong>{auditoriaDetalleModal.nominaAuditado || 'N/A'}</strong> · Supervisor: <strong>{auditoriaDetalleModal.nombreSupervisor || auditoriaDetalleModal.nominaSupervisor || 'N/A'}</strong></span>
-                    </div>
-                  )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #E8EEF8', paddingBottom: '10px', marginBottom: '14px' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#002060' }}>
+                  {detalleElementoLayout.elem.label}
                 </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: auditoriaDetalleModal.cumplimiento === 100 ? '#0F7A55' : '#C8102E' }}>
-                    <span>{auditoriaDetalleModal.cumplimiento}%</span>
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#5A6A80' }}>
-                    <span>{auditoriaDetalleModal.totalSi} SÍ / {auditoriaDetalleModal.totalNo} NO</span>
-                  </div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>
+                  {detalleElementoLayout.maquina ? `Categoría: ${detalleElementoLayout.maquina.tipo}` : 'Área de Soporte'}
                 </div>
               </div>
 
-              {/* Botón para abrir formulario de nueva desviación */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase' }}>
-                  Respuestas del Checklist Registrado:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMostrarFormNuevoHallazgoModal(!mostrarFormNuevoHallazgoModal);
-                    setFechaCierreNuevoHallazgoModal(todayStr);
-                  }}
-                  style={{
-                    background: '#C8102E', color: '#ffffff', border: 'none',
-                    padding: '6px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                    boxShadow: '0 2px 6px rgba(200,16,46,0.25)'
-                  }}
-                >
-                  {mostrarFormNuevoHallazgoModal ? '✕ Cancelar Desviación' : '+ Agregar Nueva Desviación'}
-                </button>
-              </div>
-
-              {/* Formulario Dinámico de Nueva Desviación */}
-              {mostrarFormNuevoHallazgoModal && (
-                <div style={{ background: '#FFF4F6', border: '1.5px solid #FCA5A5', padding: '14px', borderRadius: '10px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '8px', textTransform: 'uppercase' }}>
-                    Registrar Desviación y Acción Correctiva
-                  </div>
-
-                  <form onSubmit={handleGuardarDesviacionModal}>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoNuevoHallazgoModal('PREESTABLECIDO');
-                          setPuntoSeleccionadoModal('');
-                          setDescNuevoHallazgoModal('');
-                        }}
-                        style={{
-                          flex: 1, padding: '6px 10px', borderRadius: '6px', border: 'none',
-                          fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
-                          background: tipoNuevoHallazgoModal === 'PREESTABLECIDO' ? '#991B1B' : '#ffffff',
-                          color: tipoNuevoHallazgoModal === 'PREESTABLECIDO' ? '#ffffff' : '#991B1B',
-                          outline: '1px solid #FCA5A5'
-                        }}
-                      >
-                        📋 Punto del Checklist Preestablecido
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoNuevoHallazgoModal('EXTRA');
-                          setPuntoSeleccionadoModal('');
-                          setDescNuevoHallazgoModal('');
-                        }}
-                        style={{
-                          flex: 1, padding: '6px 10px', borderRadius: '6px', border: 'none',
-                          fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
-                          background: tipoNuevoHallazgoModal === 'EXTRA' ? '#991B1B' : '#ffffff',
-                          color: tipoNuevoHallazgoModal === 'EXTRA' ? '#ffffff' : '#991B1B',
-                          outline: '1px solid #FCA5A5'
-                        }}
-                      >
-                        ⚠️ Hallazgo Extra
-                      </button>
-                    </div>
-
-                    {tipoNuevoHallazgoModal === 'PREESTABLECIDO' && (
-                      <div style={{ marginBottom: '8px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#002060', marginBottom: '3px' }}>
-                          Selecciona el Punto del Checklist a Marcar como "NO":
-                        </label>
-                        <select
-                          value={puntoSeleccionadoModal}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPuntoSeleccionadoModal(val);
-                            const itemP = plantillaActual.find((i) => String(i.id) === String(val));
-                            if (itemP) {
-                              setDescNuevoHallazgoModal(`Desviación en: ${itemP.queObservar}`);
-                            }
-                          }}
-                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
-                          required
-                        >
-                          <option value="">-- Selecciona el punto del checklist --</option>
-                          {plantillaActual.map((item) => (
-                            <option key={`opt-modal-p-${item.id}`} value={item.id}>
-                              #{item.id} - {item.queObservar}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div style={{ marginBottom: '8px' }}>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#002060', marginBottom: '3px' }}>
-                        Descripción del Hallazgo / Desviación:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Describe detalladamente el hallazgo..."
-                        value={descNuevoHallazgoModal}
-                        onChange={(e) => setDescNuevoHallazgoModal(e.target.value)}
-                        style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
-                        required
-                      />
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', marginBottom: '10px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Acción Correctiva:</label>
-                        <input
-                          type="text"
-                          placeholder="Acción a realizar..."
-                          value={accionNuevoHallazgoModal}
-                          onChange={(e) => setAccionNuevoHallazgoModal(e.target.value)}
-                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Responsable:</label>
-                        <input
-                          type="text"
-                          placeholder="Nombre del responsable"
-                          value={respNuevoHallazgoModal}
-                          onChange={(e) => setRespNuevoHallazgoModal(e.target.value)}
-                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#5A6A80', marginBottom: '2px' }}>Fecha Compromiso:</label>
-                        <input
-                          type="date"
-                          value={fechaCierreNuevoHallazgoModal}
-                          onChange={(e) => setFechaCierreNuevoHallazgoModal(e.target.value)}
-                          style={{ ...STYLES.input, background: '#ffffff', fontSize: '12px' }}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={guardandoHallazgoModal}
-                      style={{
-                        background: '#0F7A55', color: '#ffffff', border: 'none',
-                        padding: '8px 18px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                        cursor: guardandoHallazgoModal ? 'not-allowed' : 'pointer',
-                        boxShadow: '0 2px 6px rgba(15,122,85,0.3)'
-                      }}
-                    >
-                      {guardandoHallazgoModal ? 'Guardando Desviación…' : '💾 Guardar Desviación en la Auditoría'}
-                    </button>
-                  </form>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: detalleElementoLayout.cumplimientoPromedio === 100 ? '#0F7A55' : '#DC2626' }}>
+                  {detalleElementoLayout.cumplimientoPromedio}%
                 </div>
-              )}
-
-              {/* Checklist Realizado con Mapeo Fiel */}
-              <div style={{ marginBottom: '16px' }}>
-                {auditoriaDetalleModal.respuestas && Object.keys(auditoriaDetalleModal.respuestas).length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {Object.entries(auditoriaDetalleModal.respuestas).map(([puntoId, valor]) => {
-                      const snapItem = plantillaActual.find((i: any) => String(i.id) === String(puntoId));
-                      const esPuntoReincidente = auditoriaDetalleModal.puntosSoloReincidentes && auditoriaDetalleModal.puntosSoloReincidentes.includes(parseInt(puntoId, 10));
-
-                      return (
-                        <div
-                          key={`modal-punto-${puntoId}`}
-                          style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '8px 12px', borderRadius: '8px',
-                            background: valor === 'SI' ? '#F4FBF7' : '#FEF2F2',
-                            border: valor === 'SI' ? '1px solid #D1FAE5' : '1px solid #FEE2E2'
-                          }}
-                        >
-                          <div style={{ fontSize: '12px', color: '#0D1A2E' }}>
-                            <span style={{ fontWeight: 700, color: '#003580', marginRight: '6px' }}>#{puntoId}</span>
-                            <span>{snapItem ? snapItem.queObservar : `Punto de Inspección #${puntoId}`}</span>
-                            {esPuntoReincidente && (
-                              <span style={{ marginLeft: '8px', fontSize: '10px', background: '#FDE8EB', color: '#C8102E', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                ⚠️ REINCIDENTE
-                              </span>
-                            )}
-                          </div>
-                          <span style={{
-                            fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
-                            background: valor === 'SI' ? '#0F7A55' : '#C8102E', color: '#ffffff'
-                          }}>
-                            {valor === 'SI' ? '✓ SÍ' : '✕ NO'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '12px', color: '#5A6A80', fontStyle: 'italic' }}>
-                    <span>Esta auditoría se capturó sin respuestas individuales de checklist o mediante hallazgos directos.</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Hallazgos y Acciones Registradas */}
-              {auditoriaDetalleModal.hallazgos && auditoriaDetalleModal.hallazgos.length > 0 && (
-                <div style={{ marginTop: '14px', borderTop: '1px solid #E8EEF8', paddingTop: '12px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#7A0B1D', textTransform: 'uppercase', marginBottom: '8px' }}>
-                    <span>Desviaciones y Acciones Correctivas Registradas:</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {auditoriaDetalleModal.hallazgos.map((h: any, i: number) => (
-                      <div key={`modal-hallazgo-${i}`} style={{ background: '#FFF8F8', border: '1px solid #FCA5A5', padding: '10px 12px', borderRadius: '8px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
-                          <span>{h.hallazgo || 'Desviación no especificada'}</span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
-                          <div><strong>Acción:</strong> <span>{h.accion || 'Sin registrar'}</span></div>
-                          <div><strong>Responsable:</strong> <span>{h.responsable || 'No asignado'}</span></div>
-                          <div><strong>Fecha Compromiso:</strong> <span>{h.fechaCierre || 'N/A'}</span></div>
-                          <div><strong>Estatus:</strong> <span>{h.estadoSeguimiento || 'PENDIENTE'}</span></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ marginTop: '1.2rem', textAlign: 'right' }}>
-                <button
-                  type="button"
-                  onClick={() => setAuditoriaDetalleModal(null)}
-                  style={{
-                    padding: '8px 20px', background: '#003580', color: '#ffffff',
-                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                  }}
-                >
-                  Cerrar Detalle
-                </button>
+                <div style={{ fontSize: '10px', color: '#5A6A80' }}>Cumplimiento prom.</div>
               </div>
             </div>
+
+            {/* Hallazgos Pendientes */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#002060', marginBottom: '6px', textTransform: 'uppercase' }}>
+                Desviaciones Pendientes en este equipo ({detalleElementoLayout.hallazgosPendientes.length})
+              </div>
+
+              {detalleElementoLayout.hallazgosPendientes.length === 0 ? (
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '10px 14px', borderRadius: '8px', fontSize: '11.5px', color: '#166534' }}>
+                  ✓ Sin hallazgos pendientes. Este equipo se encuentra al 100% de cumplimiento.
+                </div>
+              ) : (
+                <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {detalleElementoLayout.hallazgosPendientes.map((h, i) => (
+                    <div key={i} style={{ background: '#FFF5F5', border: '1px solid #FECACA', padding: '8px 10px', borderRadius: '6px', fontSize: '11px' }}>
+                      <div style={{ fontWeight: 700, color: '#991B1B' }}>{h.hallazgo}</div>
+                      <div style={{ color: '#4B5563', marginTop: '2px' }}>
+                        <strong>Compromiso:</strong> {h.fechaCierre} · <strong>Resp:</strong> {h.responsable || 'No asignado'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Acciones de Auditoría Directa */}
+            {detalleElementoLayout.maquina && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+                {detalleElementoLayout.maquina.moduloProceso && (
+                  <button
+                    onClick={() => handleIniciarAuditoriaDesdeLayout('PROCESO')}
+                    style={{
+                      padding: '10px', background: '#003580', color: '#ffffff', border: 'none',
+                      borderRadius: '8px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
+                      textAlign: 'center'
+                    }}
+                  >
+                    📝 Auditar Proceso
+                  </button>
+                )}
+                {detalleElementoLayout.maquina.modulo5S && (
+                  <button
+                    onClick={() => handleIniciarAuditoriaDesdeLayout('5S')}
+                    style={{
+                      padding: '10px', background: '#0F7A55', color: '#ffffff', border: 'none',
+                      borderRadius: '8px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
+                      textAlign: 'center'
+                    }}
+                  >
+                    🧹 Auditar 5S
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => setDetalleElementoLayout(null)}
+              style={{
+                width: '100%', padding: '9px', background: 'transparent',
+                border: '1px solid rgba(0,32,96,0.15)', color: '#5A6A80', borderRadius: '8px',
+                fontSize: '11.5px', fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              Cerrar Detalle
+            </button>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* FOOTER MINIMALISTA */}
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
