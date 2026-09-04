@@ -53,6 +53,8 @@ export interface UserProfile {
   nombre: string;
   puesto: string;
   activo: boolean;
+  /** Papel dentro de esta app, leído de `roles.procesos` en la suite. */
+  rol: string;
 }
 
 let USUARIOS_SISTEMA: UserProfile[] = [];
@@ -414,7 +416,8 @@ export const App: React.FC = () => {
   const supervisoresDisponibles = obtenerSupervisoresPorMaquina(maquinaSeleccionada);
 
   // --- FILTRO DE SEGURIDAD POR PERFIL ---
-  const esAdminTotal = usuarioActivo?.nomina === '2435';
+  // SPEC-004: el administrador se define en la suite, no en el código.
+  const esAdminTotal = usuarioActivo?.rol === 'ADMIN';
 
   const historialPermitido = historial.filter((item) => {
     if (esAdminTotal) return true;
@@ -567,8 +570,15 @@ export const App: React.FC = () => {
     if (!yo || yo.estatus !== 'ACTIVO' || !yo.apps?.includes(APP_ID)) return null;
     USUARIOS_SISTEMA = usuarios.map((u) => ({
       nomina: u.noNomina, nombre: u.nombreCompleto, puesto: u.puesto, activo: true,
+      rol: u.roles?.[APP_ID] ?? 'SUPERVISOR',
     }));
-    return { nomina: yo.noNomina, nombre: yo.nombreCompleto, puesto: yo.puesto, activo: true };
+    return {
+      nomina: yo.noNomina,
+      nombre: yo.nombreCompleto,
+      puesto: yo.puesto,
+      activo: true,
+      rol: yo.roles?.[APP_ID] ?? 'SUPERVISOR',
+    };
   };
 
   // SPEC-001: Firebase restaura la sesión al cargar la página.
