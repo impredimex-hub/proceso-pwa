@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/firebase';
+import {
+  entrar, salir, alCambiarSesion, nominaDeUsuario,
+  traerColaborador, traerUsuariosDeLaApp, mensajeDeError, APP_ID,
+} from './services/suite';
 import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 (window as any).db = db;
@@ -40,29 +44,18 @@ const STYLES = {
   }
 };
 
-// --- CATÁLOGO DE USUARIOS Y PERFILES ---
+// --- USUARIOS (SPEC-001) ---
+// La lista ya no vive aquí. Se lee de `colaboradores` en Impredimex-suite,
+// filtrada por quienes tienen 'procesos' en su campo `apps`. Se llena una sola
+// vez, justo después de iniciar sesión y antes de mostrar la app.
 export interface UserProfile {
   nomina: string;
   nombre: string;
   puesto: string;
-  pin: string;
   activo: boolean;
 }
 
-const USUARIOS_SISTEMA: UserProfile[] = [
-  { nomina: '885', nombre: 'MAGALLANES LOPEZ ANGEL GAMALIEL', puesto: 'JEFE DE IMPRESIÓN DIGITAL', pin: '5888', activo: true },
-  { nomina: '1802', nombre: 'NUÑEZ ARELLANO CANDELARIO', puesto: 'JEFE DE EMBARQUES Y MATERIA PRIMA', pin: '2081', activo: true },
-  { nomina: '1853', nombre: 'JULIAN IGLESIAS RODOLFO', puesto: 'SUPERVISOR DE ACONDICIONADO', pin: '3581', activo: true },
-  { nomina: '2129', nombre: 'ESTRADA RODRIGUEZ ALDO YAEL', puesto: 'JEFE DE TINTAS', pin: '9212', activo: true },
-  { nomina: '2308', nombre: 'CASTRUITA CRUZ SERGIO', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8032', activo: true },
-  { nomina: '2377', nombre: 'AVALOS MONREAL JOSE DAVID', puesto: 'SUPERVISOR DE ACONDICIONADO', pin: '7732', activo: true },
-  { nomina: '2159', nombre: 'SOTO MENESES OSCAR', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '9512', activo: true },
-  { nomina: '2435', nombre: 'JOCELYNE MENDOZA PARRA', puesto: 'INGENIERO DE PROCESOS', pin: '5342', activo: true },
-  { nomina: '2432', nombre: 'EMMANUEL TEJEDA CAMPOS', puesto: 'ANALISTA DE MANTENIMIENTO', pin: '2342', activo: true },
-  { nomina: '2398', nombre: 'ZARATE MONROY SAMUEL', puesto: 'SUPERVISOR DE IMPRESIÓN', pin: '8932', activo: true },
-  { nomina: 'VAC-01', nombre: '[VACANTE] JEFE DE ASEGURAMIENTO DE CALIDAD', puesto: 'JEFE DE ASEGURAMIENTO DE CALIDAD', pin: '0000', activo: false },
-  { nomina: 'VAC-02', nombre: '[VACANTE] JEFE DE PRODUCCIÓN', puesto: 'JEFE DE PRODUCCIÓN', pin: '0000', activo: false }
-];
+let USUARIOS_SISTEMA: UserProfile[] = [];
 
 // --- CATÁLOGO DE MÁQUINAS Y ÁREAS ---
 interface Maquina {
@@ -258,23 +251,13 @@ const ELEMENTOS_LAYOUT_3D: ElementoLayout3D[] = [
 
 export const App: React.FC = () => {
   // --- ESTADO DE SESIÓN ---
-  const [usuarioActivo, setUsuarioActivo] = useState<UserProfile | null>(() => {
-    const sesionGuardada = localStorage.getItem('impredimex_user_session');
-    if (sesionGuardada) {
-      try {
-        const u = JSON.parse(sesionGuardada);
-        if (u.nomina === '2435') u.nombre = 'JOCELYNE MENDOZA PARRA';
-        return u;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
+  const [usuarioActivo, setUsuarioActivo] = useState<UserProfile | null>(null);
+  const [cargandoSesion, setCargandoSesion] = useState(true);
 
   const [inputLoginNomina, setInputLoginNomina] = useState('');
   const [inputLoginPin, setInputLoginPin] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
+  const [entrando, setEntrando] = useState(false);
 
   // Estados de navegación
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS'>('LAUNCHER');
@@ -578,36 +561,63 @@ export const App: React.FC = () => {
     setVista('EVALUACION');
   };
 
-  const handleIniciarSesion = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorLogin('');
-
-    if (!inputLoginNomina.trim()) {
-      setErrorLogin('Por favor selecciona tu número de nómina.');
-      return;
-    }
-
-    const usuarioEncontrado = USUARIOS_SISTEMA.find((u) => u.nomina === inputLoginNomina.trim() && u.activo);
-    if (!usuarioEncontrado) {
-      setErrorLogin('Número de nómina no encontrado o perfil inactivo.');
-      return;
-    }
-    if (usuarioEncontrado.pin !== inputLoginPin.trim()) {
-      setErrorLogin('PIN de 4 dígitos incorrecto.');
-      return;
-    }
-
-    setUsuarioActivo(usuarioEncontrado);
-    setAuditor(usuarioEncontrado.nombre);
-    localStorage.setItem('impredimex_user_session', JSON.stringify(usuarioEncontrado));
-    setInputLoginPin('');
-    setErrorLogin('');
+  // SPEC-001: carga la lista de gente con acceso y arma el perfil de quien entró.
+  const prepararSesion = async (nomina: string): Promise<UserProfile | null> => {
+    const [yo, usuarios] = await Promise.all([traerColaborador(nomina), traerUsuariosDeLaApp()]);
+    if (!yo || yo.estatus !== 'ACTIVO' || !yo.apps?.includes(APP_ID)) return null;
+    USUARIOS_SISTEMA = usuarios.map((u) => ({
+      nomina: u.noNomina, nombre: u.nombreCompleto, puesto: u.puesto, activo: true,
+    }));
+    return { nomina: yo.noNomina, nombre: yo.nombreCompleto, puesto: yo.puesto, activo: true };
   };
 
-  const handleCerrarSesion = () => {
+  // SPEC-001: Firebase restaura la sesión al cargar la página.
+  useEffect(() => {
+    return alCambiarSesion(async (user) => {
+      const nomina = nominaDeUsuario(user);
+      if (!nomina) {
+        USUARIOS_SISTEMA = [];
+        setUsuarioActivo(null);
+        setCargandoSesion(false);
+        return;
+      }
+      try {
+        const perfil = await prepararSesion(nomina);
+        if (!perfil) {
+          await salir();
+          setErrorLogin('Tu cuenta no tiene acceso a esta aplicación.');
+        }
+        setUsuarioActivo(perfil);
+      } catch (err) {
+        console.error('No se pudo cargar el perfil:', err);
+        setErrorLogin('No se pudo cargar tu perfil. Revisa tu conexión.');
+      } finally {
+        setCargandoSesion(false);
+      }
+    });
+  }, []);
+
+  const handleIniciarSesion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorLogin('');
+    const nomina = inputLoginNomina.trim();
+    if (!nomina) { setErrorLogin('Escribe tu número de nómina.'); return; }
+    if (inputLoginPin.trim().length < 6) { setErrorLogin('La clave es de 6 dígitos.'); return; }
+
+    setEntrando(true);
+    try {
+      await entrar(nomina, inputLoginPin.trim());  // el resto lo hace alCambiarSesion
+      setInputLoginPin('');
+    } catch (err: any) {
+      setErrorLogin(mensajeDeError(err?.code ?? ''));
+    } finally {
+      setEntrando(false);
+    }
+  };
+
+  const handleCerrarSesion = async () => {
     if (confirm('¿Deseas cerrar tu sesión actual?')) {
-      setUsuarioActivo(null);
-      localStorage.removeItem('impredimex_user_session');
+      await salir();
       setVista('LAUNCHER');
     }
   };
@@ -1147,6 +1157,15 @@ export const App: React.FC = () => {
   };
 
   // --- PANTALLA DE INGRESO ---
+  if (cargandoSesion) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#5A6A80', fontSize: '13px', fontWeight: 600 }}>
+        Cargando…
+      </div>
+    );
+  }
+
   if (!usuarioActivo) {
     return (
       <div style={{
@@ -1168,27 +1187,25 @@ export const App: React.FC = () => {
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
                 Nomina:
               </label>
-              <select
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Ej. 2308"
                 value={inputLoginNomina}
                 onChange={(e) => { setInputLoginNomina(e.target.value); setErrorLogin(''); }}
-                style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
+                style={{ ...STYLES.input, fontSize: '18px', textAlign: 'center', letterSpacing: '2px', fontWeight: 700 }}
                 required
-              >
-                <option value="">-- Elige tu nómina --</option>
-                {USUARIOS_SISTEMA.filter((u) => u.activo).map((u) => (
-                  <option key={u.nomina} value={u.nomina}>{u.nomina}</option>
-                ))}
-              </select>
+              />
             </div>
 
             <div style={{ marginBottom: '18px' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                PIN de Acceso (4 dígitos):
+                Clave de acceso (6 dígitos):
               </label>
               <input
                 type="password"
-                maxLength={4}
-                placeholder="••••"
+                maxLength={20}
+                placeholder="••••••"
                 value={inputLoginPin}
                 onChange={(e) => { setInputLoginPin(e.target.value); setErrorLogin(''); }}
                 style={{ ...STYLES.input, fontSize: '18px', textAlign: 'center', letterSpacing: '8px', fontWeight: 700 }}
@@ -1210,7 +1227,7 @@ export const App: React.FC = () => {
                 cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,53,128,0.3)', letterSpacing: '.02em'
               }}
             >
-              Ingresar al Sistema →
+              {entrando ? 'Verificando…' : 'Ingresar al Sistema →'}
             </button>
           </form>
         </div>
