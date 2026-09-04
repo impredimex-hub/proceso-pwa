@@ -6,6 +6,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.1.0] — 2026-09-04
+
+### Agregado
+- **SPEC-004:** El papel del usuario dentro de la app se lee del campo `roles` del
+  colaborador en la suite. Se agrega `rol` a `UserProfile`.
+
+### Cambiado
+- El administrador deja de estar fijo en el código. La condición
+  `nomina === '2435'` se sustituye por `rol === 'ADMIN'`. Nombrar administradores
+  ya no requiere publicar la aplicación.
+
+### Seguridad
+- Última nómina que quedaba escrita en el código para conceder privilegios.
+  Los permisos ahora viven íntegramente en Firestore.
+
+---
+
 ## [2.0.0] — 2026-09-03
 
 Primera integración con la suite Impredimex. La app deja de ser autónoma en materia

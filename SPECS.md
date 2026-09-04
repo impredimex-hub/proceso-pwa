@@ -165,6 +165,41 @@ Sistema (no hay interacción directa del usuario).
 
 ---
 
+# SPEC-004 — Papel del usuario dentro de la app
+
+### Actor
+Sistema, a partir de los datos de la persona autenticada.
+
+### Precondiciones
+- Sesión iniciada (SPEC-001)
+- El documento del colaborador tiene un campo `roles`
+
+### Flujo principal
+1. Al preparar la sesión, el sistema lee `roles.procesos` del colaborador
+2. Si el campo no existe, asume `SUPERVISOR`
+3. El valor queda en `usuarioActivo.rol` y determina qué historial se muestra
+
+### Postcondiciones
+- Un usuario con rol `ADMIN` ve todas las auditorías de todas las personas
+- Cualquier otro rol ve únicamente las auditorías donde figura como supervisor
+
+### Reglas de negocio
+- **El administrador se nombra desde la suite, no desde el código.** Antes estaba
+  fijo en la nómina 2435; ahora depende del campo `roles.procesos`. Nombrar o
+  quitar un administrador no requiere publicar la aplicación.
+- **El rol es por app, no global.** Una persona puede ser `ADMIN` en EPP y
+  `SUPERVISOR` aquí. Cada app lee únicamente su propia entrada dentro de `roles`.
+- **Ausencia de rol equivale a supervisor.** Nunca concede privilegios por omisión.
+- Los roles vigentes en esta app son `ADMIN` y `SUPERVISOR`. Cualquier otro valor
+  se comporta como supervisor.
+
+### Flujos alternativos
+- **Colaborador sin campo `roles`:** entra como supervisor
+- **Cambio de rol con la sesión abierta:** surte efecto en el siguiente inicio de
+  sesión, porque el rol se lee una sola vez al entrar
+
+---
+
 # Deuda técnica conocida
 
 | # | Tema | Detalle |
