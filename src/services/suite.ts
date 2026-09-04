@@ -46,7 +46,9 @@ export interface Colaborador {
   puesto: string;
   estatus: string;
   apps: string[];
-  rol: string;
+  /** Papel de la persona dentro de cada app: { epp: 'ADMIN', procesos: 'SUPERVISOR' } */
+  roles?: Record<string, string>;
+  rol?: string;   // heredado de la carga inicial; sustituido por `roles`
 }
 
 export const nominaACorreo = (nomina: string) => `${nomina.trim()}${DOMINIO}`;
