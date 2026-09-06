@@ -8,25 +8,36 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      // Los iconos viven en public/ y se copian tal cual. Antes se pedían
+      // 'favicon.ico' y 'apple-touch-icon.png', que no existían en el proyecto.
+      includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Proceso PWA',
-        short_name: 'proceso-pwa',
-        description: 'Aplicacion PWA de gestion operativa y procesos',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        name: 'IMPREDIMEX — Ingeniería de Procesos',
+        short_name: 'Procesos',
+        description: '5S, checklists, evaluaciones, Gantt y layout de planta — IMPREDIMEX',
+        lang: 'es-MX',
+        // Colores de la paleta de la suite.
+        theme_color: '#003580',
+        background_color: '#003580',
         display: 'standalone',
+        orientation: 'portrait-primary',
         start_url: '/proceso-pwa/',
+        scope: '/proceso-pwa/',
         icons: [
           {
-            src: 'https://placehold.co/192x192/0284c7/ffffff.png?text=PROCESO',
+            // Archivo local. Antes apuntaba a placehold.co, un servicio de
+            // imágenes de relleno: el icono instalado era un cuadro azul con la
+            // palabra PROCESO, generado por un sitio ajeno.
+            src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
-            src: 'https://placehold.co/512x512/0284c7/ffffff.png?text=PROCESO',
+            src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }
