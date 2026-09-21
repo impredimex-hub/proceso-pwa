@@ -109,3 +109,50 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ── Encabezado estándar de la suite (SPEC-035 de RRHH) ──────────────────
+   Escrito aquí y no dentro del componente, igual que en Recursos Humanos, para
+   que las cinco apps compartan exactamente las mismas reglas. Colores fijos
+   porque esta app no define las variables de marca. */
+
+/* Las dos orillas crecen igual, así lo de en medio queda centrado en la
+   pantalla y no en el hueco que sobra. */
+.hdr-orilla { flex: 1 1 0; display: flex; align-items: center; gap: 2px; min-width: 0; }
+
+.hdr-marca {
+  font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600; color: #002060; letter-spacing: .20em;
+  line-height: 1.15; font-size: 15px;
+}
+.hdr-app {
+  font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400; color: #5A6A80; letter-spacing: .26em; line-height: 1.3;
+  margin-top: 4px; font-size: 9px; text-transform: uppercase; white-space: nowrap;
+}
+
+/* Nombre y puesto: solo en pantalla ancha, centrados sobre el mismo eje. */
+.hdr-identidad { display: none; min-width: 0; text-align: center; flex: 0 1 auto; }
+.hdr-nombre { font-size: 13px; font-weight: 700; color: #002060; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-puesto { font-size: 11.5px; color: #8A9AB0; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (min-width: 760px) {
+  .hdr-marca { font-size: 22px; }
+  .hdr-app   { font-size: 10.5px; margin-top: 5px; }
+  .hdr-identidad { display: block; }
+}
+
+/* El círculo se ve de 32 px pero la zona que responde al dedo mide 44: con
+   guantes, 32 px se falla. */
+.hdr-boton {
+  width: 44px; height: 44px; background: transparent; border: none; padding: 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  text-decoration: none; flex-shrink: 0; font-family: inherit;
+}
+.hdr-boton > span {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(0,32,96,.15);
+  color: #003580; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; transition: background .15s ease;
+}
+.hdr-boton:hover > span { background: #E8EEF8; }

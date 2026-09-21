@@ -254,6 +254,18 @@ const ELEMENTOS_LAYOUT_3D: ElementoLayout3D[] = [
 export const App: React.FC = () => {
   // --- ESTADO DE SESIÓN ---
   const [usuarioActivo, setUsuarioActivo] = useState<UserProfile | null>(null);
+  // Panel de la sesión: en el teléfono es el único lugar donde el nombre y el
+  // puesto caben completos.
+  const [panelAbierto, setPanelAbierto] = useState(false);
+  // Conexión según lo que reporta el teléfono, el mismo criterio que RRHH.
+  const [enLinea, setEnLinea] = useState<boolean>(typeof navigator === 'undefined' ? true : navigator.onLine);
+  useEffect(() => {
+    const si = () => setEnLinea(true);
+    const no = () => setEnLinea(false);
+    window.addEventListener('online', si);
+    window.addEventListener('offline', no);
+    return () => { window.removeEventListener('online', si); window.removeEventListener('offline', no); };
+  }, []);
   const [cargandoSesion, setCargandoSesion] = useState(true);
 
   const [inputLoginNomina, setInputLoginNomina] = useState('');
@@ -1248,69 +1260,125 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: '#0D1A2E', position: 'relative' }}>
       
-      {/* HEADER GLASS */}
+      {/* Encabezado estándar de la suite (SPEC-035 de RRHH) */}
       <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+        // Opaco y sin desenfoque: el efecto de cristal dejaba pasar el fondo y,
+        // en iOS, lavaba el logotipo. Fijo arriba, capa 45: por encima del
+        // contenido y por debajo de todas las ventanas emergentes (900 en adelante).
+        background: '#ffffff',
         borderBottom: '0.5px solid rgba(0,32,96,0.08)',
-        boxShadow: '0 2px 8px rgba(0,32,96,0.04)', position: 'sticky', top: 0, zIndex: 100,
-        gap: '8px'
+        boxShadow: '0 2px 8px rgba(0,32,96,0.05)',
+        position: 'sticky', top: 0, zIndex: 45,
+        padding: '6px 12px'
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', flex: '1 1 auto', minWidth: 0 }} onClick={() => setVista('LAUNCHER')}>
-          <div style={{ fontSize: '15px', fontWeight: 800, color: '#002060', letterSpacing: '.02em', lineHeight: 1.1 }}>
-            IMPREDIMEX
-          </div>
-          <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#003580', marginTop: '1px' }}>
-            Control de Proceso
-          </div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#002060', marginTop: '2px', lineHeight: 1.2 }}>
-            {usuarioActivo.nombre}
-          </div>
-          <div style={{ fontSize: '9px', color: '#5A6A80', marginTop: '1px', lineHeight: 1.1 }}>
-            {usuarioActivo.puesto}
-          </div>
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, alignSelf: 'center' }}>
-          {vista !== 'LAUNCHER' && (
-            <button onClick={() => setVista('LAUNCHER')} style={{
-              background: 'transparent', border: '1px solid rgba(0,32,96,0.15)', color: '#003580',
-              padding: '6px 9px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, flexShrink: 0
-            }}>
-              ←
+          {/* Orilla izquierda: regreso (solo fuera del inicio) y la marca. La
+              flecha va a la izquierda, como en cualquier app de teléfono. */}
+          <div className="hdr-orilla">
+            {vista !== 'LAUNCHER' && (
+              <button type="button" className="hdr-boton" onClick={() => setVista('LAUNCHER')}
+                title="Volver al inicio" aria-label="Volver al inicio">
+                <span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </span>
+              </button>
+            )}
+            <div style={{ cursor: 'pointer', minWidth: 0 }} onClick={() => setVista('LAUNCHER')} title="Ir al inicio">
+              <div className="hdr-marca">IMPREDIMEX</div>
+              <div className="hdr-app">Ingeniería de Procesos</div>
+            </div>
+          </div>
+
+          {/* Quién entró: solo en pantalla ancha, centrado. */}
+          <div className="hdr-identidad">
+            <div className="hdr-nombre">{usuarioActivo.nombre}</div>
+            <div className="hdr-puesto">{usuarioActivo.puesto || usuarioActivo.rol}</div>
+          </div>
+
+          <div className="hdr-orilla" style={{ justifyContent: 'flex-end' }}>
+            {/* Histórico: con borde y no relleno. El relleno azul queda solo
+                para el círculo de la nómina, para no confundir el conteo de
+                auditorías con el número de quien entró. */}
+            <button type="button" className="hdr-boton"
+              onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }}
+              title={`Histórico: ${historialPermitido.length} auditorías`}
+              aria-label={`Histórico: ${historialPermitido.length} auditorías`}>
+              <span>{historialPermitido.length}</span>
             </button>
+
+            <a href="https://impredimex-hub.github.io/" className="hdr-boton" title="Volver al portal" aria-label="Volver al portal">
+              <span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+              </span>
+            </a>
+
+            <button type="button" onClick={() => setPanelAbierto(v => !v)}
+              aria-label={`Tu sesión: ${usuarioActivo.nombre}`} aria-expanded={panelAbierto}
+              style={{ width: '44px', height: '44px', background: 'transparent', border: 'none', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <span style={{ position: 'relative', width: '34px', height: '34px', display: 'block' }}>
+                <span title={`Nómina ${usuarioActivo.nomina} · ${usuarioActivo.rol}`} style={{
+                  background: '#003580', color: '#fff', width: '34px', height: '34px', borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11.5px',
+                  boxShadow: panelAbierto ? '0 0 0 3px rgba(0,53,128,.18)' : 'none'
+                }}>
+                  {usuarioActivo.nomina}
+                </span>
+                {/* El estado de conexión va sobre la nómina, no en su propio renglón. */}
+                <span title={enLinea ? 'En línea' : 'Sin conexión'} style={{
+                  position: 'absolute', right: '-1px', bottom: '-1px', width: '10px', height: '10px',
+                  borderRadius: '50%', background: enLinea ? '#0F7A55' : '#C8102E', border: '2px solid #fff', display: 'block'
+                }} />
+              </span>
+            </button>
+          </div>
+
+          {/* Panel de la sesión. Aquí el nombre y el puesto tienen ancho completo
+              y pueden ocupar dos renglones: ninguno se corta, mida lo que mida. */}
+          {panelAbierto && (
+            <>
+              <div onClick={() => setPanelAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+              <div style={{
+                position: 'absolute', right: 0, top: '100%', marginTop: '10px', zIndex: 41,
+                width: '250px', background: '#fff', borderRadius: '14px', textAlign: 'left',
+                boxShadow: '0 2px 8px rgba(0,32,96,.10), 0 12px 32px rgba(0,32,96,.14)',
+                padding: '14px 15px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#002060', lineHeight: 1.35 }}>{usuarioActivo.nombre}</div>
+                {usuarioActivo.puesto && (
+                  <div style={{ fontSize: '11.5px', color: '#5A6A80', lineHeight: 1.4, marginTop: '2px' }}>{usuarioActivo.puesto}</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '8px', fontSize: '11px', color: '#5A6A80' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: enLinea ? '#0F7A55' : '#C8102E', display: 'inline-block' }} />
+                  {enLinea ? 'En línea' : 'Sin conexión'}
+                  <span style={{ color: 'rgba(0,32,96,.18)' }}>|</span>
+                  <span>Nómina {usuarioActivo.nomina}</span>
+                  <span style={{ color: 'rgba(0,32,96,.18)' }}>|</span>
+                  <span>{usuarioActivo.rol === 'ADMIN' ? 'Administrador' : usuarioActivo.rol === 'SUPERVISOR' ? 'Supervisor' : usuarioActivo.rol}</span>
+                </div>
+                <div style={{ height: '1px', background: 'rgba(0,32,96,.10)', margin: '12px 0' }} />
+                <a href="https://impredimex-hub.github.io/" style={{ display: 'flex', alignItems: 'center', gap: '9px', minHeight: '44px', fontSize: '12.5px', fontWeight: 600, color: '#003580', textDecoration: 'none' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+                  Ir al portal
+                </a>
+                <button type="button" onClick={() => { setPanelAbierto(false); handleCerrarSesion(); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '9px', minHeight: '44px', width: '100%', background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, color: '#9B0E24', textAlign: 'left', cursor: 'pointer' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" /><line x1="12" y1="2" x2="12" y2="12" />
+                  </svg>
+                  Cerrar sesión
+                </button>
+              </div>
+            </>
           )}
-
-          {/* Botón Circular de Histórico */}
-          <button
-            onClick={() => { setVista('HISTORIAL'); setSubVistaHistorial('AUDITORIAS'); }}
-            title={`Histórico: ${historialPermitido.length} auditorías`}
-            style={{
-              width: '32px', height: '32px', borderRadius: '50%', background: '#002060',
-              color: '#ffffff', border: 'none', fontSize: '11px', fontWeight: 800, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0,
-              boxShadow: '0 2px 5px rgba(0,32,96,0.25)'
-            }}
-          >
-            {historialPermitido.length}
-          </button>
-
-          {/* Botón Circular Salir */}
-          <button
-            onClick={handleCerrarSesion}
-            title="Cerrar sesión"
-            style={{
-              width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0, 32, 96, 0.04)',
-              border: '1px solid rgba(0, 32, 96, 0.15)', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-              <line x1="12" y1="2" x2="12" y2="12" />
-            </svg>
-          </button>
         </div>
       </header>
 
