@@ -246,6 +246,39 @@ colores van fijos porque esta app no define las variables de marca.
 
 ---
 
+# SPEC-006 — Abrir sin mostrar la contraseña de paso
+
+### Por qué
+
+Al pasar del portal a una app, o de una app al portal, se veía un instante la
+pantalla de contraseña aunque ya hubiera sesión. Cada página arrancaba con la
+contraseña a la vista y solo la escondía cuando Firebase confirmaba la sesión y
+terminaba de leer la ficha del padrón: entre medio segundo y un segundo y medio.
+
+### Cómo funciona
+
+- **Las seis páginas de la suite comparten una nota** en el almacenamiento del
+  navegador (`impredimex:sesion`), porque viven en el mismo dominio. Se escribe
+  al abrir sesión y se borra al cerrarla, o cuando Firebase dice que no la hay.
+- **Un bloque en la cabecera de `index.html` la lee antes de dibujar nada.** Si
+  hay sesión, cubre la pantalla con la marca IMPREDIMEX mientras la app termina
+  de abrir. Si no la hay, la contraseña aparece al instante.
+- **Si la nota miente** —la sesión expiró—, la marca dura un momento y aparece
+  la contraseña, que es lo correcto.
+- **Red de seguridad:** si en 8 segundos la app no terminó de abrir, la marca se
+  quita sola. Nadie se queda viendo la marca sin salida.
+- **Al mostrar un error de acceso la marca se quita siempre**, o taparía el
+  mensaje con el motivo.
+- La marca se dibuja con `html::after`, sin tocar el contenido de la página.
+
+### Particular de esta app
+
+La pantalla «Cargando…» se cambió por la misma marca blanca que muestran las
+demás apps. `arranqueListo` vive en `index.html`; `App.tsx` le avisa con
+`avisarArranque`.
+
+---
+
 # Deuda técnica conocida
 
 | # | Tema | Detalle |
