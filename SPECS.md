@@ -107,7 +107,7 @@ Usuario autenticado.
 - Sesión activa
 
 ### Flujo principal
-1. Usuario presiona el botón de cerrar sesión
+1. Usuario toca el círculo de su nómina y, en el panel, **Cerrar sesión** (SPEC-005)
 2. Sistema pide confirmación
 3. Usuario confirma
 4. Sistema invoca `signOut` en Firebase Auth del proyecto suite
@@ -197,6 +197,52 @@ Sistema, a partir de los datos de la persona autenticada.
 - **Colaborador sin campo `roles`:** entra como supervisor
 - **Cambio de rol con la sesión abierta:** surte efecto en el siguiente inicio de
   sesión, porque el rol se lee una sola vez al entrar
+
+---
+
+# SPEC-005 — Encabezado estándar de la suite
+
+### Alcance
+
+El encabezado es el mismo en las aplicaciones de la suite. Está definido en la
+SPEC-035 del repositorio `rrhh-pwa`, que es la referencia; aquí se registra cómo
+se aplicó en esta app y lo que tiene de particular.
+
+### Qué hace
+
+- **Marca a la izquierda, botones a la derecha, de borde a borde.** IMPREDIMEX en
+  Jost peso 600 con espaciado amplio; debajo, «INGENIERÍA DE PROCESOS» en
+  mayúsculas finas y grises.
+- **Fijo arriba y opaco.** Sin la transparencia y el desenfoque que tenía, que
+  dejaban pasar el fondo y lavaban el logotipo en iOS. Capa 45: por encima del
+  contenido y por debajo de todas las ventanas emergentes (900 en adelante).
+- **Nombre y puesto centrados, solo en pantalla ancha** (desde 760 px). En el
+  teléfono no caben sin cortarse y viven en el panel.
+- **Panel al tocar la nómina**: nombre, puesto, estado de conexión, nómina y
+  papel, más «Ir al portal» y «Cerrar sesión».
+- **Botón de portal**, los cuatro cuadros.
+- **El estado de conexión es un punto sobre la nómina**: verde con red, rojo sin
+  ella, según lo que reporta el teléfono.
+
+### Particular de esta app
+
+- **El nombre de la app cambió de «Control de Proceso» a «Ingeniería de
+  Procesos».** Es como la llaman el portal y el título de la página. El anterior
+  era casi idéntico al de Calidad, que se llama «Control de Procesos», y las dos
+  apps se confundían.
+- **La flecha de regreso va a la izquierda**, antes de la marca, y solo aparece
+  fuera de la pantalla de inicio. Es la posición que tiene en cualquier app de
+  teléfono. La marca también regresa al inicio al tocarla, como antes.
+- **El botón del histórico conserva su número**, pero pasa de círculo relleno a
+  círculo con borde. El relleno azul queda reservado para el círculo de la
+  nómina: juntos en la barra, dos círculos azules con números se confundían.
+- **Cerrar sesión se mudó al panel** y conserva su confirmación (SPEC-002).
+- **Los botones se ven de 32 px pero responden en 44**, igual que en las demás.
+
+### Dónde vive el estilo
+
+En `src/index.css`, como clases `.hdr-*`, igual que en Recursos Humanos. Los
+colores van fijos porque esta app no define las variables de marca.
 
 ---
 

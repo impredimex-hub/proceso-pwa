@@ -6,6 +6,37 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.2.0] — 2026-09-20
+
+### Cambiado
+- **SPEC-005:** encabezado estándar de la suite, el mismo de Recursos Humanos,
+  EPP y Calidad. Fijo arriba, opaco y de borde a borde; marca en Jost a la
+  izquierda, botones a la derecha; nombre y puesto centrados en pantalla ancha.
+- **El nombre de la app pasa de «Control de Proceso» a «Ingeniería de
+  Procesos»**, como la llaman el portal y el título de la página. El anterior se
+  confundía con Calidad, que se llama «Control de Procesos».
+- **La flecha de regreso va a la izquierda de la marca**, y solo fuera del
+  inicio.
+- **El botón del histórico pasa a círculo con borde**, conservando su número.
+  El relleno azul queda solo para la nómina.
+
+### Agregado
+- **Panel al tocar la nómina**, con nombre, puesto, conexión, nómina y papel.
+  En el teléfono es el único lugar donde el nombre completo cabe sin cortarse.
+- **Botón de portal** y **punto de conexión** sobre la nómina.
+
+### Corregido
+- **El encabezado se veía lavado en iOS.** Tenía transparencia y desenfoque de
+  fondo; ahora es blanco opaco.
+
+### Notas
+- Cerrar sesión se mudó al panel y conserva su confirmación (SPEC-002).
+- La base ya traía dos errores de TypeScript (una función sin usar y la
+  declaración de tipos de `index.css`). No bloquean la publicación, porque ésta
+  corre solo `vite build`, y este cambio no agrega ninguno.
+
+---
+
 ## [2.1.0] — 2026-09-04
 
 ### Agregado
