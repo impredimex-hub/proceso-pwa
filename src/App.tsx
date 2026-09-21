@@ -48,6 +48,13 @@ const STYLES = {
 // La lista ya no vive aquí. Se lee de `colaboradores` en Impredimex-suite,
 // filtrada por quienes tienen 'procesos' en su campo `apps`. Se llena una sola
 // vez, justo después de iniciar sesión y antes de mostrar la app.
+/**
+ * Avisa al arranque de la página si hay sesión (SPEC-006). La función vive en
+ * `index.html` porque tiene que correr antes de que React cargue.
+ */
+const avisarArranque = (haySesion: boolean) =>
+  (window as unknown as { arranqueListo?: (s: boolean) => void }).arranqueListo?.(haySesion);
+
 export interface UserProfile {
   nomina: string;
   nombre: string;
@@ -601,16 +608,22 @@ export const App: React.FC = () => {
         USUARIOS_SISTEMA = [];
         setUsuarioActivo(null);
         setCargandoSesion(false);
+        avisarArranque(false);
         return;
       }
       try {
         const perfil = await prepararSesion(nomina);
         if (!perfil) {
+          // La marca se quita antes, o taparía el aviso con el motivo.
+          avisarArranque(false);
           await salir();
           setErrorLogin('Tu cuenta no tiene acceso a esta aplicación.');
+        } else {
+          avisarArranque(true);
         }
         setUsuarioActivo(perfil);
       } catch (err) {
+        avisarArranque(false);
         console.error('No se pudo cargar el perfil:', err);
         setErrorLogin('No se pudo cargar tu perfil. Revisa tu conexión.');
       } finally {
@@ -639,6 +652,7 @@ export const App: React.FC = () => {
 
   const handleCerrarSesion = async () => {
     if (confirm('¿Deseas cerrar tu sesión actual?')) {
+      avisarArranque(false);
       await salir();
       setVista('LAUNCHER');
     }
@@ -1181,9 +1195,10 @@ export const App: React.FC = () => {
   // --- PANTALLA DE INGRESO ---
   if (cargandoSesion) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#5A6A80', fontSize: '13px', fontWeight: 600 }}>
-        Cargando…
+      // La misma marca que pinta el arranque de la página, para que las seis
+      // apps se vean idénticas mientras abren (SPEC-006).
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff' }}>
+        <span className="hdr-marca" style={{ fontSize: '22px' }}>IMPREDIMEX</span>
       </div>
     );
   }
