@@ -493,6 +493,8 @@ vieja. Verificado con 12 casos.
 
 # SPEC-009 — Reincidencia por punto y máquina
 
+**Estado:** implementada el 29 de septiembre de 2026.
+
 ### Qué problema resuelve
 
 Un hallazgo nuevo es trabajo. Un hallazgo que ya se había cerrado y volvió es un
@@ -551,6 +553,8 @@ enfoque, no repetir la misma acción.
 
 # SPEC-010 — Los hallazgos de seguridad
 
+**Estado:** implementada el 29 de septiembre de 2026.
+
 ### Qué problema resuelve
 
 Garantizar un ambiente seguro de trabajo es un objetivo propio. Hoy un riesgo de
@@ -602,6 +606,8 @@ atrapamiento, corte, golpe, incendio o derrame.
 ---
 
 # SPEC-011 — El tablero acotado, y dónde vive lo cerrado
+
+**Estado:** implementada el 29 de septiembre de 2026.
 
 ### Qué problema resuelve
 
@@ -714,6 +720,45 @@ matriz la define una junta de calidad, según su propia spec—.
 
 Así que el puente puede usar **el foco desde hoy**, y la parte de «qué variables
 vigilar» espera a esa junta.
+
+---
+
+# Cómo quedaron la SPEC-009, la SPEC-010 y la SPEC-011
+
+Las tres miran el mismo dato desde ángulos distintos, así que su lógica vive
+junta en `src/utils/hallazgos.ts`, fuera de `App.tsx` y probable sin montar
+React. Se verificó con 39 casos de la lógica pura y 6 de las pantallas.
+
+### Dos datos nuevos, y por qué
+
+**`cerradoEn`.** `fechaCierre` es la fecha **comprometida**, capturada al
+levantar el hallazgo, no la real. Sin saber cuándo se cerró de verdad no se
+puede decir cuánto aguantó antes de volver, que es la mitad del valor de la
+SPEC-009. Ahora se graba al marcar terminado, y se limpia al reabrir.
+
+**`esSeguridad`.** Solo la usan los hallazgos `esExtra`, que no tienen punto de
+dónde deducir la sección. Es una casilla en el formulario, y el **único cambio
+de captura** de todo el paquete.
+
+### El tablero se acotó cambiando su fuente, no su dibujo
+
+La tabla, las barras y las exportaciones a Excel y PDF beben del mismo arreglo.
+Cambiar de dónde sale ese arreglo las acota las tres de una vez, sin tocar el
+dibujo de ninguna. El filtro de estatus dejó de ofrecer «TERMINADO», que ya no
+devolvería nunca nada y se habría visto como una falla.
+
+### El orden del tablero
+
+Primero seguridad, luego lo más vencido, luego lo reincidente, y al final lo que
+sigue en plazo. Un hallazgo reincidente pasa delante de uno nuevo con el mismo
+retraso porque ya se le dedicó una acción que no sirvió.
+
+### Qué se muestra de una reincidencia
+
+La etiqueta sola no sirve. Junto a ella va la fecha en que ya falló, la acción
+que se intentó, quién era el responsable y cuántos días aguantó cerrado antes de
+volver. El botón abre el historial completo del punto en esa máquina, que es
+**donde vive lo cerrado**.
 
 ---
 

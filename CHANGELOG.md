@@ -6,6 +6,54 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.5.0] — 2026-09-29
+
+### Agregado
+
+- **El tablero muestra solo lo que sigue abierto** (SPEC-011). El Gantt dibujaba
+  cada hallazgo de cada auditoría, incluidos los cerrados: con uso real, cientos
+  de barras. Ahora quedan los abiertos, ordenados con la seguridad al frente y
+  lo más vencido después. Arriba, un resumen de abiertos, vencidos, de seguridad
+  y reincidentes.
+
+  **Nada se borró ni se archivó.** Lo cerrado sigue en su auditoría y en el
+  historial de su punto; de ahí lo lee la reincidencia, así que tiene que seguir
+  siendo consultable.
+
+- **Reincidencia de verdad** (SPEC-009). Antes se detectaba buscando la palabra
+  «reincidente» dentro del texto escrito a mano, y fallaba en los dos sentidos.
+  Ahora la llave es `(maquinaId, puntoId)`: un hallazgo reincide cuando ese
+  punto ya falló en esa máquina **y aquel se cerró**. Si el anterior sigue
+  abierto no es reincidencia, es que nunca se resolvió.
+
+  Junto a la etiqueta va lo que importa: la fecha en que ya falló, la acción que
+  se intentó, el responsable y cuántos días aguantó cerrado. El botón abre el
+  historial completo del punto en esa máquina.
+
+- **Los hallazgos de seguridad se separan** (SPEC-010). Se clasifican por el
+  punto que los originó: los tres de la sección 4 del checklist de 5S más
+  «guardas, cubiertas y protecciones» de la sección 3. Aparecen con distintivo
+  rojo y van primero en el tablero.
+
+  Los hallazgos levantados fuera del checklist no tienen punto de dónde
+  deducirlo, así que ahora se pregunta con una casilla al capturarlos.
+
+- Campo **`cerradoEn`**: cuándo se marcó terminado de verdad. `fechaCierre` es
+  la fecha comprometida al levantarlo, y sin la real no se puede saber cuánto
+  aguantó un hallazgo antes de volver.
+
+  Archivo nuevo `src/utils/hallazgos.ts`, verificado con 39 casos de la lógica
+  pura y 6 de las pantallas.
+
+### Corregido
+
+- **La tabla de cobertura no se alineaba con sus encabezados.** `#root` trae un
+  `text-align: center` heredado de la plantilla de Vite y las celdas lo
+  heredaban. Se corrigió en la tabla y **no en `#root`**, que habría cambiado la
+  apariencia de toda la app.
+
+---
+
 ## [2.4.0] — 2026-09-29
 
 ### Agregado
