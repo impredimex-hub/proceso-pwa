@@ -6,6 +6,102 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.4.0] — 2026-09-29
+
+### Agregado
+
+- **Cobertura de auditoría** (SPEC-008). Pantalla nueva, con su tarjeta en el
+  inicio: las 33 máquinas y áreas ordenadas por **días desde la última
+  auditoría**, con columnas separadas para validación de proceso y para 5S,
+  porque una máquina puede estar al día en una y llevar meses sin la otra.
+
+  - **Ordenada por abandono, no alfabética.** Las que nunca se han auditado van
+    primero, y entre ellas, antes las que no tienen ninguno de los dos tipos.
+  - **«Nunca» es el caso más grave, no un dato faltante**, y se ve distinto de
+    «No aplica», que es lo que muestran las áreas auxiliares en la columna de
+    proceso porque no llevan ese tipo de auditoría.
+  - En rojo lo que alcanzó o pasó el objetivo de **15 días**; con el cursor
+    encima del número aparece la fecha exacta.
+  - El objetivo se guarda en `configuracion/cobertura` y lo cambia `ADMIN` desde
+    la misma pantalla. Es **un documento**, no una colección: una sola escucha.
+  - Se calcula sobre **todas** las auditorías, no sobre las del usuario. Un
+    supervisor que sólo viera las suyas encontraría media planta «sin auditar»
+    cuando la revisó alguien más, y ese hueco falso es lo contrario de lo que la
+    pantalla existe para mostrar.
+
+  Archivo nuevo `src/utils/cobertura.ts`, verificado con 28 casos de la lógica
+  pura y 7 de la pantalla montada.
+
+### Corregido
+
+- **Las auditorías de proceso de 22 de las 26 máquinas se leían como 5S.**
+  `resolverTipoAuditoria` deducía el tipo en lugar de creerle al documento, y
+  una de sus condiciones marcaba como 5S cualquier auditoría con respuestas en
+  una máquina que no fuera Pegado —la única con plantilla de proceso por
+  omisión—. La regla venía de reparar documentos viejos, pero también reescribía
+  en silencio los nuevos, bien guardados.
+
+  Salió al construir la SPEC-008: su columna «sin validar proceso» habría dicho
+  «Nunca» para siempre en esas 22 máquinas.
+
+  Ahora se respeta el `tipoAuditoria` guardado cuando es entendible, y la
+  deducción queda sólo como respaldo para documentos sin el campo. No existe
+  ninguno: la colección se vació el mismo día. Verificado con 12 casos.
+
+  **Toca código compartido** —el histórico, el Gantt y los filtros usan esa
+  función—, por eso se dejó el respaldo en lugar de borrar la regla anterior.
+
+---
+
+## [2.3.1] — 2026-09-29
+
+### Documentado
+
+Sólo specs. **No se tocó una línea de código**: es el diseño del cambio de
+enfoque, escrito para revisarse antes de implementar.
+
+- **SPEC-007 — Ranking de puntos que más fallan.** Agrupa las `respuestas` por
+  punto del checklist en vez de por auditoría. Los dos tipos de auditoría no se
+  mezclan: 5S es comparable en toda la planta, proceso sólo dentro de su familia
+  de máquina.
+- **SPEC-008 — Cobertura: qué no se ha auditado.** Invierte la mirada de la app:
+  máquinas y zonas ordenadas por días sin auditar. Es la única de las seis que
+  sirve desde la primera auditoría.
+- **SPEC-009 — Reincidencia por punto y máquina.** Sustituye la detección actual,
+  que busca la palabra «reincidente» dentro del texto escrito a mano, por la
+  llave `(maquinaId, puntoId)`.
+- **SPEC-010 — Los hallazgos de seguridad.** Se apoya en que la sección 4 del
+  checklist de 5S ya es seguridad, así que no hace falta campo de severidad.
+- **SPEC-011 — El tablero acotado, y dónde vive lo cerrado.** El Gantt pasa a
+  mostrar sólo lo abierto. Nada se borra ni se archiva: lo cerrado debe seguir
+  siendo consultable o la SPEC-009 deja de funcionar.
+- **SPEC-012 — El foco compartido con Control de Procesos.** Cruza la cobertura
+  con los metros rechazados que esa app ya calcula. Se comparte un resumen, no
+  la base: son proyectos distintos y la cuota del plan gratuito es por proyecto.
+
+### Decidido
+
+Ingeniería de Procesos resolvió el mismo día los tres valores que bloqueaban la
+implementación. Los tres quedan configurables desde la app, no fijos en código:
+
+- **Frecuencia objetivo de auditoría: 15 días**, tanto 5S como proceso
+  (SPEC-008). Son dos revisiones al mes por máquina y por tipo; conviene
+  contrastarlo contra la capacidad real de auditoría en los primeros meses.
+- **Mínimo para entrar al ranking: 5 revisiones** (SPEC-007).
+- **Cuentan como seguridad** los tres puntos de la sección 4 del checklist de
+  5S, más «guardas, cubiertas y protecciones» de la sección 3 (SPEC-010).
+
+Sigue pendiente el contenido de la matriz defecto ↔ variable, que define una
+junta de calidad y sólo bloquea una parte de la SPEC-012.
+
+### Datos
+
+- Se borró la colección `evaluaciones_proceso` completa. Eran auditorías de
+  prueba. Las plantillas (`plantillas_checklists` y `plantillas_5s`) se
+  conservaron.
+
+---
+
 ## [2.3.0] — 2026-09-21
 
 ### Corregido
