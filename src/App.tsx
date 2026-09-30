@@ -11,6 +11,12 @@ import {
 import type { FilaCobertura, EstadoTipo } from './utils/cobertura';
 import { aplanarHallazgos, tableroAbiertos, resumenTablero, historialDePunto } from './utils/hallazgos';
 import type { HallazgoPlano } from './utils/hallazgos';
+import { calcularRanking, dondeFalla, familiasConProceso, UMBRAL_REVISIONES } from './utils/ranking';
+import type { FilaRanking } from './utils/ranking';
+import {
+  mermaDe, participacionDe, maquinasDelOchenta, ordenarPorRiesgo,
+  cumplimientoPorMaquina, cuadranteDe, ETIQUETA_CUADRANTE, METROS_SIN_CRUZAR
+} from './utils/merma';
 
 (window as any).db = db;
 
@@ -312,7 +318,7 @@ export const App: React.FC = () => {
   const [entrando, setEntrando] = useState(false);
 
   // Estados de navegación
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA'>('LAUNCHER');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
 
@@ -321,6 +327,13 @@ export const App: React.FC = () => {
   const [objetivoEnEdicion, setObjetivoEnEdicion] = useState<string>('');
   const [guardandoObjetivo, setGuardandoObjetivo] = useState(false);
   const [filtroTipoCobertura, setFiltroTipoCobertura] = useState('');
+  /** Ordenar por costo (SPEC-012) o por puro abandono (SPEC-008). */
+  const [ordenPorCosto, setOrdenPorCosto] = useState(true);
+
+  /* ── Ranking de puntos (SPEC-007) ─────────────────────────────────────── */
+  const [tipoRanking, setTipoRanking] = useState<'5S' | 'PROCESO'>('5S');
+  const [familiaRanking, setFamiliaRanking] = useState('');
+  const [puntoAbierto, setPuntoAbierto] = useState<number | null>(null);
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   // Modal Layout 3D
@@ -497,9 +510,19 @@ export const App: React.FC = () => {
      auditar» cuando la revisó alguien más, y ese hueco falso es justo lo
      contrario de lo que esta pantalla existe para mostrar. */
   const filasCobertura = calcularCobertura(CATALOGO, historial, diasObjetivo);
+
+  /* El cruce con el costo (SPEC-012). Por omisión manda el costo: una máquina
+     con seis semanas sin revisar que explica el 36% de la merma no es lo mismo
+     que una con seis semanas que no rechaza nada. El orden por puro abandono
+     sigue disponible, porque es el que sirve cuando lo que se busca es un
+     hueco de cobertura y no dónde duele. */
+  const cobertura = ordenPorCosto ? ordenarPorRiesgo(filasCobertura) : filasCobertura;
   const coberturaVisible = filtroTipoCobertura
-    ? filasCobertura.filter((f) => f.tipo === filtroTipoCobertura)
-    : filasCobertura;
+    ? cobertura.filter((f) => f.tipo === filtroTipoCobertura)
+    : cobertura;
+
+  const cumplimientos = cumplimientoPorMaquina(historial);
+  const lasDelOchenta = maquinasDelOchenta();
   const totalAtrasadas = contarAtrasadas(filasCobertura);
   const totalNuncaAuditadas = contarNuncaAuditadas(filasCobertura);
 
@@ -1540,6 +1563,22 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
+              {/* Ranking (SPEC-007). */}
+              <div onClick={() => setVista('RANKING')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                  <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Análisis</div>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Puntos que más fallan</div>
+                <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
+                  Qué punto del checklist falla más, y si falla parejo o solo en una máquina o un turno.
+                  Un punto que falla en todas partes es un procedimiento que corregir.
+                </p>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
+                  Necesita {UMBRAL_REVISIONES} revisiones por punto
+                </span>
+              </div>
+
               <div onClick={() => setVista('EDITOR_PLANTILLAS')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -1629,6 +1668,34 @@ export const App: React.FC = () => {
                   </select>
                 </div>
 
+                {/* SPEC-012: qué manda en el orden. */}
+                <div style={{ flex: '0 1 auto' }}>
+                  <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '4px' }}>
+                    Ordenar por
+                  </label>
+                  <div style={{ display: 'flex', gap: '0' }}>
+                    {[
+                      { v: true,  t: 'Costo' },
+                      { v: false, t: 'Abandono' }
+                    ].map((o, i) => (
+                      <button key={o.t} onClick={() => setOrdenPorCosto(o.v)}
+                        title={o.v
+                          ? 'Primero lo atrasado, y entre lo atrasado, lo que más metros rechaza'
+                          : 'Solo por días sin auditar, sin mirar el costo'}
+                        style={{
+                          border: '1px solid rgba(0,32,96,0.18)', padding: '8px 13px', fontSize: '11.5px', fontWeight: 700,
+                          fontFamily: 'inherit', cursor: 'pointer',
+                          borderRadius: i === 0 ? '8px 0 0 8px' : '0 8px 8px 0',
+                          borderLeftWidth: i === 1 ? 0 : 1,
+                          background: ordenPorCosto === o.v ? '#003580' : '#fff',
+                          color: ordenPorCosto === o.v ? '#fff' : '#003580'
+                        }}>
+                        {o.t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div style={{ flex: '0 1 auto', fontSize: '11.5px', color: '#5A6A80' }}>
                   Objetivo actual: <b style={{ color: '#002060' }}>{diasObjetivo} días</b>
                   {esAdminTotal && (
@@ -1661,6 +1728,10 @@ export const App: React.FC = () => {
                         <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em' }}>Familia</th>
                         <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Sin validar proceso</th>
                         <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Sin revisar 5S</th>
+                        {/* SPEC-012: lo que cuesta esa máquina, para que el
+                            orden se pueda comprobar a simple vista. */}
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Metros rechazados</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Lectura</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1675,10 +1746,38 @@ export const App: React.FC = () => {
                           <td style={{ padding: '8px 12px', color: '#5A6A80', fontSize: '11px', textAlign: 'left' }}>{f.tipo}</td>
                           <td style={{ padding: '8px 12px', textAlign: 'center' }}><Celda e={f.proceso} /></td>
                           <td style={{ padding: '8px 12px', textAlign: 'center' }}><Celda e={f.cincoS} /></td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {mermaDe(f.id) > 0 ? (
+                              <span style={{ fontSize: '11px', fontWeight: lasDelOchenta.includes(f.id) ? 700 : 500, color: lasDelOchenta.includes(f.id) ? '#C8102E' : '#5A6A80' }}>
+                                {mermaDe(f.id).toLocaleString('es-MX')} m
+                                <span style={{ display: 'block', fontSize: '9.5px', fontWeight: 400, color: '#8A9AB0' }}>
+                                  {participacionDe(f.id).toFixed(1)}%
+                                </span>
+                              </span>
+                            ) : (
+                              <span style={{ color: '#8A9AB0', fontSize: '10.5px' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                            {(() => {
+                              const cuad = cuadranteDe(f.id, cumplimientos[f.id] ?? null);
+                              const color = cuad === 'PRIMERO' ? '#C8102E'
+                                : cuad === 'REVISAR_CHECKLIST' ? '#D4840A'
+                                : cuad === 'CORREGIR' ? '#5A6A80' : '#0F7A55';
+                              if (cuad === 'SIN_DATOS') {
+                                return <span style={{ color: '#8A9AB0', fontSize: '10px' }}>—</span>;
+                              }
+                              return (
+                                <span style={{ fontSize: '10px', fontWeight: 700, color, lineHeight: 1.3, display: 'inline-block', maxWidth: '150px' }}>
+                                  {ETIQUETA_CUADRANTE[cuad]}
+                                </span>
+                              );
+                            })()}
+                          </td>
                         </tr>
                       ))}
                       {coberturaVisible.length === 0 && (
-                        <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
+                        <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
                           No hay máquinas de esa familia.
                         </td></tr>
                       )}
@@ -1693,6 +1792,190 @@ export const App: React.FC = () => {
                 <b> «Nunca» es el caso más grave</b>, no un dato faltante.
                 Las áreas auxiliares no llevan validación de proceso, por eso dicen «No aplica».
                 {!esAdminTotal && <> El conteo abarca las auditorías de toda la planta, no solo las tuyas.</>}
+                <div style={{ marginTop: '6px' }}>
+                  Los <b>metros rechazados</b> vienen del histórico de Control de Procesos, 2025 y 2026,
+                  y en rojo van las cuatro máquinas que explican el 80% de la merma. Los porcentajes suman
+                  98.8%: el 1.2% que falta son {METROS_SIN_CRUZAR.toLocaleString('es-MX')} metros de
+                  identificadores que el catálogo de esta app no tiene.
+                  La <b>lectura</b> cruza ese costo con el cumplimiento promedio, y solo aparece cuando la
+                  máquina ya tiene auditorías.
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 1c. VISTA RANKING (SPEC-007) */}
+        {vista === 'RANKING' && (() => {
+          const familias = familiasConProceso(historial);
+          const familiaUsada = tipoRanking === 'PROCESO' ? (familiaRanking || familias[0] || null) : null;
+          const filas: FilaRanking[] = calcularRanking(historial, tipoRanking, familiaUsada);
+          const conHistoria = filas.filter((f) => !f.sinHistoria);
+          const sinHistoria = filas.filter((f) => f.sinHistoria);
+
+          return (
+            <div>
+              <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Puntos que más fallan</div>
+                  <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    Agrupado por punto del checklist, no por auditoría.
+                  </div>
+                </div>
+                <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                  ← Inicio
+                </button>
+              </div>
+
+              <div style={{ ...STYLES.glassCard, padding: '.9rem 1.2rem', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '4px', textAlign: 'left' }}>
+                    Tipo de auditoría
+                  </label>
+                  <div style={{ display: 'flex' }}>
+                    {(['5S', 'PROCESO'] as const).map((t, i) => (
+                      <button key={t} onClick={() => setTipoRanking(t)}
+                        style={{
+                          border: '1px solid rgba(0,32,96,0.18)', padding: '8px 14px', fontSize: '11.5px', fontWeight: 700,
+                          fontFamily: 'inherit', cursor: 'pointer',
+                          borderRadius: i === 0 ? '8px 0 0 8px' : '0 8px 8px 0', borderLeftWidth: i === 1 ? 0 : 1,
+                          background: tipoRanking === t ? '#003580' : '#fff',
+                          color: tipoRanking === t ? '#fff' : '#003580'
+                        }}>
+                        {t === '5S' ? 'Condiciones y 5S' : 'Validación de proceso'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {tipoRanking === 'PROCESO' && (
+                  <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '4px', textAlign: 'left' }}>
+                      Familia de máquina
+                    </label>
+                    <select value={familiaUsada || ''} onChange={(e) => setFamiliaRanking(e.target.value)}
+                      style={{ ...STYLES.input, width: '100%', padding: '8px 12px', fontSize: '12px' }}>
+                      {familias.length === 0 && <option value="">Sin auditorías de proceso</option>}
+                      {familias.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Por qué no es un solo tablero. */}
+              <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.55, marginBottom: '12px', textAlign: 'left', padding: '0 4px' }}>
+                {tipoRanking === '5S'
+                  ? <>El checklist de 5S es el mismo para toda la planta, así que estos porcentajes
+                      son comparables entre máquinas.</>
+                  : <>El checklist de proceso es <b>distinto en cada familia</b>, así que solo se compara
+                      dentro de una. El «punto 4» de Pegado y el de Flexografía no son la misma pregunta,
+                      y juntarlos daría un ranking sin significado.</>}
+                {' '}Los dos tipos nunca se mezclan.
+              </div>
+
+              {conHistoria.length === 0 && sinHistoria.length === 0 ? (
+                <div style={{ ...STYLES.glassCard, padding: '28px', textAlign: 'center', color: '#5A6A80', fontSize: '12.5px' }}>
+                  Todavía no hay auditorías de este tipo con respuestas.
+                </div>
+              ) : (
+                <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
+                        {['Punto del checklist', 'Falla', 'Revisiones', 'Dónde falla'].map((h, i) => (
+                          <th key={h} style={{ padding: '10px 12px', textAlign: i === 0 ? 'left' : 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {conHistoria.map((f) => {
+                        const d = dondeFalla(f);
+                        const abierto = puntoAbierto === f.puntoId;
+                        return (
+                          <React.Fragment key={f.puntoId}>
+                            <tr onClick={() => setPuntoAbierto(abierto ? null : f.puntoId)}
+                              style={{ borderBottom: '1px solid rgba(0,32,96,0.06)', cursor: 'pointer', background: abierto ? '#f8f9ff' : 'transparent' }}>
+                              <td style={{ padding: '8px 12px', textAlign: 'left' }}>
+                                <div style={{ fontWeight: 600, color: '#002060', lineHeight: 1.35 }}>{f.texto}</div>
+                                <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{f.seccion}</div>
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                <span style={{
+                                  fontSize: '14px', fontWeight: 800,
+                                  color: f.tasa >= 50 ? '#C8102E' : f.tasa >= 20 ? '#D4840A' : '#0F7A55'
+                                }}>{f.tasa}%</span>
+                                <span style={{ display: 'block', fontSize: '9.5px', color: '#8A9AB0' }}>{f.no} de {f.total}</span>
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', color: '#5A6A80' }}>{f.total}</td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                {d.patron === 'PAREJO' ? (
+                                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#C8102E' }}>
+                                    Parejo
+                                    <span style={{ display: 'block', fontWeight: 400, color: '#5A6A80' }}>corregir el procedimiento</span>
+                                  </span>
+                                ) : d.patron === 'CONCENTRADO' ? (
+                                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#D4840A' }}>
+                                    Solo en {d.culpable}
+                                    <span style={{ display: 'block', fontWeight: 400, color: '#5A6A80' }}>atender ahí</span>
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#8A9AB0', fontSize: '10px' }}>—</span>
+                                )}
+                              </td>
+                            </tr>
+                            {abierto && (
+                              <tr style={{ background: '#f8f9ff', borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
+                                <td colSpan={4} style={{ padding: '10px 14px', textAlign: 'left' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '14px' }}>
+                                    {[{ t: 'Por máquina', d: f.porMaquina }, { t: 'Por turno', d: f.porTurno }].map((bloque) => (
+                                      <div key={bloque.t}>
+                                        <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '5px' }}>{bloque.t}</div>
+                                        {bloque.d.map((x) => (
+                                          <div key={x.etiqueta} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '11px', padding: '2px 0' }}>
+                                            <span style={{ color: '#5A6A80' }}>{x.etiqueta}</span>
+                                            <span style={{ fontWeight: 700, color: x.tasa >= 50 ? '#C8102E' : x.tasa > 0 ? '#D4840A' : '#0F7A55' }}>
+                                              {x.tasa}% <span style={{ fontWeight: 400, color: '#8A9AB0' }}>({x.no}/{x.total})</span>
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {sinHistoria.length > 0 && (
+                    <div style={{ padding: '12px 14px', borderTop: '2px solid #E8EEF8', background: '#f8f9ff', textAlign: 'left' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '6px' }}>
+                        Sin historia suficiente ({sinHistoria.length})
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: '#8A9AB0', marginBottom: '7px', lineHeight: 1.5 }}>
+                        Menos de {UMBRAL_REVISIONES} revisiones. No compiten por el primer lugar porque el
+                        porcentaje todavía es ruido: un punto respondido una vez y fallado daría 100%.
+                      </div>
+                      {sinHistoria.map((f) => (
+                        <div key={f.puntoId} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11px', padding: '2px 0' }}>
+                          <span style={{ color: '#5A6A80' }}>{f.texto}</span>
+                          <span style={{ color: '#8A9AB0', whiteSpace: 'nowrap' }}>{f.no}/{f.total}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.6, marginTop: '10px', padding: '0 4px', textAlign: 'left' }}>
+                Toca un renglón para ver el desglose por máquina y por turno. Ese desglose es lo que decide
+                qué hacer: si el punto falla <b>parejo</b>, el estándar está mal escrito, es irreal o nunca se
+                entrenó, y lo que se corrige es el procedimiento. Si falla <b>en un solo lado</b>, se repara
+                o se entrena ahí. El ranking no publica nombres de personas: el objetivo es arreglar
+                procedimientos, y un tablero por nombre cambia el incentivo y degrada el dato.
               </div>
             </div>
           );
