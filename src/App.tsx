@@ -5,6 +5,10 @@ import {
   traerColaborador, traerUsuariosDeLaApp, mensajeDeError, APP_ID,
 } from './services/suite';
 import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  calcularCobertura, contarAtrasadas, contarNuncaAuditadas, DIAS_OBJETIVO_DEFECTO
+} from './utils/cobertura';
+import type { FilaCobertura, EstadoTipo } from './utils/cobertura';
 
 (window as any).db = db;
 
@@ -198,11 +202,30 @@ interface Hallazgo {
   estadoSeguimiento?: EstadoCumplimiento;
 }
 
+/**
+ * De qué tipo es una auditoría guardada.
+ *
+ * **Se cree lo que el documento dice de sí mismo.** Toda auditoría guardada por
+ * la app trae `tipoAuditoria` explícito, escrito por la pantalla que la levantó,
+ * y no hay nada que adivinar.
+ *
+ * Antes no era así: la regla deducía el tipo, y una de sus condiciones decía que
+ * cualquier auditoría con respuestas en una máquina que no fuera Pegado era 5S.
+ * Eso reescribía en silencio auditorías de proceso bien guardadas de las otras
+ * 22 máquinas, y dejaba la columna «sin validar proceso» de la cobertura
+ * (SPEC-008) diciendo «Nunca» para siempre.
+ *
+ * La deducción se conserva **solo como respaldo**, para un documento sin
+ * `tipoAuditoria` o con un valor que no se entiende. Al 29/09/2026 no existe
+ * ninguno: la colección se vació ese día.
+ */
 const resolverTipoAuditoria = (docData: any): 'PROCESO' | '5S' => {
   const tipoOriginal = (docData.tipoAuditoria || '').toUpperCase();
+  if (tipoOriginal === '5S' || tipoOriginal === 'PROCESO') return tipoOriginal;
+
   const tipoMaq = docData.tipoMaquina || '';
   const totalRespuestas = Object.keys(docData.respuestas || {}).length;
-  if (totalRespuestas >= 17 || tipoOriginal === '5S' || (tipoMaq !== 'Pegado' && totalRespuestas > 0)) {
+  if (totalRespuestas >= 17 || (tipoMaq !== 'Pegado' && totalRespuestas > 0)) {
     return '5S';
   }
   return 'PROCESO';
@@ -281,9 +304,15 @@ export const App: React.FC = () => {
   const [entrando, setEntrando] = useState(false);
 
   // Estados de navegación
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS'>('LAUNCHER');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
+
+  /* ── Cobertura (SPEC-008) ─────────────────────────────────────────────── */
+  const [diasObjetivo, setDiasObjetivo] = useState<number>(DIAS_OBJETIVO_DEFECTO);
+  const [objetivoEnEdicion, setObjetivoEnEdicion] = useState<string>('');
+  const [guardandoObjetivo, setGuardandoObjetivo] = useState(false);
+  const [filtroTipoCobertura, setFiltroTipoCobertura] = useState('');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   // Modal Layout 3D
@@ -411,10 +440,20 @@ export const App: React.FC = () => {
       setPlantillas5S(data5);
     });
 
+    // El objetivo de días entre auditorías (SPEC-008). Es **un documento**, no
+    // una colección: se decidió que fuera configurable y compartido, no una
+    // constante en el código ni un ajuste por dispositivo. Si no existe, vale
+    // el valor por omisión y la pantalla funciona igual.
+    const unsubConfig = onSnapshot(doc(db, 'configuracion', 'cobertura'), (snap) => {
+      const n = Number(snap.data()?.diasObjetivo);
+      setDiasObjetivo(Number.isFinite(n) && n > 0 ? Math.round(n) : DIAS_OBJETIVO_DEFECTO);
+    }, () => setDiasObjetivo(DIAS_OBJETIVO_DEFECTO));
+
     return () => {
       unsubAuditorias();
       unsubPlantillasProceso();
       unsubPlantillas5S();
+      unsubConfig();
     };
   }, [auditoriaDetalleModal?.id]);
 
@@ -437,6 +476,40 @@ export const App: React.FC = () => {
   // --- FILTRO DE SEGURIDAD POR PERFIL ---
   // SPEC-004: el administrador se define en la suite, no en el código.
   const esAdminTotal = usuarioActivo?.rol === 'ADMIN';
+
+  /* ── Cobertura (SPEC-008) ───────────────────────────────────────────────
+     Se calcula sobre `historial`, **no** sobre `historialPermitido**: un
+     supervisor que solo viera las suyas encontraría media planta «sin
+     auditar» cuando la revisó alguien más, y ese hueco falso es justo lo
+     contrario de lo que esta pantalla existe para mostrar. */
+  const filasCobertura = calcularCobertura(CATALOGO, historial, diasObjetivo);
+  const coberturaVisible = filtroTipoCobertura
+    ? filasCobertura.filter((f) => f.tipo === filtroTipoCobertura)
+    : filasCobertura;
+  const totalAtrasadas = contarAtrasadas(filasCobertura);
+  const totalNuncaAuditadas = contarNuncaAuditadas(filasCobertura);
+
+  const guardarObjetivoDias = async () => {
+    const n = Number(objetivoEnEdicion);
+    if (!Number.isFinite(n) || n < 1) {
+      alert('El objetivo tiene que ser un número de días mayor que cero.');
+      return;
+    }
+    setGuardandoObjetivo(true);
+    try {
+      await setDoc(
+        doc(db, 'configuracion', 'cobertura'),
+        { diasObjetivo: Math.round(n), actualizadoPor: usuarioActivo?.nomina || '', actualizadoEn: serverTimestamp() },
+        { merge: true }
+      );
+      setObjetivoEnEdicion('');
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo guardar el objetivo. Revisa tu conexión.');
+    } finally {
+      setGuardandoObjetivo(false);
+    }
+  };
 
   const historialPermitido = historial.filter((item) => {
     if (esAdminTotal) return true;
@@ -1432,6 +1505,29 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
+              {/* Cobertura (SPEC-008). Va antes del editor porque es de uso
+                  diario, y el editor es de configuración. */}
+              <div onClick={() => setVista('COBERTURA')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                  <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Seguimiento</div>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Cobertura de Auditoría</div>
+                <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
+                  Qué máquinas y áreas llevan más tiempo sin revisarse. Lo que nadie ha mirado es donde
+                  viven las oportunidades no detectadas.
+                </p>
+                <span style={{
+                  fontSize: '11px', fontWeight: 600, padding: '3px 9px', borderRadius: '5px',
+                  color: totalAtrasadas > 0 ? '#C8102E' : '#0F7A55',
+                  background: totalAtrasadas > 0 ? '#F9E8EB' : '#E0F2EC'
+                }}>
+                  {totalAtrasadas > 0
+                    ? `${totalAtrasadas} de ${filasCobertura.length} atrasadas`
+                    : 'Todo al día'}
+                </span>
+              </div>
+
               <div onClick={() => setVista('EDITOR_PLANTILLAS')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
@@ -1448,6 +1544,142 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* 1b. VISTA COBERTURA (SPEC-008) */}
+        {vista === 'COBERTURA' && (() => {
+          /* Una celda por tipo de auditoría. Las tres respuestas posibles son
+             distintas y no deben verse igual: «no aplica» es una máquina que no
+             lleva ese tipo, «nunca» es el caso más grave, y un número es
+             antigüedad. */
+          const Celda: React.FC<{ e: EstadoTipo }> = ({ e }) => {
+            if (!e.aplica) {
+              return <span style={{ color: '#8A9AB0', fontSize: '11px' }}>No aplica</span>;
+            }
+            if (e.ultima === null) {
+              return (
+                <span style={{ display: 'inline-block', background: '#C8102E', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px' }}>
+                  Nunca
+                </span>
+              );
+            }
+            const dias = e.dias as number;
+            return (
+              <span title={`Última: ${e.ultima}`} style={{
+                display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
+                color: e.atrasado ? '#C8102E' : '#0F7A55',
+                background: e.atrasado ? '#F9E8EB' : '#E0F2EC'
+              }}>
+                {dias === 0 ? 'Hoy' : dias === 1 ? 'Ayer' : `${dias} días`}
+              </span>
+            );
+          };
+
+          return (
+            <div>
+              <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Cobertura de Auditoría</div>
+                  <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    Ordenado por abandono: lo que lleva más tiempo sin revisarse va primero.
+                  </div>
+                </div>
+                <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                  ← Inicio
+                </button>
+              </div>
+
+              {/* Resumen */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '1rem' }}>
+                <div style={{ ...STYLES.metricCard }}>
+                  <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Máquinas y áreas</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{filasCobertura.length}</div>
+                </div>
+                <div style={{ ...STYLES.metricCard, background: totalAtrasadas > 0 ? 'rgba(200,16,46,.92)' : 'rgba(15,122,85,.92)' }}>
+                  <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Atrasadas</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{totalAtrasadas}</div>
+                </div>
+                <div style={{ ...STYLES.metricCard, background: totalNuncaAuditadas > 0 ? 'rgba(200,16,46,.92)' : 'rgba(0,32,96,.92)' }}>
+                  <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Nunca auditadas</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{totalNuncaAuditadas}</div>
+                </div>
+              </div>
+
+              {/* Filtro por familia y objetivo */}
+              <div style={{ ...STYLES.glassCard, padding: '.9rem 1.2rem', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                  <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '4px' }}>
+                    Familia
+                  </label>
+                  <select value={filtroTipoCobertura} onChange={(e) => setFiltroTipoCobertura(e.target.value)}
+                    style={{ ...STYLES.input, width: '100%', padding: '8px 12px', fontSize: '12px' }}>
+                    <option value="">Todas</option>
+                    {FAMILIAS_TODAS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ flex: '0 1 auto', fontSize: '11.5px', color: '#5A6A80' }}>
+                  Objetivo actual: <b style={{ color: '#002060' }}>{diasObjetivo} días</b>
+                  {esAdminTotal && (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '5px' }}>
+                      <input
+                        type="number" min={1} placeholder={String(diasObjetivo)}
+                        value={objetivoEnEdicion}
+                        onChange={(e) => setObjetivoEnEdicion(e.target.value)}
+                        style={{ ...STYLES.input, width: '78px', padding: '6px 10px', fontSize: '12px' }}
+                      />
+                      <button onClick={guardarObjetivoDias} disabled={guardandoObjetivo || !objetivoEnEdicion}
+                        style={{
+                          background: objetivoEnEdicion ? '#003580' : 'rgba(0,32,96,.25)', border: 'none', color: '#fff',
+                          padding: '7px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600,
+                          cursor: objetivoEnEdicion ? 'pointer' : 'default'
+                        }}>
+                        {guardandoObjetivo ? 'Guardando…' : 'Cambiar'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em' }}>Máquina o área</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em' }}>Familia</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Sin validar proceso</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Sin revisar 5S</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coberturaVisible.map((f: FilaCobertura) => (
+                        <tr key={f.id} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
+                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#002060' }}>{f.nombre}</td>
+                          <td style={{ padding: '8px 12px', color: '#5A6A80', fontSize: '11px' }}>{f.tipo}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}><Celda e={f.proceso} /></td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}><Celda e={f.cincoS} /></td>
+                        </tr>
+                      ))}
+                      {coberturaVisible.length === 0 && (
+                        <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
+                          No hay máquinas de esa familia.
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.6, marginTop: '10px', padding: '0 4px' }}>
+                Los días son desde la última auditoría de ese tipo; pasa el cursor sobre el número para ver
+                la fecha. En rojo, lo que alcanzó o pasó el objetivo de {diasObjetivo} días.
+                <b> «Nunca» es el caso más grave</b>, no un dato faltante.
+                Las áreas auxiliares no llevan validación de proceso, por eso dicen «No aplica».
+                {!esAdminTotal && <> El conteo abarca las auditorías de toda la planta, no solo las tuyas.</>}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 2. VISTA SELECCIÓN PROCESO */}
         {vista === 'MODULO_PROCESO' && (
