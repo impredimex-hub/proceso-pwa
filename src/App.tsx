@@ -11,7 +11,7 @@ import {
 import type { FilaCobertura, EstadoTipo } from './utils/cobertura';
 import { aplanarHallazgos, tableroAbiertos, resumenTablero, historialDePunto } from './utils/hallazgos';
 import type { HallazgoPlano } from './utils/hallazgos';
-import { calcularRanking, dondeFalla, familiasConProceso, UMBRAL_REVISIONES } from './utils/ranking';
+import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, UMBRAL_REVISIONES } from './utils/ranking';
 import type { FilaRanking } from './utils/ranking';
 import {
   mermaDe, participacionDe, maquinasDelOchenta, ordenarPorRiesgo,
@@ -1630,8 +1630,13 @@ export const App: React.FC = () => {
               <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Cobertura de Auditoría</div>
+                  {/* El subtítulo sigue al selector: antes decía siempre
+                      «por abandono» aunque el orden activo fuera el costo, y la
+                      tabla hacía una cosa mientras el encabezado decía otra. */}
                   <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
-                    Ordenado por abandono: lo que lleva más tiempo sin revisarse va primero.
+                    {ordenPorCosto
+                      ? 'Ordenado por costo: de lo atrasado, primero lo que más metros rechaza.'
+                      : 'Ordenado por abandono: lo que lleva más tiempo sin revisarse va primero.'}
                   </div>
                 </div>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
@@ -1812,6 +1817,8 @@ export const App: React.FC = () => {
           const filas: FilaRanking[] = calcularRanking(historial, tipoRanking, familiaUsada);
           const conHistoria = filas.filter((f) => !f.sinHistoria);
           const sinHistoria = filas.filter((f) => f.sinHistoria);
+          // Seguridad que ya falló pero aún no llega al umbral (SPEC-010).
+          const seguridadAlerta = seguridadPendiente(filas);
 
           return (
             <div>
@@ -1873,6 +1880,39 @@ export const App: React.FC = () => {
                 {' '}Los dos tipos nunca se mezclan.
               </div>
 
+              {/* Seguridad que ya falló, aunque no llegue al umbral (SPEC-010).
+                  Va **antes** de la tabla: el umbral es correcto para ordenar,
+                  pero aplicárselo a la seguridad la escondía en la lista gris
+                  de abajo, indistinguible de un punto al 0%. */}
+              {seguridadAlerta.length > 0 && (
+                <div style={{
+                  border: '1px solid #C8102E', borderLeft: '4px solid #C8102E', borderRadius: '10px',
+                  background: '#F9E8EB', padding: '12px 14px', marginBottom: '1rem', textAlign: 'left'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '5px' }}>
+                    <span style={{ background: '#C8102E', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '2px 7px', borderRadius: '3px', letterSpacing: '.03em' }}>
+                      SEGURIDAD
+                    </span>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#C8102E' }}>
+                      Ya está fallando, aunque falte historia
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#7A0B1D', lineHeight: 1.5, marginBottom: '9px' }}>
+                    Con menos de {UMBRAL_REVISIONES} revisiones el porcentaje todavía no sirve para
+                    ordenar, pero un punto de seguridad que ya falló no espera a tener significancia
+                    estadística.
+                  </div>
+                  {seguridadAlerta.map((f) => (
+                    <div key={f.clave} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'baseline', padding: '3px 0', borderTop: '1px solid rgba(200,16,46,.15)' }}>
+                      <span style={{ fontSize: '11.5px', color: '#002060', fontWeight: 600 }}>{f.texto}</span>
+                      <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#C8102E', whiteSpace: 'nowrap' }}>
+                        {f.tasa}% <span style={{ fontWeight: 400, color: '#7A0B1D' }}>({f.no} de {f.total})</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {conHistoria.length === 0 && sinHistoria.length === 0 ? (
                 <div style={{ ...STYLES.glassCard, padding: '28px', textAlign: 'center', color: '#5A6A80', fontSize: '12.5px' }}>
                   Todavía no hay auditorías de este tipo con respuestas.
@@ -1892,11 +1932,16 @@ export const App: React.FC = () => {
                         const d = dondeFalla(f);
                         const abierto = puntoAbierto === f.puntoId;
                         return (
-                          <React.Fragment key={f.puntoId}>
+                          <React.Fragment key={f.clave}>
                             <tr onClick={() => setPuntoAbierto(abierto ? null : f.puntoId)}
                               style={{ borderBottom: '1px solid rgba(0,32,96,0.06)', cursor: 'pointer', background: abierto ? '#f8f9ff' : 'transparent' }}>
                               <td style={{ padding: '8px 12px', textAlign: 'left' }}>
-                                <div style={{ fontWeight: 600, color: '#002060', lineHeight: 1.35 }}>{f.texto}</div>
+                                {f.seguridad && (
+                                  <span style={{ background: '#C8102E', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '6px', letterSpacing: '.03em' }}>
+                                    SEGURIDAD
+                                  </span>
+                                )}
+                                <span style={{ fontWeight: 600, color: '#002060', lineHeight: 1.35 }}>{f.texto}</span>
                                 <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{f.seccion}</div>
                               </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
@@ -1960,8 +2005,11 @@ export const App: React.FC = () => {
                         porcentaje todavía es ruido: un punto respondido una vez y fallado daría 100%.
                       </div>
                       {sinHistoria.map((f) => (
-                        <div key={f.puntoId} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11px', padding: '2px 0' }}>
-                          <span style={{ color: '#5A6A80' }}>{f.texto}</span>
+                        <div key={f.clave} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11px', padding: '2px 0' }}>
+                          <span style={{ color: '#5A6A80' }}>
+                            {f.seguridad && <span style={{ color: '#C8102E', fontWeight: 800, marginRight: '4px' }}>·</span>}
+                            {f.texto}
+                          </span>
                           <span style={{ color: '#8A9AB0', whiteSpace: 'nowrap' }}>{f.no}/{f.total}</span>
                         </div>
                       ))}
