@@ -9,6 +9,8 @@ import {
   calcularCobertura, contarAtrasadas, contarNuncaAuditadas, DIAS_OBJETIVO_DEFECTO
 } from './utils/cobertura';
 import type { FilaCobertura, EstadoTipo } from './utils/cobertura';
+import { aplanarHallazgos, tableroAbiertos, resumenTablero, historialDePunto } from './utils/hallazgos';
+import type { HallazgoPlano } from './utils/hallazgos';
 
 (window as any).db = db;
 
@@ -194,11 +196,17 @@ interface Hallazgo {
   id: string;
   puntoId?: number;
   esExtra?: boolean;
+  /** Marca manual de seguridad; solo la usan los `esExtra` (SPEC-010). */
+  esSeguridad?: boolean;
+  /** Se conserva por los documentos viejos. La detección real es la SPEC-009. */
   esReincidente?: boolean;
   hallazgo: string;
   accion: string;
   responsable: string;
+  /** Fecha **comprometida** de cierre, capturada al levantarlo. */
   fechaCierre: string;
+  /** Cuándo se marcó terminado de verdad (SPEC-009). */
+  cerradoEn?: string;
   estadoSeguimiento?: EstadoCumplimiento;
 }
 
@@ -344,6 +352,12 @@ export const App: React.FC = () => {
   // Estados Formulario Desviación
   const [mostrarFormNuevoHallazgoModal, setMostrarFormNuevoHallazgoModal] = useState(false);
   const [tipoNuevoHallazgoModal, setTipoNuevoHallazgoModal] = useState<'PREESTABLECIDO' | 'EXTRA'>('PREESTABLECIDO');
+  /** Solo para los hallazgos fuera del checklist (SPEC-010). */
+  const [seguridadNuevoHallazgoModal, setSeguridadNuevoHallazgoModal] = useState(false);
+  /** El punto cuyo historial se está viendo (SPEC-009 y SPEC-011). */
+  const [puntoHistorial, setPuntoHistorial] = useState<
+    { maquinaId: string; puntoId?: number; texto: string; maquinaNombre: string } | null
+  >(null);
   const [puntoSeleccionadoModal, setPuntoSeleccionadoModal] = useState<string>('');
   const [descNuevoHallazgoModal, setDescNuevoHallazgoModal] = useState('');
   const [accionNuevoHallazgoModal, setAccionNuevoHallazgoModal] = useState('');
@@ -970,6 +984,10 @@ export const App: React.FC = () => {
           id: `extra_${Date.now()}`,
           esExtra: true,
           esReincidente: false,
+          // Los hallazgos fuera del checklist no tienen punto de dónde deducir
+          // si son de seguridad, así que se pregunta (SPEC-010). Es el único
+          // dato nuevo que pide la captura en todo este paquete.
+          esSeguridad: seguridadNuevoHallazgoModal,
           hallazgo: descNuevoHallazgoModal.trim(),
           accion: accionNuevoHallazgoModal.trim() || 'Sin registrar',
           responsable: respNuevoHallazgoModal.trim() || 'No asignado',
@@ -1011,6 +1029,7 @@ export const App: React.FC = () => {
       setAccionNuevoHallazgoModal('');
       setRespNuevoHallazgoModal('');
       setFechaCierreNuevoHallazgoModal('');
+      setSeguridadNuevoHallazgoModal(false);
       alert('✅ Desviación agregada con éxito.');
     } catch (error) {
       console.error('Error:', error);
@@ -1112,7 +1131,11 @@ export const App: React.FC = () => {
         const nuevosHallazgos = [...docEncontrado.hallazgos];
         nuevosHallazgos[hallazgoIdx] = {
           ...nuevosHallazgos[hallazgoIdx],
-          estadoSeguimiento: nuevoEstado
+          estadoSeguimiento: nuevoEstado,
+          // Cuándo se cerró **de verdad** (SPEC-009). `fechaCierre` es el
+          // compromiso capturado al levantarlo, no la fecha real, y sin este
+          // dato no se puede decir cuánto aguantó cerrado antes de volver.
+          cerradoEn: nuevoEstado === 'TERMINADO' ? todayStr : ''
         };
         const docRef = doc(db, 'evaluaciones_proceso', docId);
         await updateDoc(docRef, { hallazgos: nuevosHallazgos });
@@ -1123,53 +1146,42 @@ export const App: React.FC = () => {
   };
 
   // --- HALLAZGOS GANTT ---
-  const hallazgosFiltradosGantt = historialPermitido.flatMap((auditoria) => {
-    const tipoAuditoriaDoc = auditoria.tipoAuditoria || 'PROCESO';
-    if (filtroOrigenGantt && tipoAuditoriaDoc !== filtroOrigenGantt) return [];
-    if (filtroMaquinaGantt && auditoria.maquinaNombre !== filtroMaquinaGantt) return [];
-    if (!auditoria.hallazgos || !Array.isArray(auditoria.hallazgos)) return [];
+  /* ── El tablero (SPEC-009, SPEC-010 y SPEC-011) ─────────────────────────
+     El Gantt dibujaba **cada hallazgo de cada auditoría**, incluidos los ya
+     cerrados. Con uso real eran cientos de barras: un archivo histórico, no una
+     herramienta para decidir. Ahora la fuente es `tableroAbiertos`, que deja
+     solo lo abierto y lo ordena poniendo delante la seguridad y lo más vencido.
 
-    return auditoria.hallazgos
-      .map((h: Hallazgo, idx: number) => {
-        const fAuditoria = auditoria.fechaAuditoria || todayStr;
-        const fFin = h.fechaCierre || todayStr;
-        let estatus: EstadoCumplimiento = h.estadoSeguimiento || 'PENDIENTE';
+     Lo cerrado **no se borró ni se archivó**: sigue en su auditoría y en el
+     historial de su punto, que es de donde la reincidencia lo lee.
 
-        if (estatus !== 'TERMINADO' && todayStr > fFin) {
-          estatus = 'PENDIENTE_ATRASADO';
-        }
+     Se cambia la fuente y no la vista a propósito: la tabla, las barras y las
+     exportaciones beben de este mismo arreglo, así que quedan acotadas las
+     tres de una vez, sin tocar su dibujo. */
+  const hallazgosPlanos = aplanarHallazgos(historialPermitido as any, todayStr);
 
-        if (filtroMesGantt) {
-          const mes = fAuditoria.split('-')[1];
-          if (mes !== filtroMesGantt) return null;
-        }
+  const hallazgosFiltradosGantt = tableroAbiertos(hallazgosPlanos)
+    .filter((p) => {
+      if (filtroOrigenGantt && p.tipoAuditoria !== filtroOrigenGantt) return false;
+      if (filtroMaquinaGantt && p.maquinaNombre !== filtroMaquinaGantt) return false;
+      if (filtroMesGantt && p.fechaAuditoria.split('-')[1] !== filtroMesGantt) return false;
+      if (filtroDiaGantt && p.fechaAuditoria.split('-')[2] !== filtroDiaGantt.padStart(2, '0')) return false;
+      if (filtroCumplimientoGantt && p.estado !== filtroCumplimientoGantt) return false;
+      return true;
+    })
+    .map((p) => ({
+      ...p,
+      // Nombres que la vista y las exportaciones ya usaban.
+      fechaInicio: p.fechaAuditoria,
+      fechaFin: p.fechaCierre || todayStr,
+      estadoSeguimiento: p.estado,
+      // Ya no sale de buscar la palabra «reincidente» en el texto escrito a
+      // mano, sino de que el punto haya fallado y se haya cerrado antes en esta
+      // misma máquina (SPEC-009).
+      esReincidente: p.reincidenciaDe !== null
+    }));
 
-        if (filtroDiaGantt) {
-          const dia = fAuditoria.split('-')[2];
-          if (dia !== filtroDiaGantt.padStart(2, '0')) return null;
-        }
-
-        if (filtroCumplimientoGantt && estatus !== filtroCumplimientoGantt) return null;
-
-        const esReincidente = h.esReincidente || (h.hallazgo && h.hallazgo.toLowerCase().includes('reincidente'));
-
-        return {
-          ...h,
-          docId: auditoria.id,
-          hallazgoIdx: idx,
-          tipoAuditoria: tipoAuditoriaDoc,
-          maquinaNombre: auditoria.maquinaNombre,
-          ordenTrabajo: auditoria.ordenTrabajo,
-          auditor: auditoria.auditor,
-          fechaAuditoria: fAuditoria,
-          fechaInicio: fAuditoria,
-          fechaFin: fFin,
-          estadoSeguimiento: estatus,
-          esReincidente
-        };
-      })
-      .filter(Boolean);
-  });
+  const resumenDelTablero = resumenTablero(hallazgosPlanos);
 
   // --- AUDITORÍAS FILTRADAS ---
   const auditoriasFiltradas = historialPermitido.filter((item) => {
@@ -1654,8 +1666,13 @@ export const App: React.FC = () => {
                     <tbody>
                       {coberturaVisible.map((f: FilaCobertura) => (
                         <tr key={f.id} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
-                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#002060' }}>{f.nombre}</td>
-                          <td style={{ padding: '8px 12px', color: '#5A6A80', fontSize: '11px' }}>{f.tipo}</td>
+                          {/* `textAlign` explícito: `#root` trae un
+                              `text-align: center` heredado de la plantilla de
+                              Vite, y sin esto el contenido no coincide con su
+                              encabezado. Se corrige aquí y no en `#root`, que
+                              cambiaría la app entera. */}
+                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#002060', textAlign: 'left' }}>{f.nombre}</td>
+                          <td style={{ padding: '8px 12px', color: '#5A6A80', fontSize: '11px', textAlign: 'left' }}>{f.tipo}</td>
                           <td style={{ padding: '8px 12px', textAlign: 'center' }}><Celda e={f.proceso} /></td>
                           <td style={{ padding: '8px 12px', textAlign: 'center' }}><Celda e={f.cincoS} /></td>
                         </tr>
@@ -2358,6 +2375,30 @@ export const App: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Resumen del tablero (SPEC-011). Solo cuenta lo abierto:
+                      el tablero dejó de dibujar lo ya cerrado. */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                    {[
+                      { et: 'Abiertos', v: resumenDelTablero.abiertos, c: '#003580' },
+                      { et: 'Vencidos', v: resumenDelTablero.vencidos, c: '#C8102E' },
+                      { et: 'Seguridad', v: resumenDelTablero.seguridad, c: '#C8102E' },
+                      { et: 'Reincidentes', v: resumenDelTablero.reincidentes, c: '#D4840A' }
+                    ].map((k) => (
+                      <div key={k.et} style={{
+                        border: `1px solid ${k.v > 0 ? k.c : 'rgba(0,32,96,0.12)'}`, borderRadius: '8px',
+                        padding: '7px 10px', background: '#fff', textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '9.5px', color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '.05em' }}>{k.et}</div>
+                        <div style={{ fontSize: '19px', fontWeight: 800, color: k.v > 0 ? k.c : '#8A9AB0' }}>{k.v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: '10.5px', color: '#5A6A80', lineHeight: 1.5, marginBottom: '10px', textAlign: 'left' }}>
+                    El tablero muestra <b>solo lo que sigue abierto</b> (SPEC-011). Lo cerrado no se borró:
+                    se consulta en su auditoría y, punto por punto, con el botón «Reincide» de cada renglón.
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'center' }}>
                     <select value={filtroOrigenGantt} onChange={(e) => setFiltroOrigenGantt(e.target.value)} style={STYLES.input}>
                       <option value="">Todos los módulos</option>
@@ -2399,10 +2440,12 @@ export const App: React.FC = () => {
                     />
 
                     <select value={filtroCumplimientoGantt} onChange={(e) => setFiltroCumplimientoGantt(e.target.value)} style={STYLES.input}>
-                      <option value="">Todos los estados</option>
-                      <option value="PENDIENTE">PENDIENTE</option>
-                      <option value="TERMINADO">TERMINADO</option>
-                      <option value="PENDIENTE_ATRASADO">PENDIENTE ATRASADO</option>
+                      {/* Ya no se ofrece TERMINADO: el tablero solo muestra lo
+                          abierto (SPEC-011), así que ese filtro no devolvería
+                          nunca nada y se vería como una falla. */}
+                      <option value="">Abiertos y vencidos</option>
+                      <option value="PENDIENTE">Solo en plazo</option>
+                      <option value="PENDIENTE_ATRASADO">Solo vencidos</option>
                     </select>
 
                     <button
@@ -2473,8 +2516,32 @@ export const App: React.FC = () => {
                                 </span>
                               </td>
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
+                                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                                  {/* Seguridad va antes que nada (SPEC-010). */}
+                                  {item.seguridad && (
+                                    <span style={{ background: '#C8102E', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '3px', letterSpacing: '.03em' }}>
+                                      SEGURIDAD
+                                    </span>
+                                  )}
+                                  {/* La etiqueta sola no sirve: abre la historia (SPEC-009). */}
+                                  {item.reincidenciaDe && (
+                                    <button
+                                      onClick={() => setPuntoHistorial({ maquinaId: item.maquinaId, puntoId: item.puntoId, texto: item.textoPunto, maquinaNombre: item.maquinaNombre })}
+                                      title="Ver todas las veces que este punto ha fallado en esta máquina"
+                                      style={{ background: '#FDF0D8', color: '#7A4500', border: '1px solid #D4840A', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '3px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                      REINCIDE ×{item.vecesPrevias + 1}
+                                    </button>
+                                  )}
+                                </div>
                                 <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
                                 <div style={{ fontSize: '10px', color: '#8A9AB0' }}>{item.accion || 'Sin acción'}</div>
+                                {item.reincidenciaDe && (
+                                  <div style={{ fontSize: '9.5px', color: '#7A4500', marginTop: '3px', lineHeight: 1.4 }}>
+                                    Ya falló el {item.reincidenciaDe.fechaAuditoria}. Se hizo «{item.reincidenciaDe.accion}»
+                                    {item.reincidenciaDe.responsable !== 'No asignado' && <>, {item.reincidenciaDe.responsable}</>}
+                                    {item.reincidenciaDe.diasHastaVolver !== null && <>, y volvió {item.reincidenciaDe.diasHastaVolver} días después del cierre</>}.
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>{item.responsable || 'No asignado'}</td>
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaInicio}</td>
@@ -2851,6 +2918,34 @@ export const App: React.FC = () => {
                           ))}
                         </select>
                       </div>
+                    )}
+
+                    {/* Solo los hallazgos fuera del checklist necesitan esta
+                        casilla (SPEC-010): los que nacen de un punto se
+                        clasifican solos por la sección a la que pertenece. */}
+                    {tipoNuevoHallazgoModal === 'EXTRA' && (
+                      <label style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px',
+                        padding: '9px 11px', borderRadius: '8px', cursor: 'pointer',
+                        border: `1px solid ${seguridadNuevoHallazgoModal ? '#C8102E' : 'rgba(0,32,96,0.12)'}`,
+                        background: seguridadNuevoHallazgoModal ? '#F9E8EB' : 'transparent'
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={seguridadNuevoHallazgoModal}
+                          onChange={(e) => setSeguridadNuevoHallazgoModal(e.target.checked)}
+                          style={{ marginTop: '2px', width: '16px', height: '16px', accentColor: '#C8102E', flexShrink: 0 }}
+                        />
+                        <span style={{ fontSize: '11.5px', lineHeight: 1.45, textAlign: 'left' }}>
+                          <b style={{ color: seguridadNuevoHallazgoModal ? '#C8102E' : '#002060' }}>
+                            Es un hallazgo de seguridad
+                          </b>
+                          <span style={{ display: 'block', color: '#5A6A80', fontSize: '10.5px' }}>
+                            Riesgo de atrapamiento, corte, golpe, incendio o derrame; paro de emergencia,
+                            rutas o equipos de emergencia obstruidos. Se atiende antes que lo demás.
+                          </span>
+                        </span>
+                      </label>
                     )}
 
                     <div style={{ marginBottom: '8px' }}>
@@ -3253,6 +3348,72 @@ export const App: React.FC = () => {
       )}
 
       {/* FOOTER */}
+      {/* ── Historial de un punto (SPEC-009 y SPEC-011) ────────────────────
+          Aquí vive lo cerrado. No se archiva ni se borra: se consulta por esta
+          ventana, que es además de donde la reincidencia saca la acción que ya
+          se intentó. Si algún día lo cerrado se moviera a otro lado, la
+          detección de reincidencia dejaría de funcionar el mismo día. */}
+      {puntoHistorial && puntoHistorial.puntoId !== undefined && (() => {
+        const linea: HallazgoPlano[] = historialDePunto(
+          hallazgosPlanos, puntoHistorial.maquinaId, puntoHistorial.puntoId
+        );
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,20,60,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px', zIndex: 950, overflowY: 'auto' }}
+            onClick={() => setPuntoHistorial(null)}
+          >
+            <div style={{ ...STYLES.glassCard, width: '100%', maxWidth: '620px', marginTop: '20px', textAlign: 'left' }}
+              onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '4px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#002060' }}>Historial de este punto</div>
+                <button onClick={() => setPuntoHistorial(null)}
+                  style={{ border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer', color: '#5A6A80', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#5A6A80', marginBottom: '14px', lineHeight: 1.45 }}>
+                <b style={{ color: '#003580' }}>{puntoHistorial.maquinaNombre}</b> · {puntoHistorial.texto || `Punto #${puntoHistorial.puntoId}`}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {linea.map((p, i) => {
+                  const cerrado = p.estadoSeguimiento === 'TERMINADO';
+                  return (
+                    <div key={`${p.docId}-${p.hallazgoIdx}`} style={{
+                      border: `1px solid ${cerrado ? 'rgba(0,32,96,0.12)' : '#C8102E'}`,
+                      borderLeft: `3px solid ${cerrado ? '#0F7A55' : '#C8102E'}`,
+                      borderRadius: '8px', padding: '9px 11px',
+                      background: cerrado ? '#fff' : '#F9E8EB'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                        <b style={{ fontSize: '11.5px', color: '#002060' }}>{p.fechaAuditoria}</b>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: cerrado ? '#085041' : '#C8102E' }}>
+                          {cerrado ? (p.cerradoEn ? `Cerrado el ${p.cerradoEn}` : 'Cerrado') : 'Sigue abierto'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#0D1A2E', marginTop: '3px' }}>{p.hallazgo}</div>
+                      <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
+                        Acción: {p.accion || 'Sin registrar'} · {p.responsable || 'No asignado'}
+                      </div>
+                      {i === 0 && p.reincidenciaDe?.diasHastaVolver !== null && p.reincidenciaDe && (
+                        <div style={{ fontSize: '10.5px', color: '#7A4500', marginTop: '4px', fontWeight: 600 }}>
+                          Volvió a fallar {p.reincidenciaDe.diasHastaVolver} días después del cierre anterior.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '12px', lineHeight: 1.5 }}>
+                {linea.length > 1
+                  ? <>Este punto ha fallado <b>{linea.length} veces</b> en esta máquina. Cuando un hallazgo vuelve
+                      después de cerrarse, lo que falló no fue la revisión: fue la acción correctiva.</>
+                  : <>Es la primera vez que este punto falla en esta máquina.</>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <footer style={{ textAlign: 'center', padding: '1.2rem', fontSize: '11px', color: '#8A9AB0', borderTop: '1px solid rgba(0,32,96,0.07)' }}>
         Sistema de Control Operativo
       </footer>
