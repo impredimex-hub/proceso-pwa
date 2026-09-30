@@ -10,8 +10,14 @@
  * irreal, falta la herramienta para cumplirlo, o nunca se entrenó.
  */
 
+import { esPuntoDeSeguridad } from './hallazgos';
+
 /** Mínimo de revisiones para que un porcentaje signifique algo. */
 export const UMBRAL_REVISIONES = 5;
+
+/** Para comparar textos sin que acentos, mayúsculas o espacios los separen. */
+const normalizar = (s: string) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
 
 export interface ItemSnapshotRk {
   id: number;
@@ -39,9 +45,13 @@ export interface Desglose {
 }
 
 export interface FilaRanking {
+  /** Identidad real de la fila: número de punto **y** texto (ver abajo). */
+  clave: string;
   puntoId: number;
   texto: string;
   seccion: string;
+  /** Resuelto con la misma regla que los hallazgos (SPEC-010). */
+  seguridad: boolean;
   /** Veces que se respondió «NO». */
   no: number;
   /** Veces que se respondió, sea SI o NO. */
@@ -83,7 +93,20 @@ export const calcularRanking = (
   familia: string | null,
   umbral: number = UMBRAL_REVISIONES
 ): FilaRanking[] => {
-  const acumulado = new Map<number, {
+  /**
+   * La llave agrupa por **número de punto y texto**, no solo por número.
+   *
+   * Los `id` son por plantilla: el punto 7 de la plantilla de Pegado y el 7 de
+   * la de Flexografía son preguntas distintas. Agrupando solo por número, en
+   * cuanto alguien edite una plantilla el ranking sumaría dos preguntas como si
+   * fueran la misma, y nadie lo notaría.
+   *
+   * Incluir el texto cambia el modo de falla: dos preguntas distintas ya no se
+   * mezclan nunca, y una misma pregunta reescrita aparece partida en dos
+   * renglones —un error a la vista, no uno silencioso—.
+   */
+  const acumulado = new Map<string, {
+    puntoId: number;
     texto: string;
     seccion: string;
     no: number;
@@ -111,19 +134,20 @@ export const calcularRanking = (
       if (v !== 'SI' && v !== 'NO') continue;   // sin responder no cuenta
 
       const item = items.find(i => i.id === puntoId);
-      let acc = acumulado.get(puntoId);
+      const texto = item?.queObservar || `Punto #${puntoId}`;
+      const llave = `${puntoId}::${normalizar(texto)}`;
+
+      let acc = acumulado.get(llave);
       if (!acc) {
         acc = {
-          texto: item?.queObservar || `Punto #${puntoId}`,
+          puntoId,
+          texto,
           seccion: item?.seccion || '',
           no: 0, total: 0,
           maquinas: new Map(), turnos: new Map()
         };
-        acumulado.set(puntoId, acc);
+        acumulado.set(llave, acc);
       }
-      // El texto puede haberse editado en la plantilla; se queda el más
-      // reciente que se haya visto, que es el que la gente reconoce hoy.
-      if (item?.queObservar) { acc.texto = item.queObservar; acc.seccion = item.seccion; }
 
       const esNo = v === 'NO';
       acc.total++; if (esNo) acc.no++;
@@ -138,10 +162,13 @@ export const calcularRanking = (
     }
   }
 
-  const filas: FilaRanking[] = [...acumulado.entries()].map(([puntoId, acc]) => ({
-    puntoId,
+  const filas: FilaRanking[] = [...acumulado.entries()].map(([clave, acc]) => ({
+    clave,
+    puntoId: acc.puntoId,
     texto: acc.texto,
     seccion: acc.seccion,
+    // La misma regla que clasifica los hallazgos, no una copia (SPEC-010).
+    seguridad: esPuntoDeSeguridad({ id: acc.puntoId, seccion: acc.seccion, queObservar: acc.texto }),
     no: acc.no,
     total: acc.total,
     tasa: acc.total ? Math.round((100 * acc.no) / acc.total) : 0,
@@ -187,6 +214,23 @@ export const dondeFalla = (fila: FilaRanking): {
   }
   return { patron: 'PAREJO', culpable: null };
 };
+
+/**
+ * Puntos de seguridad que ya fallaron, aunque todavía no lleguen al umbral.
+ *
+ * La regla del umbral es correcta —con cuatro revisiones el porcentaje es
+ * ruido— pero aplicarla a la seguridad la esconde. Un punto de guardas fallando
+ * 3 de 4 veces no necesita significancia estadística para atenderse, y la
+ * SPEC-010 dice que la seguridad va primero en cualquier pantalla donde
+ * compita con otra cosa.
+ *
+ * Así que no se mueven al ranking —seguirían sin historia suficiente para
+ * ordenarse contra los demás— sino que se sacan aparte, a la vista.
+ */
+export const seguridadPendiente = (filas: FilaRanking[]): FilaRanking[] =>
+  filas
+    .filter(f => f.seguridad && f.sinHistoria && f.no > 0)
+    .sort((a, b) => b.tasa - a.tasa || b.no - a.no);
 
 /** Las familias de máquina que tienen al menos una auditoría de proceso. */
 export const familiasConProceso = (auditorias: AuditoriaRk[]): string[] =>
