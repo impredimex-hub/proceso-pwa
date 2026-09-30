@@ -6,6 +6,58 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.6.0] — 2026-09-29
+
+Con esto quedan **implementadas las seis specs** del cambio de enfoque.
+
+### Agregado
+
+- **Ranking de puntos que más fallan** (SPEC-007). Pantalla nueva. Agrupa las
+  respuestas por punto del checklist en vez de por auditoría, que es lo que
+  permite mejorar el procedimiento y no solo señalar la auditoría que salió mal.
+
+  - **Dos tableros que nunca se mezclan**: 5S es comparable en toda la planta;
+    proceso obliga a elegir familia, porque su checklist es distinto en cada una
+    y el «punto 4» de Pegado no es la misma pregunta que el de Flexografía.
+  - Los puntos con menos de **5 revisiones** se listan aparte y no compiten por
+    el primer lugar: uno respondido una vez y fallado daría 100%.
+  - Cada renglón se abre con el desglose **por máquina y por turno**, y la app
+    dice qué significa: si falla **parejo**, se corrige el procedimiento; si
+    falla **en un solo lado**, se atiende ahí.
+  - **No publica nombres de personas.** Un tablero por nombre cambia el
+    incentivo y degrada el dato.
+
+- **La cobertura se cruza con los metros rechazados** (SPEC-012). Dos columnas
+  nuevas —metros rechazados y la lectura del cuadrante— y, por omisión, el orden
+  lo manda el costo: primero lo atrasado, y dentro de lo atrasado, lo que más
+  rechaza. El orden por puro abandono queda a un clic.
+
+  - Los números salen del histórico de Control de Procesos, 2025 y 2026. En rojo
+    las **cuatro máquinas que explican el 80%** de la merma: RT7, RT6, FL1, FL4.
+  - El cuadrante cruza costo con cumplimiento. El caso que importa es
+    **«el checklist no pregunta lo que importa»**: una máquina que cumple bien
+    la auditoría y aun así rechaza mucho. Eso es un hallazgo sobre el checklist.
+  - **No se multiplican días por metros**: ese número escondería de cuál de los
+    dos viene la urgencia.
+  - Los porcentajes suman **98.8%** a propósito. El 1.2% restante son 15 059
+    metros de identificadores que el catálogo de esta app no tiene (`LAM`,
+    `PEG3`, `XEIKON`, `PEG1 ` con espacio…). Se dejan en el denominador para que
+    RT7 diga 36.6% aquí y 36.6% en la pantalla de Calidad, y no dos números
+    distintos.
+
+  Archivos nuevos `src/utils/ranking.ts` y `src/utils/merma.ts`, verificados con
+  56 casos de la lógica pura y 9 de las pantallas.
+
+### Pendiente
+
+- **El resumen de merma es una copia, no una consulta**, porque las dos apps
+  están en proyectos de Firebase distintos y la cuota es por proyecto. Para que
+  se actualice solo, Control tiene que publicar ese resumen en un documento del
+  proyecto de la suite. Ese cambio es del repositorio de Control;
+  `MERMA_PUBLICADA` es el hueco donde entra.
+
+---
+
 ## [2.5.0] — 2026-09-29
 
 ### Agregado

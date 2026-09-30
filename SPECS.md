@@ -317,6 +317,8 @@ sigue.
 
 # SPEC-007 — Ranking de puntos que más fallan
 
+**Estado:** implementada el 29 de septiembre de 2026.
+
 ### Qué problema resuelve
 
 El objetivo de negocio no es sólo verificar que se sigan los procedimientos,
@@ -654,6 +656,8 @@ dejaría de funcionar el mismo día.
 
 # SPEC-012 — El foco compartido con Control de Procesos
 
+**Estado:** implementada el 29 de septiembre de 2026.
+
 ### Qué problema resuelve
 
 El objetivo habla de reducir errores **que cuesten productividad y rechazos**.
@@ -759,6 +763,70 @@ La etiqueta sola no sirve. Junto a ella va la fecha en que ya falló, la acción
 que se intentó, quién era el responsable y cuántos días aguantó cerrado antes de
 volver. El botón abre el historial completo del punto en esa máquina, que es
 **donde vive lo cerrado**.
+
+---
+
+# Cómo quedaron la SPEC-007 y la SPEC-012
+
+### El ranking
+
+Vive en `src/utils/ranking.ts`. Dos tableros que **nunca se mezclan**: 5S,
+comparable en toda la planta, y proceso, que obliga a elegir familia porque su
+checklist es distinto en cada una.
+
+Los puntos por debajo de las 5 revisiones no desaparecen, pero **no compiten
+por el primer lugar**: se listan aparte bajo «Sin historia suficiente». Sin eso,
+un punto respondido una vez y fallado saldría en 100% arriba de todo.
+
+Cada renglón se abre y muestra el desglose por máquina y por turno, y la app
+dice lo que ese desglose significa:
+
+| Patrón | Qué significa | Qué se hace |
+|---|---|---|
+| **Parejo** | El estándar está mal escrito, es irreal o no se entrenó | Corregir el procedimiento |
+| **Solo en X** | Una máquina o un turno concreto | Reparar o entrenar ahí |
+
+«Concentrado» es que un solo corte explique más de dos tercios de las fallas
+teniendo otros con qué compararse. **El ranking no publica nombres de
+personas**: el objetivo es arreglar procedimientos, y un tablero por nombre
+cambia el incentivo y degrada el dato, que es exactamente lo que le pasó a la
+versión anterior de Control de Procesos con su 99.1% de cumplimiento.
+
+### El cruce con la merma
+
+Vive en `src/utils/merma.ts`. La cobertura ahora trae dos columnas más —metros
+rechazados y la lectura del cuadrante— y, por omisión, **manda el costo**:
+primero lo atrasado, y dentro de lo atrasado, lo que más rechaza. El orden por
+puro abandono sigue a un clic, porque sirve cuando lo que se busca es un hueco
+de cobertura y no dónde duele.
+
+**No se multiplican días por metros.** Ese número no significaría nada y
+escondería de cuál de los dos viene la urgencia. Lo atrasado es la condición; el
+costo, el desempate.
+
+**Por qué los números son una copia y no una consulta.** Las dos apps viven en
+proyectos distintos —esta en `proceso-pwa`, Control en `impredimex-procesos`— y
+la cuota del plan gratuito es por proyecto. Consultar la base de la otra app en
+cada carga sería repetir la crisis de lecturas de la suite. Es el mismo patrón
+que Control usa consigo mismo: semilla incrustada que un dato cargado después
+puede sustituir.
+
+**Lo que falta para que se actualice solo:** que Control publique el resumen
+—veintitantas máquinas y un número cada una— en un documento del proyecto de la
+suite, al que las dos apps ya se conectan. Ese cambio es del repositorio de
+Control y no existe todavía. `MERMA_PUBLICADA` es el hueco donde entra sin
+tocar nada más.
+
+**Los 15 059 metros que no cruzan.** El histórico de Control trae
+identificadores que el catálogo de esta app no tiene: `LAM`, `PEG`, `PEG3`,
+`PEG7`, `PEG1 ` —con un espacio al final—, `XEIKON` y `OMEGA`. Son el **1.2%**
+de la merma, así que no cambian ninguna decisión, pero **se suman al
+denominador a propósito**: si se dividiera solo entre las máquinas de este
+catálogo, RT7 saldría en 37.1% aquí y en 36.6% en la pantalla de Calidad, y
+nadie sabría cuál creer. Los porcentajes de esta app suman 98.8%, y la pantalla
+lo dice.
+
+Vale la pena depurar esos identificadores del lado de Control en algún momento.
 
 ---
 
