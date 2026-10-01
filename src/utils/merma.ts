@@ -54,6 +54,55 @@ export const MERMA_SEMILLA: Record<string, number> = {
   REV4: 189
 };
 
+
+/** Un defecto con su peso dentro de la máquina. */
+export interface DefectoPrincipal {
+  nombre: string;
+  metros: number;
+  /** Qué parte de la merma **de esa máquina** explica, no de la planta. */
+  pct: number;
+}
+
+/**
+ * Los cuatro defectos que más pesan en cada máquina, 2025–2026.
+ *
+ * Es el mismo dato que Control de Procesos usa para dirigir la inspección: el
+ * perfil de cada equipo es claramente distinto —RT6 es 42.9% raya, FL4 es 17.6%
+ * tonos— y eso decide qué variables vigilar en cada una.
+ *
+ * Copiado el 30 de septiembre de 2026, junto con los totales de arriba, y se
+ * sustituye por lo que Control publique cuando lo publique.
+ */
+export const DEFECTOS_POR_MAQUINA: Record<string, DefectoPrincipal[]> = {
+  RT7: [{ nombre: 'LAGRIMEO', metros: 87311, pct: 19.6 }, { nombre: 'RAYA', metros: 78214, pct: 17.6 }, { nombre: 'IMPRESIÓN FALTANTE', metros: 60099, pct: 13.5 }, { nombre: 'REGISTRO', metros: 52522, pct: 11.8 }],
+  RT6: [{ nombre: 'RAYA', metros: 105158, pct: 42.9 }, { nombre: 'LAGRIMEO', metros: 33353, pct: 13.6 }, { nombre: 'MANCHAS', metros: 27710, pct: 11.3 }, { nombre: 'REGISTRO', metros: 26634, pct: 10.9 }],
+  FL1: [{ nombre: 'MANCHAS', metros: 42963, pct: 18.4 }, { nombre: 'RAYA', metros: 38320, pct: 16.4 }, { nombre: 'REPINTE', metros: 21789, pct: 9.3 }, { nombre: 'REMOSQUEO', metros: 17835, pct: 7.6 }],
+  PEG2: [{ nombre: 'ADHESIVO', metros: 30691, pct: 43.3 }, { nombre: 'ANCHO PLANO', metros: 14841, pct: 20.9 }, { nombre: 'MANGA PEGADA', metros: 11221, pct: 15.8 }, { nombre: 'PUNTEADO', metros: 7594, pct: 10.7 }],
+  FL4: [{ nombre: 'TONOS', metros: 14609, pct: 17.6 }, { nombre: 'IMPRESIÓN FALTANTE', metros: 11707, pct: 14.1 }, { nombre: 'MANCHAS', metros: 9748, pct: 11.7 }, { nombre: 'REGISTRO', metros: 6630, pct: 8.0 }],
+  PEG1: [{ nombre: 'ADHESIVO', metros: 20632, pct: 50.6 }, { nombre: 'PUNTEADO', metros: 12946, pct: 31.8 }, { nombre: 'MANGA PEGADA', metros: 4577, pct: 11.2 }, { nombre: 'TRASLAPE', metros: 1482, pct: 3.6 }],
+  FL3: [{ nombre: 'SOBRE SUAJADO', metros: 17579, pct: 29.9 }, { nombre: 'MANCHAS', metros: 8115, pct: 13.8 }, { nombre: 'FUERA DE REGISTRO', metros: 7081, pct: 12.0 }, { nombre: 'EMPLASTADO', metros: 5344, pct: 9.1 }],
+  FL2: [{ nombre: 'RAYA', metros: 4160, pct: 32.1 }, { nombre: 'LAGRIMEO', metros: 3112, pct: 24.0 }, { nombre: 'FALTA DE PRESIÓN', metros: 2493, pct: 19.2 }, { nombre: 'CURLING', metros: 1180, pct: 9.1 }],
+  REF1: [{ nombre: 'EMPALMES', metros: 939, pct: 32.2 }, { nombre: 'MANCHAS', metros: 829, pct: 28.5 }, { nombre: 'ADHESIVO', metros: 680, pct: 23.3 }, { nombre: 'REFILADO MOVIDO', metros: 465, pct: 16.0 }],
+  REF2: [{ nombre: 'REFILADO MOVIDO', metros: 1287, pct: 63.6 }, { nombre: 'MAL REFILADO', metros: 736, pct: 36.4 }],
+  REF3: [{ nombre: 'MAL REFILADO', metros: 1655, pct: 97.2 }, { nombre: 'ONDULACIÓN', metros: 47, pct: 2.8 }],
+  RT5: [{ nombre: 'LAGRIMEO', metros: 737, pct: 45.2 }, { nombre: 'MANCHAS', metros: 455, pct: 27.9 }, { nombre: 'REGISTRO', metros: 369, pct: 22.6 }, { nombre: 'RAYA', metros: 69, pct: 4.2 }],
+  COR2: [{ nombre: 'PUNTEADO', metros: 864, pct: 100.0 }],
+  COR3: [{ nombre: 'PUNTEADO', metros: 846, pct: 100.0 }],
+  LAM1: [{ nombre: 'LAMINACIÓN', metros: 693, pct: 100.0 }],
+  REV4: [{ nombre: 'ARRUGA', metros: 189, pct: 100.0 }],
+};
+
+/** Los principales defectos de una máquina. Vacío si nunca ha rechazado. */
+export const defectosDe = (maquinaId: string): DefectoPrincipal[] =>
+  DEFECTOS_PUBLICADOS?.[maquinaId] || DEFECTOS_POR_MAQUINA[maquinaId] || [];
+
+/** Lo que publique Control algún día, igual que con los totales. */
+export let DEFECTOS_PUBLICADOS: Record<string, DefectoPrincipal[]> | null = null;
+
+export const fijarDefectosPublicados = (d: Record<string, DefectoPrincipal[]> | null) => {
+  DEFECTOS_PUBLICADOS = d;
+};
+
 /**
  * Los 15 059 metros que no aparecen arriba.
  *
