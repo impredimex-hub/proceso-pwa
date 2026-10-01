@@ -6,6 +6,79 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.7.0] — 2026-09-30
+
+### Cambiado
+
+- **«Módulo de Calidad» pasa a «Módulo de Condiciones»** en la tarjeta de
+  Condiciones y 5S. El nombre anterior se confundía con la app de Calidad, que
+  es otra cosa.
+
+- **La pantalla de cobertura se convierte en «Dónde se concentran los
+  rechazos»** (SPEC-013, retira la SPEC-008). Se retiró la lógica de días sin
+  auditar: con una semana de uso, un tablero donde 33 de 33 salían en rojo no
+  orientaba. Queda lo que sí orienta:
+
+  | Columna | Qué muestra |
+  |---|---|
+  | Metros rechazados | Lo que cuesta esa máquina, y su % de la planta |
+  | **Principales defectos** | Los cuatro que más pesan, con su % **de esa máquina** |
+
+  En rojo los defectos que pesan 30% o más, porque ahí el problema ya tiene
+  nombre: RT6 es 42.9% raya, PEG2 es 43.3% adhesivo, FL4 es 17.6% tonos.
+
+  Ordenado por metros rechazados. Las 33 filas del catálogo siguen ahí; las que
+  no rechazan caen al final y dicen «Sin rechazos registrados», que no es lo
+  mismo que un dato faltante.
+
+### Retirado
+
+Con la SPEC-008 se fueron el objetivo de 15 días, los contadores de atrasadas y
+nunca auditadas, el selector de orden y el cuadrante de cumplimiento. **La app
+deja de leer el documento `configuracion/cobertura`** —una escucha menos— aunque
+el documento sigue en Firestore por si se retoma.
+
+`src/utils/cobertura.ts` **se conserva sin usarse**, y la SPEC-008 se conserva
+completa en SPECS.md: explican un razonamiento que sigue siendo válido aunque la
+pantalla ya no lo use.
+
+---
+
+## [2.6.1] — 2026-09-30
+
+Salieron de mirar las primeras 16 auditorías reales.
+
+### Corregido
+
+- **El subtítulo de la cobertura contradecía el orden activo.** Decía siempre
+  «Ordenado por abandono», incluso con el selector en «Costo»: la tabla hacía
+  una cosa y el encabezado decía otra. Ahora sigue al selector.
+
+- **El ranking enterraba la seguridad.** Un punto de seguridad fallando 3 de 4
+  veces quedaba en gris pequeño dentro de «Sin historia suficiente»,
+  indistinguible de uno al 0%. La regla del umbral es correcta para ordenar
+  —con cuatro revisiones el porcentaje es ruido— pero la SPEC-010 dice que la
+  seguridad va primero en cualquier pantalla donde compita con otra cosa.
+
+  Ahora los puntos de seguridad **que ya fallaron** salen en una banda roja
+  arriba de la tabla, con su porcentaje y su conteo, y los demás puntos de
+  seguridad llevan distintivo en el ranking. No se mueven al ranking: siguen sin
+  historia para ordenarse, pero dejan de estar escondidos.
+
+- **El ranking podía sumar dos preguntas distintas como si fueran una.**
+  Agrupaba solo por número de punto, y los números son por plantilla: el punto 7
+  de Pegado y el 7 de Flexografía no son la misma pregunta. En cuanto se
+  editara una plantilla, el ranking las habría mezclado sin avisar.
+
+  Ahora agrupa por **número y texto**. Dos preguntas distintas ya no se mezclan,
+  y una misma pregunta reescrita aparece partida en dos renglones, que es un
+  error a la vista en vez de uno silencioso. Los acentos, las mayúsculas y los
+  espacios de más no separan nada.
+
+  Verificado con 15 casos de la lógica y 4 de las pantallas.
+
+---
+
 ## [2.6.0] — 2026-09-29
 
 Con esto quedan **implementadas las seis specs** del cambio de enfoque.

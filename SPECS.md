@@ -392,7 +392,10 @@ aquí.
 
 # SPEC-008 — Cobertura: qué no se ha auditado
 
-**Estado:** implementada el 29 de septiembre de 2026.
+**Estado:** **retirada** el 30 de septiembre de 2026, tras una semana de uso.
+Ver la SPEC-013. La spec se conserva completa porque explica un razonamiento que
+sigue siendo válido, y su código sigue en `src/utils/cobertura.ts` sin usarse,
+por si se retoma.
 
 ### Qué problema resuelve
 
@@ -656,7 +659,8 @@ dejaría de funcionar el mismo día.
 
 # SPEC-012 — El foco compartido con Control de Procesos
 
-**Estado:** implementada el 29 de septiembre de 2026.
+**Estado:** implementada el 29 de septiembre de 2026; su parte visible cambió
+con la SPEC-013. El puente con Control y sus reglas siguen vigentes.
 
 ### Qué problema resuelve
 
@@ -787,7 +791,21 @@ dice lo que ese desglose significa:
 | **Solo en X** | Una máquina o un turno concreto | Reparar o entrenar ahí |
 
 «Concentrado» es que un solo corte explique más de dos tercios de las fallas
-teniendo otros con qué compararse. **El ranking no publica nombres de
+teniendo otros con qué compararse.
+
+**La seguridad no espera al umbral.** Un punto de seguridad que ya falló sale en
+una banda roja arriba de la tabla aunque tenga tres revisiones. El umbral sigue
+siendo correcto para *ordenar* —con cuatro revisiones el porcentaje es ruido—
+pero aplicárselo a la seguridad la escondía entre los puntos al 0%, y la
+SPEC-010 dice que va primero donde sea que compita con otra cosa. Se rescata a
+la vista, no se le inventa significancia.
+
+**Se agrupa por número de punto y texto, no solo por número.** Los `id` son por
+plantilla: el punto 7 de Pegado y el 7 de Flexografía son preguntas distintas, y
+agrupar solo por número las habría sumado como si fueran la misma en cuanto
+alguien editara una plantilla. Con el texto en la llave, dos preguntas distintas
+no se mezclan nunca, y una misma pregunta reescrita aparece partida en dos
+renglones: un error visible en vez de uno silencioso. **El ranking no publica nombres de
 personas**: el objetivo es arreglar procedimientos, y un tablero por nombre
 cambia el incentivo y degrada el dato, que es exactamente lo que le pasó a la
 versión anterior de Control de Procesos con su 99.1% de cumplimiento.
@@ -827,6 +845,62 @@ nadie sabría cuál creer. Los porcentajes de esta app suman 98.8%, y la pantall
 lo dice.
 
 Vale la pena depurar esos identificadores del lado de Control en algún momento.
+
+---
+
+---
+
+# SPEC-013 — Dónde se concentran los rechazos
+
+**Estado:** implementada el 30 de septiembre de 2026. **Retira la SPEC-008.**
+
+### Por qué se retira la cobertura
+
+La pantalla medía días sin auditar por máquina y tipo, cruzados con el costo.
+Con una semana de uso real no convenció: pasaba la mitad del ancho contando lo
+que **no** se ha hecho, y eso resultó menos accionable de lo que parecía en el
+diseño. Un tablero donde 33 de 33 están en rojo no orienta, solo regaña.
+
+Lo que sí orientaba de esa pantalla era la columna que vino después, con la
+SPEC-012: cuánto cuesta cada máquina. Esta spec se queda con eso y tira el
+resto.
+
+### Qué queda
+
+| Columna | De dónde sale |
+|---|---|
+| Máquina o área | El catálogo de esta app |
+| Familia | El catálogo |
+| Metros rechazados | Histórico de Control de Procesos |
+| **Principales defectos** | Histórico de Control de Procesos |
+
+Los cuatro defectos de mayor peso por máquina, cada uno con **qué parte de la
+merma de esa máquina** explica —no de la planta—. En rojo los que pesan 30% o
+más, porque un defecto así ya no es un problema difuso sino uno con nombre:
+RT6 es 42.9% raya, PEG2 es 43.3% adhesivo, FL4 es 17.6% tonos.
+
+Ese perfil por máquina es lo que Control usa para dirigir su inspección, y es
+lo que dirige aquí a qué máquina entrarle primero.
+
+### Reglas de negocio
+
+- **Ordenado por metros rechazados**, de mayor a menor. Las máquinas sin
+  rechazos caen al final y dicen «Sin rechazos registrados», que no es lo mismo
+  que un dato faltante.
+- **Se conservan las 33 filas del catálogo**, incluidas las áreas auxiliares,
+  que nunca tendrán merma. Quitarlas escondería que existen.
+- **Los porcentajes de cada defecto son sobre su propia máquina.** Mezclarlos
+  con los de planta haría creer que la raya de RT6 es el 42.9% de todo.
+- Como en la SPEC-012, los datos son **una copia** del histórico de Control y se
+  sustituyen por lo que Control publique. `DEFECTOS_PUBLICADOS` es el hueco,
+  igual que `MERMA_PUBLICADA`.
+
+### Lo que se fue con la SPEC-008
+
+El objetivo de 15 días, el documento `configuracion/cobertura` —que deja de
+leerse, aunque el documento sigue en Firestore— los contadores de atrasadas y
+nunca auditadas, el selector de orden y el cuadrante de cumplimiento. La
+decisión 1 de este documento queda sin uso.
 
 ---
 
