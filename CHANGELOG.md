@@ -6,6 +6,59 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.8.0] — 2026-10-01
+
+### Cambiado
+
+- **La pantalla de rechazos pasa a tarjetas de cartera** (SPEC-016). Era una
+  lista de 33 renglones con un filtro arriba; ahora es **un bloque por proceso**
+  —ordenados por lo que cuesta cada uno— y dentro, las máquinas apiladas como
+  tarjetas: cerradas solo asoma su lomo con nombre y metros, y al tocar una se
+  trae al frente con su participación en la planta y sus principales defectos,
+  cada uno con su barra.
+
+  El filtro de familia desaparece: los bloques son la agrupación. Solo una
+  tarjeta al frente a la vez. Las 33 máquinas y áreas siguen ahí, incluidas las
+  que no rechazan.
+
+### Corregido
+
+- **El botón de exportar PDF imprimía el módulo completo** (SPEC-015). Llamaba a
+  `window.print()`, así que salían el encabezado de la app, el resumen y los
+  filtros, y el cronograma se repartía en cuatro hojas.
+
+  Ahora arma un documento solo con los datos del Gantt y lo imprime: tabla en
+  horizontal, encabezado repetido en cada hoja, sin renglones partidos, y con
+  los filtros que estaban puestos anotados arriba. Usa un marco oculto en vez de
+  una ventana nueva, que el navegador bloquearía.
+
+  Verificado con 10 casos de las pantallas montadas.
+
+---
+
+## [2.7.1] — 2026-10-01
+
+### Corregido
+
+- **Al cerrar un hallazgo, su renglón desaparecía del tablero en el acto**
+  (SPEC-014). Era consecuencia de la SPEC-011 —el tablero solo muestra lo
+  abierto— pero dejaba sin confirmación de que se guardó y sin manera de
+  deshacer un clic mal dado, en la única pantalla donde ese hallazgo estaba.
+
+  Ahora lo que se cierra **se queda a la vista durante la visita**: marcado
+  ✓ CERRADO en verde, atenuado, al final de la tabla y con «Toca para
+  deshacer». Al salir del tablero ese recuerdo se borra, así que al volver
+  vuelve a mostrarse solo lo abierto y la SPEC-011 sigue intacta.
+
+- **Una escritura fallida de estatus ya no se queda callada.** Antes el error
+  solo iba a la consola: el renglón se quedaba igual y la pantalla se veía
+  idéntica a no haber hecho nada. Ahora avisa, y no marca nada como cerrado.
+
+  Verificado con 6 casos de la lógica y 6 del flujo montado, incluido el de la
+  escritura que falla.
+
+---
+
 ## [2.7.0] — 2026-09-30
 
 ### Cambiado

@@ -904,6 +904,104 @@ decisión 1 de este documento queda sin uso.
 
 ---
 
+---
+
+# SPEC-014 — Cerrar un hallazgo sin que desaparezca
+
+**Estado:** implementada el 1 de octubre de 2026.
+
+### El problema
+
+La SPEC-011 dejó el tablero mostrando solo lo abierto, y eso creó un efecto que
+no se previó: **al marcar un hallazgo como terminado, su renglón desaparecía en
+el acto**. Sin confirmación de que se guardó, sin manera de deshacer un clic mal
+dado, y en la única pantalla donde ese hallazgo estaba.
+
+Peor: si la escritura fallaba, el error solo iba a la consola. El renglón se
+quedaba en «PENDIENTE» y la pantalla se veía idéntica a no haber hecho nada.
+
+### Qué cambia
+
+**Lo que se cierra se queda a la vista durante la visita.** El renglón se marca
+**✓ CERRADO** en verde, se atenúa, baja al final de la tabla y dice «Toca para
+deshacer». Tocarlo otra vez lo reabre.
+
+Al salir del tablero —a Auditorías, al inicio, a donde sea— ese recuerdo se
+borra, y al volver el tablero muestra otra vez solo lo abierto. **La SPEC-011 no
+se rompe**: el tablero sigue sin acumular cerrados entre visitas.
+
+**Una escritura fallida ahora avisa.** Si no se pudo guardar, se dice; antes
+callaba.
+
+### Reglas de negocio
+
+- **El conjunto vive en memoria, no en la base.** Lo que se conserva es quién se
+  cerró en esta visita, y eso no es información que nadie más necesite.
+- **Lo recién cerrado baja al final**, incluso por debajo de lo que está en
+  plazo. Dejó de reclamar atención, pero no desaparece de golpe.
+- **Si la escritura falla, no se marca nada.** Fingir que se cerró sería peor
+  que el defecto original.
+
+---
+
+---
+
+# SPEC-015 — El PDF del Gantt imprime el Gantt
+
+**Estado:** implementada el 1 de octubre de 2026.
+
+El botón llamaba a `window.print()`, que imprime **la página completa**: salían
+el encabezado de la app, las tarjetas del resumen, los filtros y los selectores,
+y el cronograma quedaba repartido en cuatro hojas con la mitad del papel gastado
+en controles que no sirven impresos.
+
+Ahora se arma un documento con los datos —los mismos que alimentan la
+exportación a Excel— y se imprime ese: solo la tabla, en horizontal, con el
+encabezado repetido en cada hoja y sin renglones partidos a la mitad. Incluye
+qué filtros estaban puestos, porque un reporte sin eso no se puede interpretar
+después.
+
+Se usa un marco oculto y no una ventana nueva: **la ventana emergente la bloquea
+el navegador**, el marco no.
+
+---
+
+# SPEC-016 — Las máquinas como tarjetas de cartera
+
+**Estado:** implementada el 1 de octubre de 2026.
+
+### El problema
+
+La pantalla de rechazos era una lista de 33 renglones con un filtro arriba. Para
+ver una máquina había que filtrar, y para comparar dos del mismo proceso había
+que recorrer la lista. La información estaba, pero costaba llegar a ella.
+
+### Qué cambia
+
+**Un bloque por proceso**, ordenados por lo que cuesta cada uno: Rotograbado
+691 595 m, Flexografía 388 352 m, Pegado 111 644 m, y así. El filtro desaparece
+porque los bloques **son** la agrupación.
+
+**Dentro de cada bloque, las máquinas se apilan como tarjetas de cartera.**
+Cerradas se enciman y solo asoma su lomo —nombre y metros—; al tocar una se
+separa, se trae al frente y despliega su participación en la planta y sus
+principales defectos, cada uno con su barra.
+
+### Reglas de negocio
+
+- **Solo una tarjeta al frente a la vez**, incluso entre bloques distintos.
+  Abrir una cierra la anterior: la pantalla es para mirar una máquina, no para
+  acumular.
+- **Se conservan las 33 máquinas y áreas.** Las que no rechazan siguen ahí, con
+  su lomo en gris, y al abrirlas lo dicen. Esconderlas haría creer que no
+  existen.
+- **Los bloques sin rechazos van al final** y su encabezado lo declara.
+- **Las barras de cada defecto son sobre su propia máquina.** Es lo mismo que
+  decían los porcentajes antes, pero una barra se compara de un vistazo y un
+  número hay que leerlo.
+
+---
+
 # Decisiones de estas specs
 
 Las tres primeras quedaron resueltas por Ingeniería de Procesos el **29 de
