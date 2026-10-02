@@ -1117,6 +1117,70 @@ hace desde la SPEC-013.
 
 ---
 
+---
+
+# SPEC-019 — Comportamiento personal
+
+**Estado:** implementada el 2 de octubre de 2026.
+
+### Qué resuelve
+
+Las demás pantallas miran la planta: dónde duele, qué punto falla, qué sigue
+abierto. Ninguna contesta **«¿y yo cómo voy?»**, que es la pregunta que una
+persona sí puede accionar sola.
+
+Esta mira a una persona en sus dos papeles:
+
+| Papel | Qué muestra |
+|---|---|
+| **Como auditor** | De las máquinas que tiene asignadas, a cuáles ya les hizo su revisión y a cuáles no |
+| **Como auditado** | Cómo salieron las auditorías que le hicieron: cumplimiento, hallazgos y quién lo auditó |
+
+Debajo, **su Gantt**: los hallazgos abiertos de sus propias auditorías, con
+seguridad primero y lo más vencido después.
+
+### La matriz de supervisores cambió de lugar
+
+Vivía dentro de `App.tsx`, mezclada con la búsqueda en el padrón, y solo sabía
+responder «¿quién atiende esta máquina?». Esta pantalla necesita lo contrario
+—«¿qué máquinas atiende esta persona?»— y así no se podía preguntar.
+
+Ahora la regla está sola, en nóminas, en `utils/comportamiento.ts`, y `App.tsx`
+la consume. Sigue siendo una lista fija en código, que es la **deuda técnica 2**
+del proyecto; al menos ya está en un solo lugar y es probable.
+
+### Un campo nuevo: `nominaAuditor`
+
+Para saber quién hizo una auditoría solo existía `auditor`, un **nombre escrito
+a mano**. Venía prellenado con el del usuario, pero es editable, así que
+comparar por texto nunca fue confiable.
+
+Desde esta versión se guarda también la nómina. Los documentos anteriores se
+siguen reconociendo por nombre, normalizando acentos y mayúsculas, y la pantalla
+declara esa limitación.
+
+### Reglas de negocio
+
+- **El ADMIN puede ver a cualquiera.** Sin eso la pantalla le saldría vacía: la
+  jefatura no tiene máquinas asignadas, y sería imposible de probar y de usar
+  para dar seguimiento. Un supervisor solo se ve a sí mismo y no tiene selector.
+- **«Contar desde» acota el periodo.** Sin corte, «ya la revisó» sería cierto
+  para siempre en cuanto la revisara una vez, y la pantalla dejaría de pedir
+  nada. Por omisión cuenta todo el histórico.
+- **Lo que no aplica no cuenta como pendiente.** Las áreas auxiliares no llevan
+  validación de proceso, y eso no las deja en falta.
+- **De cada máquina se toma la revisión más reciente**, no la primera.
+- **El Gantt personal son las auditorías donde la persona fue la auditada**, no
+  aquellas donde aparece como responsable de un hallazgo. Ese campo es texto
+  libre —«Mantenimiento», «Todos»— y no identifica a nadie.
+
+### Lo que falta probar
+
+Si esta pantalla resulta suficiente, **el Gantt general se retira**. Primero hay
+que usarla.
+
+---
+
 # Decisiones de estas specs
 
 Las tres primeras quedaron resueltas por Ingeniería de Procesos el **29 de

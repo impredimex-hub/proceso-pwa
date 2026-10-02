@@ -6,6 +6,46 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.11.0] — 2026-10-02
+
+### Agregado
+
+- **Tarjeta «Comportamiento»** en el inicio (SPEC-019). Las demás pantallas
+  miran la planta; esta mira a una persona y contesta «¿y yo cómo voy?».
+
+  - **Como auditor**: de sus máquinas asignadas, a cuáles ya les hizo su
+    revisión —de proceso y de 5S por separado— y a cuáles le falta.
+  - **Como auditado**: las auditorías que le hicieron, con su cumplimiento,
+    sus hallazgos y quién lo auditó.
+  - **Su Gantt**: los hallazgos abiertos de sus propias auditorías, con
+    seguridad primero y lo más vencido después.
+
+  Un **corte por fecha** evita que «ya la revisó» sea cierto para siempre, y el
+  **ADMIN puede ver a cualquiera**: la jefatura no tiene máquinas asignadas, así
+  que sin eso la pantalla le saldría vacía.
+
+- **Campo `nominaAuditor`** en las auditorías nuevas. Para saber quién hizo una
+  solo existía el nombre escrito a mano, que es editable. Los documentos
+  anteriores se siguen reconociendo por nombre, y la pantalla lo declara.
+
+### Cambiado
+
+- **La matriz de supervisores por máquina se movió a `utils/comportamiento.ts`.**
+  Estaba dentro de `App.tsx` mezclada con la búsqueda en el padrón y solo sabía
+  responder «¿quién atiende esta máquina?»; esta pantalla necesita lo contrario.
+  Sigue siendo una lista fija en código —la deuda técnica 2— pero ya está en un
+  solo lugar y es probable.
+
+  Archivo nuevo `src/utils/comportamiento.ts`, verificado con 40 casos de la
+  lógica y 13 de la pantalla.
+
+### Pendiente de decidir
+
+- Si esta pantalla resulta suficiente, **se retira el Gantt general**. Primero
+  hay que usarla.
+
+---
+
 ## [2.10.0] — 2026-10-02
 
 ### Cambiado
