@@ -315,7 +315,8 @@ export const App: React.FC = () => {
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
 
-  const [filtroTipoCobertura, setFiltroTipoCobertura] = useState('');
+  /** La tarjeta que está al frente en su cartera (SPEC-016). */
+  const [maquinaAlFrente, setMaquinaAlFrente] = useState<string | null>(null);
 
   /* ── Ranking de puntos (SPEC-007) ─────────────────────────────────────── */
   const [tipoRanking, setTipoRanking] = useState<'5S' | 'PROCESO'>('5S');
@@ -1260,12 +1261,109 @@ export const App: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  /**
+   * Exporta **solo el Gantt** (SPEC-015).
+   *
+   * Antes llamaba a `window.print()`, que imprime la página completa: salían
+   * los filtros, las tarjetas del resumen y el encabezado de la app, y el
+   * cronograma quedaba repartido en cuatro hojas.
+   *
+   * Ahora se arma un documento con los datos —los mismos que ya alimentan la
+   * exportación a Excel— y se imprime **ese**. Se hace en un marco oculto en
+   * vez de una ventana nueva porque una ventana emergente la bloquea el
+   * navegador; el marco no.
+   */
   const handleExportarPDFGantt = () => {
     if (hallazgosFiltradosGantt.length === 0) {
       alert('No hay datos en el Gantt.');
       return;
     }
-    window.print();
+
+    const esc = (t: any) => String(t ?? '').replace(/[&<>]/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+
+    const filas = hallazgosFiltradosGantt.map((item: any, i: number) => {
+      const dIni = new Date(item.fechaInicio);
+      const dFin = new Date(item.fechaFin);
+      const dias = Math.max(1, Math.ceil(Math.abs(dFin.getTime() - dIni.getTime()) / 86400000) + 1);
+      const est = item.estadoSeguimiento === 'PENDIENTE_ATRASADO' ? 'VENCIDO'
+        : item.estadoSeguimiento === 'TERMINADO' ? 'CERRADO' : 'PENDIENTE';
+      const clase = item.estadoSeguimiento === 'PENDIENTE_ATRASADO' ? 'venc'
+        : item.estadoSeguimiento === 'TERMINADO' ? 'cerr' : 'pend';
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td>${esc(item.fechaAuditoria)}</td>
+        <td><b>${esc(item.maquinaNombre)}</b></td>
+        <td>${item.seguridad ? '<span class="seg">SEGURIDAD</span> ' : ''}${
+          item.reincidenciaDe ? '<span class="rei">REINCIDE</span> ' : ''}${esc(item.hallazgo)}</td>
+        <td>${esc(item.accion || 'Sin acción')}</td>
+        <td>${esc(item.responsable || 'No asignado')}</td>
+        <td class="num">${esc(item.fechaInicio)}</td>
+        <td class="num">${esc(item.fechaFin)}</td>
+        <td class="num">${dias}</td>
+        <td class="num"><span class="${clase}">${est}</span></td>
+      </tr>`;
+    }).join('');
+
+    const filtros = [
+      filtroOrigenGantt && `Módulo: ${filtroOrigenGantt === '5S' ? 'Condiciones y 5S' : 'Validación de proceso'}`,
+      filtroMaquinaGantt && `Máquina: ${filtroMaquinaGantt}`,
+      filtroMesGantt && `Mes: ${filtroMesGantt}`,
+      filtroDiaGantt && `Día: ${filtroDiaGantt}`,
+      filtroCumplimientoGantt && `Estatus: ${filtroCumplimientoGantt}`
+    ].filter(Boolean).join(' · ');
+
+    const doc2 = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+      <title>Cronograma de hallazgos — IMPREDIMEX</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm 10mm; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: #0D1A2E; margin: 0; }
+        h1 { font-size: 15px; color: #002060; margin: 0; letter-spacing: .04em; }
+        .sub { font-size: 10px; color: #5A6A80; margin: 2px 0 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+        th { background: #003580; color: #fff; padding: 5px 6px; text-align: left;
+             font-size: 8px; text-transform: uppercase; letter-spacing: .04em; }
+        td { padding: 4px 6px; border-bottom: 1px solid #E8EEF8; vertical-align: top; }
+        tr:nth-child(even) td { background: #f8f9ff; }
+        .num { text-align: center; white-space: nowrap; }
+        .venc, .pend, .cerr, .seg, .rei {
+          display: inline-block; padding: 1px 5px; border-radius: 3px; font-weight: 700; font-size: 7.5px;
+        }
+        .venc { background: #F9E8EB; color: #7A0B1D; }
+        .pend { background: #FDF0D8; color: #7A4500; }
+        .cerr { background: #E0F2EC; color: #085041; }
+        .seg  { background: #C8102E; color: #fff; }
+        .rei  { background: #FDF0D8; color: #7A4500; border: 1px solid #D4840A; }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; }
+      </style></head><body>
+      <h1>IMPREDIMEX · Cronograma de hallazgos</h1>
+      <div class="sub">
+        ${hallazgosFiltradosGantt.length} hallazgos · generado el ${todayStr} por ${esc(usuarioActivo?.nombre || '')}
+        ${filtros ? ` · ${esc(filtros)}` : ''}
+      </div>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Fecha</th><th>Máquina</th><th>Desviación</th><th>Acción</th>
+          <th>Responsable</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Estatus</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table></body></html>`;
+
+    const marco = document.createElement('iframe');
+    marco.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(marco);
+    const d = marco.contentWindow?.document;
+    if (!d) { document.body.removeChild(marco); alert('No se pudo preparar el PDF.'); return; }
+    d.open(); d.write(doc2); d.close();
+    marco.onload = () => {
+      marco.contentWindow?.focus();
+      marco.contentWindow?.print();
+      // Se retira después de imprimir; sin la espera, algunos navegadores
+      // cancelan el diálogo al quitarse el marco.
+      setTimeout(() => { if (marco.parentNode) document.body.removeChild(marco); }, 1000);
+    };
   };
 
   // --- PANTALLA DE INGRESO ---
@@ -1558,20 +1656,24 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* 1b. VISTA RECHAZOS (SPEC-013; retira la SPEC-008)
-            Antes esta pantalla medía cobertura de auditoría: días sin revisar
-            por máquina, cruzados con el costo. Se retiró esa lógica y quedó lo
-            que de verdad orienta: dónde se concentran los metros rechazados y
-            por qué defectos. El código de la cobertura sigue en
-            `src/utils/cobertura.ts`, sin usarse, por si se retoma. */}
+        {/* 1b. VISTA RECHAZOS (SPEC-013, presentación de la SPEC-016)
+            Una lista de 33 renglones obligaba a filtrar para encontrar algo.
+            Ahora cada proceso es un bloque, y dentro las máquinas se apilan
+            como tarjetas de cartera: se ve el lomo de todas y la elegida se
+            trae al frente con su información completa. */}
         {vista === 'COBERTURA' && (() => {
-          const filas = [...CATALOGO]
-            .map((m) => ({ ...m, metros: mermaDe(m.id), defectos: defectosDe(m.id) }))
-            .filter((m) => !filtroTipoCobertura || m.tipo === filtroTipoCobertura)
-            .sort((a, b) => b.metros - a.metros || a.nombre.localeCompare(b.nombre));
+          const maquinas = CATALOGO.map((m) => ({
+            ...m, metros: mermaDe(m.id), defectos: defectosDe(m.id), pct: participacionDe(m.id)
+          }));
+          const totalMetros = maquinas.reduce((s, m) => s + m.metros, 0);
 
-          const conRechazos = filas.filter((m) => m.metros > 0);
-          const totalMetros = conRechazos.reduce((s, m) => s + m.metros, 0);
+          // Un bloque por proceso, ordenados por lo que cuesta cada uno.
+          const bloques = FAMILIAS_TODAS.map((fam) => {
+            const suyas = maquinas
+              .filter((m) => m.tipo === fam)
+              .sort((a, b) => b.metros - a.metros || a.nombre.localeCompare(b.nombre));
+            return { fam, suyas, metros: suyas.reduce((s, m) => s + m.metros, 0) };
+          }).sort((a, b) => b.metros - a.metros || a.fam.localeCompare(b.fam));
 
           return (
             <div>
@@ -1579,7 +1681,7 @@ export const App: React.FC = () => {
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Dónde se concentran los rechazos</div>
                   <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
-                    Ordenado por metros rechazados. Los datos vienen de Control de Procesos.
+                    Un bloque por proceso. Toca una máquina para traerla al frente.
                   </div>
                 </div>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
@@ -1587,14 +1689,14 @@ export const App: React.FC = () => {
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '1.2rem' }}>
                 <div style={{ ...STYLES.metricCard }}>
                   <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Metros rechazados</div>
                   <div style={{ fontSize: '24px', fontWeight: 700 }}>{totalMetros.toLocaleString('es-MX')}</div>
                 </div>
                 <div style={{ ...STYLES.metricCard }}>
                   <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Máquinas con rechazos</div>
-                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{conRechazos.length}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{maquinas.filter((m) => m.metros > 0).length}</div>
                 </div>
                 <div style={{ ...STYLES.metricCard, background: 'rgba(200,16,46,.92)' }}>
                   <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Explican el 80%</div>
@@ -1602,83 +1704,108 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ ...STYLES.glassCard, padding: '.9rem 1.2rem', marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '4px', textAlign: 'left' }}>
-                  Familia
-                </label>
-                <select value={filtroTipoCobertura} onChange={(e) => setFiltroTipoCobertura(e.target.value)}
-                  style={{ ...STYLES.input, width: '100%', padding: '8px 12px', fontSize: '12px' }}>
-                  <option value="">Todas</option>
-                  {FAMILIAS_TODAS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: '14px', alignItems: 'start' }}>
+                {bloques.map((b) => (
+                  <div key={b.fam} style={{ ...STYLES.glassCard, padding: '1rem 1.1rem', marginBottom: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', paddingBottom: '.7rem', marginBottom: '.9rem', borderBottom: '2px solid #E8EEF8' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <div style={{ width: '3px', height: '16px', background: b.metros > 0 ? '#C8102E' : '#8A9AB0', borderRadius: '2px', flexShrink: 0 }}></div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>{b.fam}</div>
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: '#5A6A80', whiteSpace: 'nowrap' }}>
+                        {b.metros > 0 ? `${b.metros.toLocaleString('es-MX')} m` : 'sin rechazos'}
+                      </div>
+                    </div>
 
-              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em' }}>Máquina o área</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em' }}>Familia</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>Metros rechazados</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em' }}>Principales defectos</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filas.map((m) => (
-                        <tr key={m.id} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
-                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#002060', textAlign: 'left' }}>{m.nombre}</td>
-                          <td style={{ padding: '8px 12px', color: '#5A6A80', fontSize: '11px', textAlign: 'left' }}>{m.tipo}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            {m.metros > 0 ? (
-                              <span style={{ fontSize: '11.5px', fontWeight: lasDelOchenta.includes(m.id) ? 700 : 500, color: lasDelOchenta.includes(m.id) ? '#C8102E' : '#5A6A80' }}>
-                                {m.metros.toLocaleString('es-MX')} m
-                                <span style={{ display: 'block', fontSize: '9.5px', fontWeight: 400, color: '#8A9AB0' }}>
-                                  {participacionDe(m.id).toFixed(1)}% de la planta
-                                </span>
+                    {/* La cartera. Las tarjetas cerradas se enciman y solo
+                        asoman su lomo; la abierta se separa y despliega. */}
+                    <div style={{ position: 'relative' }}>
+                      {b.suyas.map((m, i) => {
+                        const abierta = maquinaAlFrente === m.id;
+                        const previaAbierta = i > 0 && maquinaAlFrente === b.suyas[i - 1].id;
+                        const pesada = lasDelOchenta.includes(m.id);
+                        const color = pesada ? '#C8102E' : m.metros > 0 ? '#003580' : '#8A9AB0';
+
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => setMaquinaAlFrente(abierta ? null : m.id)}
+                            style={{
+                              position: 'relative',
+                              marginTop: i === 0 ? 0 : (abierta || previaAbierta) ? 8 : -14,
+                              zIndex: abierta ? 20 : i + 1,
+                              cursor: 'pointer',
+                              borderRadius: '11px',
+                              border: `1px solid ${abierta ? color : 'rgba(0,32,96,0.12)'}`,
+                              borderTop: `3px solid ${color}`,
+                              background: '#fff',
+                              boxShadow: abierta
+                                ? '0 6px 18px rgba(0,32,96,.14)'
+                                : '0 1px 3px rgba(0,32,96,.08)',
+                              padding: abierta ? '10px 12px 12px' : '8px 12px 14px',
+                              transition: 'margin-top .15s, box-shadow .15s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: abierta ? '#002060' : '#003580', minWidth: 0, textAlign: 'left' }}>
+                                {m.nombre}
                               </span>
-                            ) : (
-                              <span style={{ color: '#8A9AB0', fontSize: '10.5px' }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '8px 12px', textAlign: 'left' }}>
-                            {m.defectos.length > 0 ? (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                {m.defectos.map((d) => (
-                                  <span key={d.nombre} title={`${d.metros.toLocaleString('es-MX')} m`}
-                                    style={{
-                                      fontSize: '9.5px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px',
-                                      border: `1px solid ${d.pct >= 30 ? '#C8102E' : 'rgba(0,32,96,0.14)'}`,
-                                      color: d.pct >= 30 ? '#C8102E' : '#5A6A80',
-                                      background: d.pct >= 30 ? '#F9E8EB' : '#fff', whiteSpace: 'nowrap'
-                                    }}>
-                                    {d.nombre} {d.pct}%
-                                  </span>
-                                ))}
+                              <span style={{ fontSize: '11px', fontWeight: pesada ? 800 : 600, color, whiteSpace: 'nowrap' }}>
+                                {m.metros > 0 ? `${m.metros.toLocaleString('es-MX')} m` : '—'}
+                              </span>
+                            </div>
+
+                            {abierta && (
+                              <div style={{ marginTop: '9px', textAlign: 'left' }}>
+                                {m.metros > 0 ? (
+                                  <>
+                                    <div style={{ fontSize: '10.5px', color: '#5A6A80', marginBottom: '8px' }}>
+                                      <b style={{ color }}>{m.pct.toFixed(1)}%</b> de la merma de la planta
+                                      {pesada && <span style={{ color: '#C8102E', fontWeight: 700 }}> · de las que explican el 80%</span>}
+                                    </div>
+                                    <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '5px' }}>
+                                      Principales defectos
+                                    </div>
+                                    {m.defectos.map((d) => (
+                                      <div key={d.nombre} style={{ marginBottom: '5px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '10.5px', marginBottom: '2px' }}>
+                                          <span style={{ color: d.pct >= 30 ? '#C8102E' : '#0D1A2E', fontWeight: d.pct >= 30 ? 700 : 500 }}>{d.nombre}</span>
+                                          <span style={{ color: '#5A6A80', whiteSpace: 'nowrap' }}>
+                                            {d.pct}% · {d.metros.toLocaleString('es-MX')} m
+                                          </span>
+                                        </div>
+                                        {/* La barra hace comparable de un vistazo lo que el
+                                            número solo deja comparar leyendo. */}
+                                        <div style={{ height: '4px', borderRadius: '2px', background: '#E8EEF8', overflow: 'hidden' }}>
+                                          <div style={{ width: `${Math.min(100, d.pct)}%`, height: '100%', background: d.pct >= 30 ? '#C8102E' : '#003580' }}></div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    <div style={{ fontSize: '9px', color: '#8A9AB0', marginTop: '7px', lineHeight: 1.45 }}>
+                                      Los porcentajes son sobre la merma de esta máquina, no de la planta.
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div style={{ fontSize: '10.5px', color: '#8A9AB0' }}>
+                                    Sin rechazos registrados en el histórico de Control de Procesos.
+                                  </div>
+                                )}
                               </div>
-                            ) : (
-                              <span style={{ color: '#8A9AB0', fontSize: '10.5px' }}>Sin rechazos registrados</span>
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                      {filas.length === 0 && (
-                        <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
-                          No hay máquinas de esa familia.
-                        </td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.6, marginTop: '10px', padding: '0 4px', textAlign: 'left' }}>
-                Los porcentajes de cada defecto son sobre la merma <b>de esa máquina</b>, no de la planta;
-                en rojo los que pesan 30% o más. Pasa el cursor sobre un defecto para ver sus metros.
-                Los datos son del histórico de Control de Procesos, 2025 y 2026, y se actualizan cuando
-                Calidad cargue merma nueva y publique el resumen. Los porcentajes de planta suman 98.8%:
-                el 1.2% restante son {METROS_SIN_CRUZAR.toLocaleString('es-MX')} metros de identificadores
-                que el catálogo de esta app no tiene.
+              <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.6, marginTop: '14px', padding: '0 4px', textAlign: 'left' }}>
+                En rojo las máquinas que explican el 80% de la merma, y los defectos que pesan 30% o más
+                dentro de su máquina. Los datos son del histórico de Control de Procesos, 2025 y 2026, y se
+                actualizan cuando Calidad cargue merma nueva y publique el resumen. Los porcentajes de
+                planta suman 98.8%: el 1.2% restante son {METROS_SIN_CRUZAR.toLocaleString('es-MX')} metros
+                de identificadores que el catálogo de esta app no tiene.
               </div>
             </div>
           );
