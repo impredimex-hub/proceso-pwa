@@ -9,7 +9,11 @@ import { aplanarHallazgos, tableroAbiertos, resumenTablero, historialDePunto } f
 import type { HallazgoPlano } from './utils/hallazgos';
 import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, UMBRAL_REVISIONES } from './utils/ranking';
 import type { FilaRanking } from './utils/ranking';
-import { mermaDe, defectosDe, participacionDe, maquinasDelOchenta, METROS_SIN_CRUZAR } from './utils/merma';
+import {
+  mermaDe, defectosDe, participacionDe, maquinasDelOchenta, mesesDisponibles,
+  nombreDeMes, ultimosMeses, METROS_SIN_CRUZAR, METROS_FECHA_INVALIDA
+} from './utils/merma';
+import type { Periodo } from './utils/merma';
 
 (window as any).db = db;
 
@@ -317,6 +321,8 @@ export const App: React.FC = () => {
 
   /** La tarjeta que está al frente en su cartera (SPEC-016). */
   const [maquinaAlFrente, setMaquinaAlFrente] = useState<string | null>(null);
+  /** Qué periodo se está mirando (SPEC-017). `''` es todo el histórico. */
+  const [periodoRechazos, setPeriodoRechazos] = useState<string>('');
 
   /* ── Ranking de puntos (SPEC-007) ─────────────────────────────────────── */
   const [tipoRanking, setTipoRanking] = useState<'5S' | 'PROCESO'>('5S');
@@ -500,8 +506,6 @@ export const App: React.FC = () => {
   // SPEC-004: el administrador se define en la suite, no en el código.
   const esAdminTotal = usuarioActivo?.rol === 'ADMIN';
 
-  /** Las máquinas que explican el 80% de los metros rechazados (SPEC-013). */
-  const lasDelOchenta = maquinasDelOchenta();
 
   const historialPermitido = historial.filter((item) => {
     if (esAdminTotal) return true;
@@ -1619,7 +1623,7 @@ export const App: React.FC = () => {
                   entrarle primero.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#C8102E', background: '#F9E8EB', padding: '3px 9px', borderRadius: '5px' }}>
-                  {lasDelOchenta.length} máquinas explican el 80%
+                  {maquinasDelOchenta().length} máquinas explican el 80%
                 </span>
               </div>
 
@@ -1662,8 +1666,23 @@ export const App: React.FC = () => {
             como tarjetas de cartera: se ve el lomo de todas y la elegida se
             trae al frente con su información completa. */}
         {vista === 'COBERTURA' && (() => {
+          /* El periodo que se está mirando (SPEC-017). Todo lo de abajo
+             —metros, defectos, participación y hasta qué máquinas explican el
+             80%— se recalcula con él: el perfil de una máquina cambia según el
+             mes, y promediarlo todo escondía eso. */
+          const periodo: Periodo | null =
+            periodoRechazos === '' ? null
+            : periodoRechazos === 'U3' ? ultimosMeses(3)
+            : { desde: periodoRechazos, hasta: periodoRechazos };
+
+          const meses = mesesDisponibles();
+          const lasDelOchenta = maquinasDelOchenta(periodo);
+
           const maquinas = CATALOGO.map((m) => ({
-            ...m, metros: mermaDe(m.id), defectos: defectosDe(m.id), pct: participacionDe(m.id)
+            ...m,
+            metros: mermaDe(m.id, periodo),
+            defectos: defectosDe(m.id, periodo),
+            pct: participacionDe(m.id, periodo)
           }));
           const totalMetros = maquinas.reduce((s, m) => s + m.metros, 0);
 
@@ -1704,6 +1723,29 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Selector de periodo (SPEC-017). */}
+              <div style={{ ...STYLES.glassCard, padding: '.9rem 1.2rem', marginBottom: '1.2rem', textAlign: 'left' }}>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '5px' }}>
+                  Periodo
+                </label>
+                <select
+                  value={periodoRechazos}
+                  onChange={(e) => { setPeriodoRechazos(e.target.value); setMaquinaAlFrente(null); }}
+                  style={{ ...STYLES.input, width: '100%', padding: '9px 12px', fontSize: '12.5px' }}
+                >
+                  <option value="">Todo el histórico ({meses.length} meses)</option>
+                  <option value="U3">Últimos 3 meses con datos</option>
+                  {meses.map((m) => <option key={m} value={m}>{nombreDeMes(m)}</option>)}
+                </select>
+                {periodo && (
+                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '6px', lineHeight: 1.45 }}>
+                    Viendo {periodo.desde === periodo.hasta ? nombreDeMes(periodo.desde)
+                      : `${nombreDeMes(periodo.desde)} a ${nombreDeMes(periodo.hasta)}`}.
+                    Los porcentajes son sobre lo registrado en ese periodo.
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: '14px', alignItems: 'start' }}>
                 {bloques.map((b) => (
                   <div key={b.fam} style={{ ...STYLES.glassCard, padding: '1rem 1.1rem', marginBottom: 0 }}>
@@ -1736,8 +1778,13 @@ export const App: React.FC = () => {
                               zIndex: abierta ? 20 : i + 1,
                               cursor: 'pointer',
                               borderRadius: '11px',
-                              border: `1px solid ${abierta ? color : 'rgba(0,32,96,0.12)'}`,
+                              // Lados por separado y no `border` + `borderTop`:
+                              // mezclar la abreviada con una de sus partes deja
+                              // el estilo a medias al redibujar.
                               borderTop: `3px solid ${color}`,
+                              borderRight: `1px solid ${abierta ? color : 'rgba(0,32,96,0.12)'}`,
+                              borderBottom: `1px solid ${abierta ? color : 'rgba(0,32,96,0.12)'}`,
+                              borderLeft: `1px solid ${abierta ? color : 'rgba(0,32,96,0.12)'}`,
                               background: '#fff',
                               boxShadow: abierta
                                 ? '0 6px 18px rgba(0,32,96,.14)'
@@ -1801,11 +1848,17 @@ export const App: React.FC = () => {
               </div>
 
               <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.6, marginTop: '14px', padding: '0 4px', textAlign: 'left' }}>
-                En rojo las máquinas que explican el 80% de la merma, y los defectos que pesan 30% o más
-                dentro de su máquina. Los datos son del histórico de Control de Procesos, 2025 y 2026, y se
-                actualizan cuando Calidad cargue merma nueva y publique el resumen. Los porcentajes de
-                planta suman 98.8%: el 1.2% restante son {METROS_SIN_CRUZAR.toLocaleString('es-MX')} metros
-                de identificadores que el catálogo de esta app no tiene.
+                En rojo las máquinas que explican el 80% de la merma <b>del periodo elegido</b>, y los
+                defectos que pesan 30% o más dentro de su máquina. El perfil cambia según el mes: lo que
+                más duele en el histórico no siempre es lo que más dolió el mes pasado.
+                <div style={{ marginTop: '6px' }}>
+                  Los datos vienen del histórico de Control de Procesos. <b>El último mes cargado es
+                  {' '}{meses[0] ? nombreDeMes(meses[0]) : '—'}</b>; de ahí en adelante no hay merma
+                  registrada. Sobre todo el histórico los porcentajes de planta suman 98.8%: el 1.2%
+                  restante son {METROS_SIN_CRUZAR.toLocaleString('es-MX')} metros de identificadores que
+                  el catálogo de esta app no tiene. Hay además {METROS_FECHA_INVALIDA.toLocaleString('es-MX')}
+                  {' '}metros con un año mal capturado que cuentan en el total pero no caen en ningún mes.
+                </div>
               </div>
             </div>
           );
