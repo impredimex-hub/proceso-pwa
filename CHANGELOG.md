@@ -6,6 +6,44 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.9.0] — 2026-10-01
+
+### Agregado
+
+- **Filtro de periodo en la pantalla de rechazos** (SPEC-017): todo el
+  histórico, los últimos 3 meses con datos, o cualquiera de los 19 meses.
+
+  Todo se recalcula con el periodo —metros, defectos, participación y qué
+  máquinas explican el 80%—, porque **el perfil de una máquina cambia según el
+  mes**: en RT7 el histórico dice lagrimeo primero y julio dice raya. Un
+  promedio de veinte meses nunca lo habría mostrado.
+
+  Para lograrlo se copió de Control el detalle **mes por mes** en lugar de solo
+  los totales. Pesa 10 KB, viaja en el código y no cuesta una lectura. Los
+  totales del histórico salen idénticos a los de antes.
+
+  «Últimos 3 meses» son los últimos **con datos**, no los del calendario: si
+  Calidad lleva meses sin cargar merma, contar meses vacíos daría un periodo
+  vacío y parecería una falla.
+
+### Corregido
+
+- **Las tarjetas mezclaban `border` con `borderTop`.** React avisaba de que eso
+  puede dejar el estilo a medias al redibujar. Los cuatro lados van ahora por
+  separado.
+
+### Avisos que la pantalla ahora da
+
+- **El último mes cargado es julio de 2026**: tres meses sin merma nueva de
+  Calidad. Sin decirlo, un agosto vacío parecería un error del filtro.
+- **1 072 metros tienen un año mal capturado** —RT6 · RAYA · «2006-06»—. Cuentan
+  en el total porque Calidad también los cuenta, pero no caen en ningún mes.
+  Conviene corregirlo del lado de Control.
+
+  Verificado con 31 casos de la lógica y 8 de la pantalla.
+
+---
+
 ## [2.8.0] — 2026-10-01
 
 ### Cambiado

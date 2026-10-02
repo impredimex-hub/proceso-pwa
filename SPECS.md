@@ -1002,6 +1002,68 @@ principales defectos, cada uno con su barra.
 
 ---
 
+---
+
+# SPEC-017 — Los rechazos por periodo
+
+**Estado:** implementada el 1 de octubre de 2026.
+
+### Por qué
+
+Mirar veinte meses promediados esconde lo que cambió. El caso que lo demuestra
+está en los propios datos: **el defecto que más duele en RT7 no es el mismo en
+el histórico que en julio**.
+
+| | Primero | Segundo |
+|---|---|---|
+| Histórico completo | Lagrimeo 19.6% | Raya 17.6% |
+| Julio 2026 | **Raya** | Lagrimeo |
+
+Si el perfil cambió, la variable que hay que vigilar cambió, y un promedio de
+veinte meses nunca lo habría dicho.
+
+### Qué se puede elegir
+
+**Todo el histórico**, **los últimos 3 meses con datos** —la misma ventana que
+usa Control para su foco— o **cualquiera de los 19 meses**, del más reciente al
+más viejo.
+
+Todo se recalcula con el periodo: los metros, los defectos, la participación y
+**qué máquinas explican el 80%**. En julio son tres, no cuatro.
+
+### Reglas de negocio
+
+- **«Últimos 3 meses» son los últimos con datos, no los del calendario.** Si
+  Calidad lleva meses sin cargar merma, contar meses vacíos daría un periodo sin
+  nada y parecería una falla de la app.
+- **Cambiar de periodo cierra la tarjeta abierta.** Lo que mostraba ya no
+  corresponde a lo que se está mirando.
+- **Los porcentajes de un periodo son sobre lo registrado en ese periodo.** En
+  el histórico completo el denominador incluye los metros que no cruzan, para
+  que coincida con Calidad; por mes no se puede, porque esos metros no están
+  desglosados. La pantalla lo dice.
+- **La pantalla declara cuál es el último mes cargado.** Al 1 de octubre de 2026
+  es **julio**: tres meses sin merma nueva. Sin ese aviso, un agosto vacío
+  parecería un error del filtro y no lo que es.
+
+### El dato pesa 10 KB
+
+Se pasó de copiar los totales a copiar el detalle mensual, que es lo que
+Control guarda. Viaja en el propio código y **no cuesta una sola lectura**.
+
+### Un registro con fecha imposible
+
+El histórico trae **RT6 · RAYA · 2006-06 · 1 072 m**. Es un año mal tecleado en
+la captura original, y no se puede adivinar cuál: RT6 ya tiene raya registrada
+tanto en junio de 2025 como en junio de 2026.
+
+Se conserva en el total del histórico completo, porque Control también lo cuenta
+y los números de las dos apps tienen que coincidir, y queda fuera del selector,
+donde «junio de 2006» solo confundiría. La pantalla declara esos metros.
+Conviene corregirlo del lado de Control.
+
+---
+
 # Decisiones de estas specs
 
 Las tres primeras quedaron resueltas por Ingeniería de Procesos el **29 de
