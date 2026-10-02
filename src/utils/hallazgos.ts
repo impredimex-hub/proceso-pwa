@@ -244,10 +244,29 @@ export const aplanarHallazgos = (
  * final lo pendiente en plazo. Un Gantt con lo ya cerrado es un archivo, no una
  * herramienta; lo cerrado sigue en su auditoría y en el historial del punto.
  */
-export const tableroAbiertos = (planos: HallazgoPlano[]): HallazgoPlano[] =>
+export const llaveDeHallazgo = (p: { docId: string; hallazgoIdx: number }) =>
+  `${p.docId}|${p.hallazgoIdx}`;
+
+export const tableroAbiertos = (
+  planos: HallazgoPlano[],
+  /**
+   * Hallazgos que se acaban de cerrar **en esta visita** y deben seguir
+   * visibles (SPEC-014).
+   *
+   * Sin esto, cerrar uno lo hacía desaparecer en el acto: no quedaba manera de
+   * saber si se guardó ni de deshacer un clic mal dado, porque el tablero era
+   * la única pantalla donde estaba. El conjunto vive en memoria y se vacía al
+   * salir, así que el tablero sigue sin acumular cerrados entre visitas.
+   */
+  conservar?: Set<string>
+): HallazgoPlano[] =>
   planos
-    .filter(p => estaAbierto(p.estado))
+    .filter(p => estaAbierto(p.estado) || conservar?.has(llaveDeHallazgo(p)))
     .sort((a, b) => {
+      // Lo recién cerrado baja al final: ya no reclama atención, pero sigue a
+      // la vista para confirmar el cambio y poder deshacerlo.
+      const ca = a.estado === 'TERMINADO', cb = b.estado === 'TERMINADO';
+      if (ca !== cb) return ca ? 1 : -1;
       if (a.seguridad !== b.seguridad) return a.seguridad ? -1 : 1;
       if (a.diasVencido !== b.diasVencido) return b.diasVencido - a.diasVencido;
       // Entre reincidentes y nuevos, primero el que ya había fallado.
