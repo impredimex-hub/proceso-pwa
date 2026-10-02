@@ -11,7 +11,8 @@ import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, UM
 import type { FilaRanking } from './utils/ranking';
 import {
   mermaDe, defectosDe, participacionDe, maquinasDelOchenta, mesesDisponibles,
-  nombreDeMes, ultimosMeses, METROS_SIN_CRUZAR, METROS_FECHA_INVALIDA
+  aniosDisponibles, mesesDeAnio, nombreDeMes, ultimosMeses,
+  METROS_SIN_CRUZAR, METROS_FECHA_INVALIDA
 } from './utils/merma';
 import type { Periodo } from './utils/merma';
 
@@ -321,8 +322,12 @@ export const App: React.FC = () => {
 
   /** La tarjeta que está al frente en su cartera (SPEC-016). */
   const [maquinaAlFrente, setMaquinaAlFrente] = useState<string | null>(null);
-  /** Qué periodo se está mirando (SPEC-017). `''` es todo el histórico. */
-  const [periodoRechazos, setPeriodoRechazos] = useState<string>('');
+  /* El periodo que se mira, en tres controles (SPEC-018). El año y el mes van
+     por separado para que ninguna lista se vuelva larga, y el atajo de los tres
+     meses no cabe en ninguno de los dos porque cruza años. */
+  const [anioRechazos, setAnioRechazos] = useState<string>('');
+  const [mesRechazos, setMesRechazos] = useState<string>('');
+  const [ultimos3, setUltimos3] = useState(false);
 
   /* ── Ranking de puntos (SPEC-007) ─────────────────────────────────────── */
   const [tipoRanking, setTipoRanking] = useState<'5S' | 'PROCESO'>('5S');
@@ -1617,7 +1622,7 @@ export const App: React.FC = () => {
                   <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Seguimiento</div>
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Dónde se concentran los rechazos</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Prioridades a revisar</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
                   Cuántos metros rechaza cada máquina y por qué defectos. De ahí sale a cuál conviene
                   entrarle primero.
@@ -1671,11 +1676,17 @@ export const App: React.FC = () => {
              80%— se recalcula con él: el perfil de una máquina cambia según el
              mes, y promediarlo todo escondía eso. */
           const periodo: Periodo | null =
-            periodoRechazos === '' ? null
-            : periodoRechazos === 'U3' ? ultimosMeses(3)
-            : { desde: periodoRechazos, hasta: periodoRechazos };
+            ultimos3 ? ultimosMeses(3)
+            : mesRechazos ? { desde: mesRechazos, hasta: mesRechazos }
+            : anioRechazos ? { desde: `${anioRechazos}-01`, hasta: `${anioRechazos}-12` }
+            : null;
 
           const meses = mesesDisponibles();
+          const anios = aniosDisponibles();
+          const mesesDelAnio = anioRechazos ? mesesDeAnio(anioRechazos) : [];
+
+          /** Cualquier cambio de periodo cierra la tarjeta: ya no corresponde. */
+          const cambiarPeriodo = (fn: () => void) => { fn(); setMaquinaAlFrente(null); };
           const lasDelOchenta = maquinasDelOchenta(periodo);
 
           const maquinas = CATALOGO.map((m) => ({
@@ -1698,7 +1709,7 @@ export const App: React.FC = () => {
             <div>
               <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Dónde se concentran los rechazos</div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Prioridades a revisar</div>
                   <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
                     Un bloque por proceso. Toca una máquina para traerla al frente.
                   </div>
@@ -1717,33 +1728,74 @@ export const App: React.FC = () => {
                   <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Máquinas con rechazos</div>
                   <div style={{ fontSize: '24px', fontWeight: 700 }}>{maquinas.filter((m) => m.metros > 0).length}</div>
                 </div>
-                <div style={{ ...STYLES.metricCard, background: 'rgba(200,16,46,.92)' }}>
-                  <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Explican el 80%</div>
-                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{lasDelOchenta.length}</div>
-                </div>
               </div>
 
-              {/* Selector de periodo (SPEC-017). */}
+              {/* Periodo en tres controles (SPEC-018). */}
               <div style={{ ...STYLES.glassCard, padding: '.9rem 1.2rem', marginBottom: '1.2rem', textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '5px' }}>
-                  Periodo
-                </label>
-                <select
-                  value={periodoRechazos}
-                  onChange={(e) => { setPeriodoRechazos(e.target.value); setMaquinaAlFrente(null); }}
-                  style={{ ...STYLES.input, width: '100%', padding: '9px 12px', fontSize: '12.5px' }}
-                >
-                  <option value="">Todo el histórico ({meses.length} meses)</option>
-                  <option value="U3">Últimos 3 meses con datos</option>
-                  {meses.map((m) => <option key={m} value={m}>{nombreDeMes(m)}</option>)}
-                </select>
-                {periodo && (
-                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '6px', lineHeight: 1.45 }}>
-                    Viendo {periodo.desde === periodo.hasta ? nombreDeMes(periodo.desde)
-                      : `${nombreDeMes(periodo.desde)} a ${nombreDeMes(periodo.hasta)}`}.
-                    Los porcentajes son sobre lo registrado en ese periodo.
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '5px' }}>
+                      Año
+                    </label>
+                    <select
+                      value={anioRechazos}
+                      disabled={ultimos3}
+                      onChange={(e) => cambiarPeriodo(() => { setAnioRechazos(e.target.value); setMesRechazos(''); })}
+                      style={{ ...STYLES.input, width: '100%', padding: '9px 12px', fontSize: '12.5px', opacity: ultimos3 ? .5 : 1 }}
+                    >
+                      <option value="">Todos los años</option>
+                      {anios.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
                   </div>
-                )}
+
+                  <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '5px' }}>
+                      Mes
+                    </label>
+                    {/* El mes depende del año: «julio» sin año sería ambiguo
+                        —¿el de 2025 o el de 2026?— y la lista volvería a ser
+                        larga, que es justo lo que se quería evitar. */}
+                    <select
+                      value={mesRechazos}
+                      disabled={ultimos3 || !anioRechazos}
+                      onChange={(e) => cambiarPeriodo(() => setMesRechazos(e.target.value))}
+                      title={!anioRechazos ? 'Elige primero un año' : ''}
+                      style={{ ...STYLES.input, width: '100%', padding: '9px 12px', fontSize: '12.5px', opacity: (ultimos3 || !anioRechazos) ? .5 : 1 }}
+                    >
+                      <option value="">{anioRechazos ? 'Todo el año' : 'Elige un año primero'}</option>
+                      {mesesDelAnio.map((m) => (
+                        <option key={m} value={m}>{nombreDeMes(m).split(' ')[0]}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => cambiarPeriodo(() => {
+                      const activar = !ultimos3;
+                      setUltimos3(activar);
+                      if (activar) { setAnioRechazos(''); setMesRechazos(''); }
+                    })}
+                    style={{
+                      border: `1px solid ${ultimos3 ? '#003580' : 'rgba(0,32,96,0.18)'}`,
+                      background: ultimos3 ? '#003580' : '#fff',
+                      color: ultimos3 ? '#fff' : '#003580',
+                      padding: '10px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                      fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Últimos 3 meses
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '8px', lineHeight: 1.45 }}>
+                  {periodo
+                    ? <>Viendo <b style={{ color: '#002060' }}>{
+                        periodo.desde === periodo.hasta ? nombreDeMes(periodo.desde)
+                          : `${nombreDeMes(periodo.desde)} a ${nombreDeMes(periodo.hasta)}`
+                      }</b>. Los porcentajes son sobre lo registrado en ese periodo.</>
+                    : <>Viendo <b style={{ color: '#002060' }}>todo el histórico</b>: {meses.length} meses
+                        con datos, de {nombreDeMes(meses[meses.length - 1])} a {nombreDeMes(meses[0])}.</>}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: '14px', alignItems: 'start' }}>
