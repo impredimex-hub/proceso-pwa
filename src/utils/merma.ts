@@ -179,6 +179,20 @@ export const nombreDeMes = (mes: string): string => {
   return `${NOMBRES_MES[Number(m)] || mes} ${a}`;
 };
 
+/**
+ * Los años con datos, del más reciente al más viejo.
+ *
+ * Se separan de los meses (SPEC-018) porque una lista de 19 meses obligaba a
+ * recorrerla entera para llegar a uno. Con el año primero, la lista de meses
+ * nunca pasa de doce.
+ */
+export const aniosDisponibles = (): string[] =>
+  [...new Set(mesesDisponibles().map((m) => m.slice(0, 4)))].sort().reverse();
+
+/** Los meses con datos de un año, en orden natural. Devuelve `AAAA-MM`. */
+export const mesesDeAnio = (anio: string): string[] =>
+  mesesDisponibles().filter((m) => m.startsWith(anio)).sort();
+
 /** Los últimos N meses **con datos**, no los últimos N del calendario. */
 export const ultimosMeses = (n: number): Periodo | null => {
   const ms = mesesDisponibles();
