@@ -15,6 +15,9 @@ import {
   METROS_SIN_CRUZAR, METROS_FECHA_INVALIDA
 } from './utils/merma';
 import type { Periodo } from './utils/merma';
+import {
+  nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas
+} from './utils/comportamiento';
 
 (window as any).db = db;
 
@@ -126,23 +129,18 @@ const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProce
 const FAMILIAS_5S = Array.from(new Set(CATALOGO.filter((m) => m.modulo5S).map((m) => m.tipo)));
 
 // --- MATRIZ DE SUPERVISORES POR MÁQUINA ---
+/**
+ * Los supervisores de una máquina.
+ *
+ * La matriz **ya no vive aquí**: está en `utils/comportamiento.ts`, en nóminas y
+ * sin depender del padrón, porque la pantalla de Comportamiento necesita
+ * preguntarle lo contrario —qué máquinas le tocan a una persona— y mezclada con
+ * la búsqueda en `USUARIOS_SISTEMA` no se podía (SPEC-019).
+ */
 const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] => {
   if (!maquina) return [];
-  const maqId = maquina.id;
-  const tipo = maquina.tipo;
-
-  if (tipo === 'Digital' || tipo === 'Suajado') return USUARIOS_SISTEMA.filter((u) => u.nomina === '885');
-  if (tipo === 'Rotograbado' || tipo === 'Flexografía' || tipo === 'Laminado' || maqId === 'DEP1') {
-    return USUARIOS_SISTEMA.filter((u) => ['2308', '2398', '2159'].includes(u.nomina));
-  }
-  if (['Refilado', 'Pegado', 'Revisión', 'Corte'].includes(tipo) || maqId === 'DEP2') {
-    return USUARIOS_SISTEMA.filter((u) => ['1853', '2377'].includes(u.nomina));
-  }
-  if (maqId === 'area-tintas') return USUARIOS_SISTEMA.filter((u) => u.nomina === '2129');
-  if (maqId === 'area-mp' || maqId === 'area-pt') return USUARIOS_SISTEMA.filter((u) => u.nomina === '1802');
-  if (maqId === 'area-mant') return USUARIOS_SISTEMA.filter((u) => u.nomina === '2432');
-  if (maqId === 'area-banos') return USUARIOS_SISTEMA.filter((u) => ['2308', '2398', '2159', '1853', '2377'].includes(u.nomina));
-  return [];
+  const nominas = nominasDeMaquina(maquina);
+  return USUARIOS_SISTEMA.filter((u) => nominas.includes(u.nomina));
 };
 
 interface ItemChecklist {
@@ -316,9 +314,14 @@ export const App: React.FC = () => {
   const [entrando, setEntrando] = useState(false);
 
   // Estados de navegación
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING'>('LAUNCHER');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING' | 'COMPORTAMIENTO'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
+
+  /** A quién se está mirando en Comportamiento. Vacío = yo (SPEC-019). */
+  const [personaComp, setPersonaComp] = useState<string>('');
+  /** Desde cuándo cuenta «ya la revisó». Vacío = todo (SPEC-019). */
+  const [desdeComp, setDesdeComp] = useState<string>('');
 
   /** La tarjeta que está al frente en su cartera (SPEC-016). */
   const [maquinaAlFrente, setMaquinaAlFrente] = useState<string | null>(null);
@@ -886,6 +889,10 @@ export const App: React.FC = () => {
         tipoMaquina: maquinaSeleccionada?.tipo,
         ordenTrabajo: ordenTrabajo.trim() || 'N/A 5S',
         auditor: auditor.trim(),
+        // Quién audita, por nómina (SPEC-019). El nombre de `auditor` es
+        // editable, así que comparar por texto nunca fue confiable; los
+        // documentos anteriores se siguen reconociendo por nombre.
+        nominaAuditor: usuarioActivo?.nomina || '',
         nominaAuditado: nominaAuditado.trim(),
         nominaSupervisor: supervisorNomina || 'N/A',
         nombreSupervisor: supNombre,
@@ -1632,6 +1639,22 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
+              {/* Comportamiento (SPEC-019). */}
+              <div onClick={() => setVista('COMPORTAMIENTO')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                  <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Seguimiento</div>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Comportamiento</div>
+                <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
+                  Cómo vas tú: a cuáles de tus máquinas ya les hiciste su revisión, cómo salieron las
+                  auditorías que te hicieron, y qué hallazgos tuyos siguen abiertos.
+                </p>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
+                  {esAdminTotal ? 'Puedes ver a cualquiera' : `${maquinasDe(usuarioActivo.nomina, CATALOGO).length} máquinas a tu cargo`}
+                </span>
+              </div>
+
               {/* Ranking (SPEC-007). */}
               <div onClick={() => setVista('RANKING')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
@@ -1911,6 +1934,276 @@ export const App: React.FC = () => {
                   el catálogo de esta app no tiene. Hay además {METROS_FECHA_INVALIDA.toLocaleString('es-MX')}
                   {' '}metros con un año mal capturado que cuentan en el total pero no caen en ningún mes.
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+
+
+        {/* 1d. VISTA COMPORTAMIENTO (SPEC-019)
+            Las demás pantallas miran la planta; esta mira a una persona, en
+            sus dos papeles: lo que le toca revisar y cómo salió lo que le
+            revisaron. */}
+        {vista === 'COMPORTAMIENTO' && (() => {
+          const nomina = personaComp || usuarioActivo.nomina;
+          const perfil = USUARIOS_SISTEMA.find((u) => u.nomina === nomina);
+          const nombre = perfil?.nombre || usuarioActivo.nombre;
+          const corte = desdeComp || null;
+
+          const filas = comoAuditor(nomina, nombre, CATALOGO, historial, corte);
+          const auditado = comoAuditado(nomina, historial, corte);
+          const pendientes = filas.filter((f) => f.pendiente).length;
+
+          // Su Gantt: los hallazgos abiertos de las auditorías que le hicieron.
+          const suyas = historial.filter((a: any) =>
+            String(a.nominaAuditado || '').trim() === nomina ||
+            String(a.nominaSupervisor || '').trim() === nomina);
+          const susHallazgos = tableroAbiertos(aplanarHallazgos(suyas as any, todayStr));
+
+          const conMaquinas = nominasConMaquinas(CATALOGO);
+
+          const Marca: React.FC<{ e: { aplica: boolean; hecha: boolean; fecha: string | null } }> = ({ e }) => {
+            if (!e.aplica) return <span style={{ color: '#8A9AB0', fontSize: '10px' }}>No aplica</span>;
+            if (!e.hecha) return (
+              <span style={{ display: 'inline-block', background: '#F9E8EB', color: '#C8102E', border: '1px solid #C8102E', fontSize: '9.5px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px' }}>
+                Falta
+              </span>
+            );
+            return (
+              <span title={`Última: ${e.fecha}`} style={{ display: 'inline-block', background: '#E0F2EC', color: '#085041', fontSize: '9.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px' }}>
+                ✓ {e.fecha}
+              </span>
+            );
+          };
+
+          return (
+            <div>
+              <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <div style={{ textAlign: 'left', minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#002060' }}>Comportamiento</div>
+                  <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    {nombre}{perfil?.puesto ? ` · ${perfil.puesto}` : ''}
+                  </div>
+                </div>
+                <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                  ← Inicio
+                </button>
+              </div>
+
+              {/* El ADMIN puede mirar a cualquiera. Sin esto la pantalla le
+                  saldría vacía: la jefatura no tiene máquinas asignadas. */}
+              <div style={{ ...STYLES.glassCard, padding: '.9rem 1.2rem', marginBottom: '1.2rem', textAlign: 'left' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  {esAdminTotal && (
+                    <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '5px' }}>
+                        Persona
+                      </label>
+                      <select value={personaComp} onChange={(e) => setPersonaComp(e.target.value)}
+                        style={{ ...STYLES.input, width: '100%', padding: '9px 12px', fontSize: '12.5px' }}>
+                        <option value="">Yo ({usuarioActivo.nombre})</option>
+                        {conMaquinas.map((n) => {
+                          const u = USUARIOS_SISTEMA.find((x) => x.nomina === n);
+                          return <option key={n} value={n}>{u ? `${u.nombre} · ${n}` : n}</option>;
+                        })}
+                      </select>
+                    </div>
+                  )}
+                  <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '5px' }}>
+                      Contar desde
+                    </label>
+                    {/* Sin corte, «ya la revisó» sería cierto para siempre en
+                        cuanto la revisara una vez, y la pantalla dejaría de
+                        pedir nada. */}
+                    <input type="date" value={desdeComp} onChange={(e) => setDesdeComp(e.target.value)}
+                      style={{ ...STYLES.input, width: '100%', padding: '8px 12px', fontSize: '12.5px' }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '7px', lineHeight: 1.45 }}>
+                  {corte
+                    ? <>Contando desde <b style={{ color: '#002060' }}>{corte}</b>.</>
+                    : <>Contando <b style={{ color: '#002060' }}>todo el histórico</b>. Pon una fecha para
+                        preguntar «¿y desde entonces?».</>}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '1.2rem' }}>
+                <div style={{ ...STYLES.metricCard, background: pendientes > 0 ? 'rgba(200,16,46,.92)' : 'rgba(15,122,85,.92)' }}>
+                  <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Me falta revisar</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{pendientes}</div>
+                </div>
+                <div style={{ ...STYLES.metricCard }}>
+                  <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Me auditaron</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{auditado.total}</div>
+                </div>
+                <div style={{ ...STYLES.metricCard }}>
+                  <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Mi cumplimiento</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{auditado.promedio === null ? '—' : `${auditado.promedio}%`}</div>
+                </div>
+                <div style={{ ...STYLES.metricCard, background: susHallazgos.length > 0 ? 'rgba(212,132,10,.92)' : 'rgba(0,32,96,.92)' }}>
+                  <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Hallazgos abiertos</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{susHallazgos.length}</div>
+                </div>
+              </div>
+
+              {/* ── Como auditor ─────────────────────────────────────────── */}
+              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden', marginBottom: '1.2rem' }}>
+                <div style={{ padding: '.9rem 1.2rem', borderBottom: '2px solid #E8EEF8', textAlign: 'left' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Como auditor · mis máquinas
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    Lo que me toca revisar y si ya lo revisé.
+                  </div>
+                </div>
+                {filas.length === 0 ? (
+                  <div style={{ padding: '22px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
+                    {nombre} no tiene máquinas ni áreas asignadas.
+                    {esAdminTotal && !personaComp && <> Elige a alguien arriba para ver cómo va.</>}
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
+                          {['Máquina o área', 'Validación de proceso', 'Condiciones y 5S'].map((h, i) => (
+                            <th key={h} style={{ padding: '9px 12px', textAlign: i === 0 ? 'left' : 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filas.map((f) => (
+                          <tr key={f.id} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)', background: f.pendiente ? '#FFFBFB' : 'transparent' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#002060', textAlign: 'left' }}>{f.nombre}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}><Marca e={f.proceso} /></td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}><Marca e={f.cincoS} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Como auditado ────────────────────────────────────────── */}
+              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden', marginBottom: '1.2rem' }}>
+                <div style={{ padding: '.9rem 1.2rem', borderBottom: '2px solid #E8EEF8', textAlign: 'left' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Como auditado · mis resultados
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    {auditado.total > 0
+                      ? `${auditado.aprobadas} aprobadas y ${auditado.conHallazgos} con hallazgos, ${auditado.hallazgos} hallazgos en total.`
+                      : 'Todavía no te han auditado en este periodo.'}
+                  </div>
+                </div>
+                {auditado.detalle.length > 0 && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
+                          {['Fecha', 'Máquina', 'Tipo', 'Cumplimiento', 'Hallazgos', 'Auditor'].map((h, i) => (
+                            <th key={h} style={{ padding: '9px 12px', textAlign: i <= 1 ? 'left' : 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditado.detalle.map((d) => (
+                          <tr key={d.id} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
+                            <td style={{ padding: '8px 12px', textAlign: 'left', whiteSpace: 'nowrap' }}>{d.fecha}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#002060' }}>{d.maquina}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '10px', color: '#5A6A80' }}>
+                              {d.tipo === '5S' ? 'Condiciones' : 'Proceso'}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              <span style={{ fontWeight: 800, color: d.cumplimiento === null ? '#8A9AB0' : d.cumplimiento >= 90 ? '#0F7A55' : d.cumplimiento >= 70 ? '#D4840A' : '#C8102E' }}>
+                                {d.cumplimiento === null ? '—' : `${d.cumplimiento}%`}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              {d.hallazgos === 0
+                                ? <span style={{ color: '#0F7A55', fontWeight: 700, fontSize: '10px' }}>Sin hallazgos</span>
+                                : <span style={{ color: '#C8102E', fontWeight: 800 }}>{d.hallazgos}</span>}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '10.5px', color: '#5A6A80' }}>{d.auditor || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Su Gantt ─────────────────────────────────────────────── */}
+              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden' }}>
+                <div style={{ padding: '.9rem 1.2rem', borderBottom: '2px solid #E8EEF8', textAlign: 'left' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Mis hallazgos abiertos
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    Los que salieron en mis auditorías y siguen sin cerrarse. Seguridad primero, luego lo
+                    más vencido.
+                  </div>
+                </div>
+                {susHallazgos.length === 0 ? (
+                  <div style={{ padding: '22px', textAlign: 'center', color: '#0F7A55', fontSize: '12px', fontWeight: 600 }}>
+                    Sin hallazgos abiertos.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Máquina</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Desviación</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Compromiso</th>
+                          {diasGantt.map((d, i) => (
+                            <th key={i} style={{ padding: '2px', fontSize: '7.5px', color: '#8A9AB0', fontWeight: 600, width: '16px' }}>{d.diaNum}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {susHallazgos.map((h) => (
+                          <tr key={`${h.docId}-${h.hallazgoIdx}`} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
+                            <td style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#003580', whiteSpace: 'nowrap' }}>{h.maquinaNombre}</td>
+                            <td style={{ padding: '7px 10px', textAlign: 'left' }}>
+                              {h.seguridad && (
+                                <span style={{ background: '#C8102E', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>SEGURIDAD</span>
+                              )}
+                              {h.hallazgo}
+                              <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{h.accion || 'Sin acción'}</div>
+                            </td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontWeight: 700, color: h.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#7A4500' }}>
+                                {h.fechaCierre}
+                              </span>
+                              {h.estado === 'PENDIENTE_ATRASADO' && (
+                                <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{h.diasVencido} días tarde</div>
+                              )}
+                            </td>
+                            {diasGantt.map((col, i) => {
+                              const dentro = col.iso >= h.fechaAuditoria && col.iso <= (h.fechaCierre || todayStr);
+                              return (
+                                <td key={i} style={{
+                                  border: '1px solid rgba(0,32,96,0.05)', padding: 0, height: '22px',
+                                  background: dentro ? (h.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#D4840A') : 'transparent'
+                                }}></td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.6, marginTop: '12px', padding: '0 4px', textAlign: 'left' }}>
+                Las máquinas asignadas salen de la matriz de supervisores por familia, que hoy vive en
+                código. «Como auditor» reconoce las auditorías nuevas por nómina; las anteriores al
+                2 de octubre de 2026 solo guardaban el nombre escrito a mano, así que ahí se comparan
+                por nombre y una edición de ese campo puede escaparse.
               </div>
             </div>
           );
