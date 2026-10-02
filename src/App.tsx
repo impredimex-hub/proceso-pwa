@@ -355,6 +355,14 @@ export const App: React.FC = () => {
   /** Solo para los hallazgos fuera del checklist (SPEC-010). */
   const [seguridadNuevoHallazgoModal, setSeguridadNuevoHallazgoModal] = useState(false);
   /** El punto cuyo historial se está viendo (SPEC-009 y SPEC-011). */
+  /**
+   * Lo que se cerró en esta visita al tablero (SPEC-014).
+   *
+   * Vive en memoria, no en la base: al salir del tablero se vacía, así que el
+   * tablero sigue sin acumular hallazgos cerrados entre visitas.
+   */
+  const [cerradosAhora, setCerradosAhora] = useState<Set<string>>(new Set());
+
   const [puntoHistorial, setPuntoHistorial] = useState<
     { maquinaId: string; puntoId?: number; texto: string; maquinaNombre: string } | null
   >(null);
@@ -419,6 +427,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     setSupervisorNomina('');
   }, [maquinaSeleccionada, vista]);
+
+  /* Al salir del tablero se olvida lo que se cerró ahí (SPEC-014). Se conserva
+     mientras se está viendo, para confirmar el cambio y poder deshacerlo; al
+     volver, el tablero vuelve a mostrar solo lo abierto. */
+  useEffect(() => {
+    if (vista !== 'HISTORIAL' || subVistaHistorial !== 'GANTT') {
+      setCerradosAhora((prev) => (prev.size === 0 ? prev : new Set()));
+    }
+  }, [vista, subVistaHistorial]);
 
   useEffect(() => {
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
@@ -1099,9 +1116,23 @@ export const App: React.FC = () => {
         };
         const docRef = doc(db, 'evaluaciones_proceso', docId);
         await updateDoc(docRef, { hallazgos: nuevosHallazgos });
+
+        // Se conserva a la vista lo que se acaba de cerrar, y se suelta lo que
+        // se acaba de reabrir (SPEC-014).
+        setCerradosAhora((prev) => {
+          const sig = new Set(prev);
+          const llave = `${docId}|${hallazgoIdx}`;
+          if (nuevoEstado === 'TERMINADO') sig.add(llave);
+          else sig.delete(llave);
+          return sig;
+        });
       }
     } catch (error) {
+      // Antes esto solo iba a la consola: una escritura fallida se veía igual
+      // que no haber hecho nada, y el renglón se quedaba como estaba sin que
+      // nadie supiera por qué.
       console.error('Error al actualizar:', error);
+      alert('No se pudo guardar el cambio de estatus. Revisa tu conexión e inténtalo de nuevo.');
     }
   };
 
@@ -1120,7 +1151,7 @@ export const App: React.FC = () => {
      tres de una vez, sin tocar su dibujo. */
   const hallazgosPlanos = aplanarHallazgos(historialPermitido as any, todayStr);
 
-  const hallazgosFiltradosGantt = tableroAbiertos(hallazgosPlanos)
+  const hallazgosFiltradosGantt = tableroAbiertos(hallazgosPlanos, cerradosAhora)
     .filter((p) => {
       if (filtroOrigenGantt && p.tipoAuditoria !== filtroOrigenGantt) return false;
       if (filtroMaquinaGantt && p.maquinaNombre !== filtroMaquinaGantt) return false;
@@ -2682,7 +2713,13 @@ export const App: React.FC = () => {
                           const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
                           return (
-                            <tr key={`gantt-row-${item.docId}_${idx}`} style={{ borderBottom: '1px solid #E8EEF8', background: idx % 2 === 0 ? '#ffffff' : '#f8f9ff' }}>
+                            <tr key={`gantt-row-${item.docId}_${idx}`} style={{
+                              borderBottom: '1px solid #E8EEF8',
+                              // El recién cerrado se atenúa: sigue a la vista
+                              // para confirmarlo, pero deja de pesar (SPEC-014).
+                              opacity: estatus === 'TERMINADO' ? .55 : 1,
+                              background: estatus === 'TERMINADO' ? '#F4FAF7' : idx % 2 === 0 ? '#ffffff' : '#f8f9ff'
+                            }}>
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>{idx + 1}</td>
                               <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaAuditoria}</td>
                               <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
@@ -2723,16 +2760,31 @@ export const App: React.FC = () => {
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaFin}</td>
                               <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700 }}>{diasTotal}</td>
                               <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
+                                {/* Al cerrar, el renglón ya no desaparece: se
+                                    queda marcado como cerrado para confirmar el
+                                    cambio y poder deshacerlo (SPEC-014). */}
                                 <button
                                   onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
+                                  title={estatus === 'TERMINADO'
+                                    ? 'Cerrado. Toca otra vez para reabrirlo; al salir del tablero deja de mostrarse.'
+                                    : 'Marcar como terminado'}
                                   style={{
-                                    padding: '4px 8px', borderRadius: '10px', border: 'none', fontSize: '10px', fontWeight: 700, cursor: 'pointer', width: '100%',
+                                    padding: '4px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, cursor: 'pointer', width: '100%',
+                                    fontFamily: 'inherit',
+                                    border: estatus === 'TERMINADO' ? '1px solid #0F7A55' : 'none',
                                     background: estatus === 'TERMINADO' ? '#E0F2EC' : estatus === 'PENDIENTE_ATRASADO' ? '#F9E8EB' : '#FDF0D8',
                                     color: estatus === 'TERMINADO' ? '#085041' : estatus === 'PENDIENTE_ATRASADO' ? '#7A0B1D' : '#7A4500'
                                   }}
                                 >
-                                  {estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}
+                                  {estatus === 'TERMINADO'
+                                    ? '✓ CERRADO'
+                                    : estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}
                                 </button>
+                                {estatus === 'TERMINADO' && (
+                                  <div style={{ fontSize: '8.5px', color: '#085041', marginTop: '3px', lineHeight: 1.3 }}>
+                                    Toca para deshacer
+                                  </div>
+                                )}
                               </td>
                               {diasGantt.map((diaCol, dIdx) => {
                                 const enRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
