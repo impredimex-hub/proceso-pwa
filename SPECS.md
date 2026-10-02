@@ -1064,6 +1064,59 @@ Conviene corregirlo del lado de Control.
 
 ---
 
+---
+
+# SPEC-018 — El periodo en tres controles
+
+**Estado:** implementada el 2 de octubre de 2026.
+
+### Por qué
+
+La SPEC-017 metió los 19 meses en una sola lista. Funcionaba, pero para llegar
+a un mes había que recorrerla entera, y cada mes que Calidad cargue la hace más
+larga. En un año serán 31.
+
+### Cómo queda
+
+| Control | Qué ofrece |
+|---|---|
+| **Año** | Todos los años · 2026 · 2025 |
+| **Mes** | Todo el año · los meses **de ese año** con datos |
+| **Últimos 3 meses** | Botón aparte |
+
+Ninguna lista pasa de trece renglones, y no crecen con los años: un año nuevo
+agrega **una** opción al primer control, no doce al único.
+
+### Reglas de negocio
+
+- **El mes depende del año y está bloqueado hasta elegirlo.** «Julio» a secas
+  sería ambiguo —¿el de 2025 o el de 2026?— y ofrecer los dos devolvería la
+  lista larga que esto viene a resolver.
+- **Cambiar de año limpia el mes.** Julio de 2026 no significa nada si ahora se
+  está mirando 2025.
+- **Solo el año abarca el año completo**, de enero a diciembre.
+- **El atajo de tres meses va aparte, y no cabía en ninguno de los dos**: cruza
+  el año —mayo a julio de 2026 hoy, pero noviembre a enero cuando toque—. Al
+  activarlo bloquea los dos selectores, porque mandar sobre ellos sin decirlo
+  sería confuso.
+- **Cualquier cambio de periodo cierra la tarjeta abierta.** Lo que mostraba ya
+  no corresponde al periodo que se está mirando.
+- **Sin filtro, la pantalla dice qué está viendo**: cuántos meses y de cuándo a
+  cuándo. Antes el histórico completo era el estado mudo.
+
+### Lo que se retiró
+
+**La tarjeta «Explican el 80%»** del resumen. El dato no se perdió: sigue
+pintando en rojo a las máquinas que lo explican, y el inicio lo resume. Como
+tarjeta competía con los dos números que de verdad se leen —metros rechazados y
+máquinas con rechazos— sin aportar una tercera cosa.
+
+**El nombre.** «Dónde se concentran los rechazos» describía el dato;
+**«Prioridades a revisar»** describe para qué sirve, que es lo que la pantalla
+hace desde la SPEC-013.
+
+---
+
 # Decisiones de estas specs
 
 Las tres primeras quedaron resueltas por Ingeniería de Procesos el **29 de

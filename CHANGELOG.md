@@ -6,6 +6,38 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.10.0] — 2026-10-02
+
+### Cambiado
+
+- **El periodo pasa de una lista a tres controles** (SPEC-018): **Año**, **Mes**
+  y el botón **Últimos 3 meses**. Los 19 meses en una sola lista obligaban a
+  recorrerla entera, y cada mes que Calidad cargue la hacía más larga.
+
+  Ahora ninguna lista pasa de trece renglones, y no crecen con los años: un año
+  nuevo agrega una opción al primer control, no doce al único.
+
+  El mes depende del año y está bloqueado hasta elegirlo, porque «julio» a secas
+  sería ambiguo. Cambiar de año limpia el mes. Solo el año abarca enero a
+  diciembre. El atajo de tres meses va aparte porque cruza el año, y mientras
+  está activo bloquea los dos selectores.
+
+  Sin filtro, la pantalla ahora dice qué está viendo —19 meses, de enero 2025 a
+  julio 2026— en vez de quedarse muda.
+
+- **«Dónde se concentran los rechazos» pasa a «Prioridades a revisar».** El
+  nombre anterior describía el dato; el nuevo describe para qué sirve.
+
+### Retirado
+
+- **La tarjeta «Explican el 80%»** del resumen. El dato no se perdió: sigue
+  pintando en rojo a esas máquinas y el inicio lo resume. Como tarjeta competía
+  con los dos números que de verdad se leen sin aportar una tercera cosa.
+
+  Verificado con 15 casos de la pantalla montada.
+
+---
+
 ## [2.9.0] — 2026-10-01
 
 ### Agregado
