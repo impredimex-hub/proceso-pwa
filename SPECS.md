@@ -296,6 +296,114 @@ preguntas que sí se hacen —dónde intervengo, qué procedimiento corregir, qu
 Las auditorías de prueba se borraron el 29 de septiembre de 2026. La colección
 `evaluaciones_proceso` arranca vacía; las plantillas se conservaron.
 
+---
+
+## SPEC-020 — El catálogo de máquinas y zonas vive en Mantenimiento
+
+**Actor** — Todas las pantallas que listan máquinas o áreas. La captura, los
+filtros por familia, la cobertura, el ranking, el plano y Comportamiento.
+
+### El problema
+
+El listado de equipo estaba escrito en `App.tsx`. Cada vez que entraba una
+máquina o salía una que ya no existe, había que tocar el código y volver a
+publicar. Y no era la única copia: Mantenimiento tenía la suya, con otros
+nombres y otros identificadores.
+
+El resultado medible al comparar las dos listas el 2 de octubre de 2026:
+
+| | |
+|---|---|
+| Coincidían exactamente | 21 de 33 |
+| En Procesos y no en Mantenimiento | ZEI1 |
+| Auditadas en planta y ausentes de Procesos | PEG3, REV5, REV7 |
+| En Procesos y sin existir en planta | REV8 |
+| Con otro nombre en cada app | Omega/OME1, Depuradora/DEP1, Depuradora acondicionado/DEP2 |
+| Áreas de 5S que Mantenimiento no tenía | Las 7 |
+
+Es el mismo problema que tenía la lista de personal antes de que RRHH se
+quedara con ella, y se resuelve igual: un dueño, y los demás leen.
+
+### Las dos llaves
+
+Ninguna de las dos apps puede cambiar su identificador sin perder historial:
+
+- Las **OT de Mantenimiento** guardan la máquina **por nombre** (`'Omega'`), no
+  por id. Renombrarla a `OME1` dejaría huérfanas las órdenes ya levantadas.
+- Las **auditorías de Procesos** guardan `maquinaId: 'FL1'`, mientras
+  Mantenimiento la tiene como `mq01`.
+
+Así que la ficha carga las dos llaves y nadie migra nada:
+
+| Campo | Para qué | Quién lo usa |
+|---|---|---|
+| `id` | Llave del documento | Mantenimiento |
+| `nombre` | Lo que muestran las OT | Mantenimiento |
+| `desc` | Advertencia con ⚠ al elegir equipo | Mantenimiento |
+| `clave` | `FL1`, `area-tintas` | Procesos |
+| `familia` | Reemplaza al `tipo` de Procesos | Procesos |
+| `descripcion` | Texto legible: «Flexográfica 1» | Procesos |
+| `usos.cincoS` / `usos.proceso` | Reemplazan a `modulo5S` / `moduloProceso` | Procesos |
+| `naves` | En qué naves aplica | Ambas |
+| `activo` | Una baja desaparece de las dos a la vez | Ambas |
+
+Las zonas van en una colección aparte, `manto_db/zonas`, no revueltas con
+`maquinas`. Si estuvieran ahí aparecerían en el selector de equipo al levantar
+una OT y contarían como máquina en el cálculo de disponibilidad.
+
+### Flujo principal
+
+1. La app arranca con el catálogo **guardado en el dispositivo**. Si nunca se ha
+   guardado ninguno, con `CATALOGO_LOCAL`, la lista escrita en el código.
+2. Al margen del render, se lee `manto_db/catalogoVer`: un número de unos quince
+   bytes que Mantenimiento mueve solo cuando el catálogo cambia.
+3. Si coincide con el guardado, **no se baja nada más**.
+4. Si cambió, se bajan `manto_db/maquinas` y `manto_db/zonas`, se traducen a la
+   forma de esta app y se guardan.
+5. El catálogo nuevo entra en la **siguiente apertura**.
+
+### Por qué entra en la siguiente apertura y no al instante
+
+Cambiar las listas debajo de alguien que está capturando una auditoría es peor
+que esperar un arranque. Un catálogo de máquinas cambia unas cuantas veces al
+año; no hay nada que ganar con la inmediatez.
+
+### Postcondiciones
+
+- Las pantallas reciben una lista ya armada al cargar el módulo, igual que
+  cuando estaba escrita. Ninguna cambió de forma.
+- Lo bajado queda guardado para el próximo arranque.
+
+### Qué pasa si falla
+
+Nada. Sin red, con las reglas mal puestas o con el proyecto caído, la app queda
+exactamente como estaba antes de esta spec:
+
+| Situación | Resultado |
+|---|---|
+| Falla la lectura | Se sigue con lo guardado; si no hay, con `CATALOGO_LOCAL` |
+| Mantenimiento devuelve vacío | **No se guarda.** Casi siempre significa que algo salió mal del otro lado, no que la planta se quedó sin máquinas |
+| `localStorage` no se puede escribir | Se perdió el viaje, no la app |
+| Lo guardado está corrupto | Se descarta y se usa `CATALOGO_LOCAL` |
+
+### Consumo
+
+Mantenimiento vive en Realtime Database, que cobra por **bytes bajados**, no por
+documentos leídos. Sin el sello de versión, cada apertura bajaría las 56 fichas
+—unos 8 KB— para descubrir que son las mismas de ayer. Con el sello, el costo de
+régimen son quince bytes por apertura, y los 8 KB se pagan solo cuando el
+catálogo cambió de verdad.
+
+El SDK de Realtime Database suma unos 130 KB al paquete (≈35 KB comprimido).
+
+### Lo que no resuelve
+
+El **plano de nave** sigue escrito en el código, con sus coordenadas. Dice que
+REV5 y REV7 se retiraron y que REV8 existe, lo contrario de lo que quedó en el
+catálogo. Un elemento del plano que apunte a una clave que ya no está no rompe
+nada —se pinta como «Sin auditorías»—, pero el dibujo necesita corregirse con
+las posiciones reales.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

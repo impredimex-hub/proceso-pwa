@@ -6,6 +6,54 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.12.0] — 2026-10-02
+
+### Cambiado
+
+- **El catálogo de máquinas y zonas ya no vive aquí** (SPEC-020). Su dueño es la
+  app de Mantenimiento; esta app lo lee.
+
+  Era el mismo problema que tenía la lista de personal antes de centralizarla en
+  RRHH: dos copias de lo mismo, actualizadas a distinto ritmo. Al compararlas,
+  solo **21 de 33** registros coincidían. Faltaban PEG3, REV5 y REV7, que sí se
+  auditan; sobraba REV8, que no existe en planta; y tres máquinas tenían un
+  nombre distinto en cada app.
+
+  **La app arranca con el catálogo guardado en el dispositivo** y pregunta a
+  Mantenimiento en segundo plano si cambió. Lo que se baje entra en la siguiente
+  apertura, para no cambiarle las listas debajo a quien esté capturando.
+
+  Si la lectura falla, se sigue con lo último guardado y, si nunca se guardó
+  nada, con la lista escrita en el código. Un corte de red deja la app como
+  estaba antes de este cambio.
+
+### Agregado
+
+- `src/services/catalogo.ts`. Lee el catálogo de Mantenimiento con caché y
+  respaldo. Antes de bajar las fichas consulta `manto_db/catalogoVer`, un número
+  de unos quince bytes, y solo descarga las listas completas cuando cambió:
+  Realtime Database cobra por bytes bajados, y sin esto cada apertura costaría
+  8 KB para descubrir que el catálogo es el mismo de ayer.
+
+### Corregido
+
+- **REV8 sale del catálogo**: no existe en planta.
+- **PEG3, REV5 y REV7 entran**: se auditan y faltaban.
+- Omega, Depuradora y Depuradora acondicionado quedan como **OME1**, **DEP1** y
+  **DEP2**, que es como ya estaban aquí. En Mantenimiento conservan su nombre
+  porque las OT guardan la máquina por nombre y renombrarlas dejaría huérfanas
+  las órdenes ya levantadas.
+
+### Pendiente
+
+- **ZEI1** existe aquí y no en Mantenimiento. Hasta que se dé de alta allá, el
+  catálogo que llega trae 34 registros en lugar de 35.
+- El **plano de nave** sigue escrito en el código y contradice al catálogo: dice
+  que REV5 y REV7 se retiraron y que REV8 existe. No rompe nada —un elemento sin
+  máquina se pinta como «Sin auditorías»— pero el dibujo necesita corregirse.
+
+---
+
 ## [2.11.0] — 2026-10-02
 
 ### Agregado
