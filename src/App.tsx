@@ -19,6 +19,8 @@ import {
   nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas
 } from './utils/comportamiento';
 import { catalogoGuardado } from './services/catalogo';
+import { otsAbiertasDe, levantarOT, etiquetaStatus } from './services/ot';
+import type { OTAbierta } from './services/ot';
 
 (window as any).db = db;
 
@@ -94,6 +96,16 @@ interface Maquina {
   tipo: string;
   moduloProceso: boolean;
   modulo5S: boolean;
+  /**
+   * Cómo llama Mantenimiento a esta máquina, y en qué naves está (SPEC-021).
+   *
+   * Los dos hacen falta para levantar una OT, y los dos los trae el catálogo
+   * de Mantenimiento. Opcionales porque `CATALOGO_LOCAL` —el respaldo escrito
+   * aquí— no los tiene: mientras la app trabaje con el respaldo, el paso de
+   * órdenes de trabajo no se ofrece.
+   */
+  nombreManto?: string;
+  naves?: string[];
 }
 
 const CATALOGO_LOCAL: Maquina[] = [
@@ -439,6 +451,64 @@ export const App: React.FC = () => {
   const [puntosSoloReincidentes, setPuntosSoloReincidentes] = useState<number[]>([]);
   const [hallazgos, setHallazgos] = useState<Record<string, Hallazgo>>({});
   const [guardando, setGuardando] = useState(false);
+
+  /* ── SPEC-021: revisar las OT de Mantenimiento al cerrar el check ──
+     El auditor sigue parado frente a la máquina, con el hallazgo fresco. Es el
+     único momento en que va a hacer algo al respecto. */
+  const [otPaso, setOtPaso] = useState<'NO' | 'PREGUNTA' | 'LISTA' | 'ALTA'>('NO');
+  const [otContexto, setOtContexto] = useState<{
+    clave: string; equipo: string; naves: string[]; nombre: string;
+    tipo: 'PROCESO' | '5S'; fecha: string; auditor: string; hallazgos: string[];
+  } | null>(null);
+  const [otAbiertas, setOtAbiertas] = useState<OTAbierta[]>([]);
+  const [otCargando, setOtCargando] = useState(false);
+  const [otErrorLectura, setOtErrorLectura] = useState('');
+  const [otDesc, setOtDesc] = useState('');
+  const [otNave, setOtNave] = useState('');
+  const [otPrioridad, setOtPrioridad] = useState<'Normal' | 'Urgente'>('Normal');
+  const [otEnviando, setOtEnviando] = useState(false);
+  const [otResultado, setOtResultado] = useState<{ folio: string; sinAviso: boolean } | null>(null);
+
+  const cerrarPasoOT = () => {
+    setOtPaso('NO'); setOtContexto(null); setOtAbiertas([]);
+    setOtErrorLectura(''); setOtDesc(''); setOtNave('');
+    setOtPrioridad('Normal'); setOtResultado(null);
+    setVista('HISTORIAL');
+    setSubVistaHistorial('AUDITORIAS');
+  };
+
+  const consultarOTs = async (clave: string) => {
+    setOtPaso('LISTA');
+    setOtCargando(true);
+    setOtErrorLectura('');
+    const r = await otsAbiertasDe(clave);
+    setOtAbiertas(r.ots);
+    // Importa distinguir «no hay ninguna» de «no se pudieron consultar». Si se
+    // confunden, el auditor levanta una OT duplicada creyendo que no había.
+    setOtErrorLectura(r.estado === 'error' ? (r.motivo || 'no se pudieron consultar') : '');
+    setOtCargando(false);
+  };
+
+  const enviarOT = async () => {
+    if (!otContexto || otEnviando) return;
+    setOtEnviando(true);
+    const r = await levantarOT({
+      clave: otContexto.clave,
+      equipo: otContexto.equipo,
+      nave: otNave,
+      desc: otDesc,
+      prioridad: otPrioridad,
+      solicitante: usuarioActivo?.nombre || otContexto.auditor,
+      nomina: usuarioActivo?.nomina || '',
+      auditoriaTipo: otContexto.tipo,
+      auditoriaFecha: otContexto.fecha,
+      auditor: otContexto.auditor,
+      hallazgoTexto: otContexto.hallazgos.join(' | ')
+    });
+    setOtEnviando(false);
+    if (r.estado === 'ok') setOtResultado({ folio: r.folio || '', sinAviso: !!r.sinAviso });
+    else alert('No se pudo levantar la orden: ' + (r.motivo || 'error desconocido') + '\n\nLa auditoría ya quedó guardada. Puedes levantarla desde la app de Mantenimiento.');
+  };
   const [historial, setHistorial] = useState<any[]>([]);
 
   // Filtros Gantt
@@ -924,15 +994,53 @@ export const App: React.FC = () => {
         createdAt: serverTimestamp()
       });
 
-      alert('✅ Auditoría guardada correctamente.');
+      // SPEC-021: con hallazgos sobre una máquina, se ofrece revisar las OT
+      // abiertas antes de salir. Solo si hay hallazgos: una auditoría limpia no
+      // tiene nada que mandar a Mantenimiento, y preguntar siempre convertiría
+      // el paso en algo que se contesta «no» por costumbre.
+      //
+      // `nombreManto` tiene que estar: es el nombre con que la orden guarda la
+      // máquina. Sin él no se puede levantar nada, y una caché anterior a esta
+      // spec no lo trae. Se resuelve solo en la siguiente apertura, cuando el
+      // catálogo se vuelve a bajar.
+      const maq = maquinaSeleccionada;
+      const ofrecerOT =
+        listaHallazgos.length > 0 &&
+        !!maq &&
+        maq.tipo !== 'Área Auxiliar' &&
+        !!maq.nombreManto;
+
+      if (ofrecerOT && maq) {
+        setOtContexto({
+          clave: maq.id,
+          equipo: maq.nombreManto || maq.id,
+          naves: maq.naves && maq.naves.length ? maq.naves : [],
+          nombre: maq.nombre,
+          tipo: tipoAuditoriaActiva,
+          fecha: todayStr,
+          auditor: auditor.trim(),
+          // El campo es `hallazgo`; los otros dos son por si una plantilla
+          // vieja lo guardó con otro nombre.
+          hallazgos: listaHallazgos.map((x: any) =>
+            String(x?.hallazgo || x?.descripcion || x?.texto || '').trim()
+          ).filter(Boolean)
+        });
+        setOtNave(maq.naves && maq.naves.length ? maq.naves[0] : '');
+        setOtPaso('PREGUNTA');
+      } else {
+        alert('✅ Auditoría guardada correctamente.');
+      }
+
       setRespuestas({});
       setPuntosSoloReincidentes([]);
       setHallazgos({});
       setOrdenTrabajo('');
       setNominaAuditado('');
       setSupervisorNomina('');
-      setVista('HISTORIAL');
-      setSubVistaHistorial('AUDITORIAS');
+      if (!ofrecerOT) {
+        setVista('HISTORIAL');
+        setSubVistaHistorial('AUDITORIAS');
+      }
     } catch (error) {
       console.error('Error:', error);
       alert('Error al guardar en Firebase.');
@@ -3861,6 +3969,245 @@ export const App: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* ── SPEC-021: PASO DE ÓRDENES DE TRABAJO ────────────────────────────
+          Aparece al cerrar un check con hallazgos sobre una máquina. Son tres
+          momentos de una sola pregunta: si quiere revisar, qué hay abierto, y
+          si levanta una nueva. */}
+      {otPaso !== 'NO' && otContexto && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 32, 96, 0.65)', backdropFilter: 'blur(8px)',
+          zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px'
+        }}>
+          <div style={{
+            background: '#ffffff', borderRadius: '18px', maxWidth: '560px', width: '100%',
+            maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)', overflow: 'hidden'
+          }}>
+            <div style={{ padding: '1rem 1.3rem', borderBottom: '1px solid #E8EEF8', background: '#F8FAFD' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#002060' }}>
+                Mantenimiento · {otContexto.nombre}
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
+                Auditoría guardada con {otContexto.hallazgos.length} hallazgo{otContexto.hallazgos.length === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            <div style={{ padding: '1.1rem 1.3rem', overflowY: 'auto', flex: 1, minWidth: 0 }}>
+
+              {/* ── 1. La pregunta ── */}
+              {otPaso === 'PREGUNTA' && (
+                <div>
+                  <div style={{ fontSize: '13.5px', color: '#1F2937', lineHeight: 1.5, marginBottom: '14px' }}>
+                    Algunos hallazgos de condiciones los atiende Mantenimiento.
+                    ¿Quieres revisar las órdenes abiertas de esta máquina antes de salir?
+                  </div>
+                  <div style={{ background: '#F8FAFD', border: '1px solid #E8EEF8', borderRadius: '10px', padding: '10px 12px', marginBottom: '16px' }}>
+                    {otContexto.hallazgos.slice(0, 4).map((t, i) => (
+                      <div key={i} style={{ fontSize: '12px', color: '#5A6A80', padding: '3px 0' }}>· {t}</div>
+                    ))}
+                    {otContexto.hallazgos.length > 4 && (
+                      <div style={{ fontSize: '11.5px', color: '#8A97A8', paddingTop: '3px' }}>
+                        y {otContexto.hallazgos.length - 4} más
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button onClick={() => consultarOTs(otContexto.clave)} style={{
+                      flex: '1 1 200px', minWidth: 0, padding: '11px 14px', border: 'none', borderRadius: '8px',
+                      background: '#002060', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+                    }}>Ver órdenes abiertas</button>
+                    <button onClick={cerrarPasoOT} style={{
+                      flex: '1 1 140px', minWidth: 0, padding: '11px 14px', borderRadius: '8px',
+                      background: '#fff', color: '#5A6A80', border: '1px solid #D5DCE6',
+                      fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                    }}>No hace falta</button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── 2. Qué hay abierto ── */}
+              {otPaso === 'LISTA' && (
+                <div>
+                  {otCargando && (
+                    <div style={{ fontSize: '13px', color: '#5A6A80', padding: '18px 0', textAlign: 'center' }}>
+                      Consultando Mantenimiento…
+                    </div>
+                  )}
+
+                  {!otCargando && otErrorLectura && (
+                    <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: '10px', padding: '12px 14px', marginBottom: '14px' }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#9A3412', marginBottom: '3px' }}>
+                        No se pudieron consultar las órdenes
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#9A3412', lineHeight: 1.45 }}>
+                        {otErrorLectura}. No sé si hay alguna abierta, así que
+                        revisa en la app de Mantenimiento antes de levantar una
+                        nueva para no duplicarla.
+                      </div>
+                    </div>
+                  )}
+
+                  {!otCargando && !otErrorLectura && otAbiertas.length === 0 && (
+                    <div style={{ fontSize: '13px', color: '#1F2937', lineHeight: 1.5, marginBottom: '14px' }}>
+                      Esta máquina no tiene órdenes abiertas.
+                    </div>
+                  )}
+
+                  {!otCargando && otAbiertas.length > 0 && (
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '7px' }}>
+                        {otAbiertas.length} orden{otAbiertas.length === 1 ? '' : 'es'} abierta{otAbiertas.length === 1 ? '' : 's'}
+                      </div>
+                      {otAbiertas.map((o) => (
+                        <div key={o.id} style={{
+                          border: '1px solid #E8EEF8', borderLeft: o.prioridad === 'Urgente' ? '3px solid #C8102E' : '3px solid #B8D0EA',
+                          borderRadius: '8px', padding: '9px 11px', marginBottom: '7px', background: '#FCFDFE'
+                        }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', fontFamily: 'ui-monospace, monospace' }}>{o.folio}</span>
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#5A6A80', background: '#EEF3FA', padding: '1px 6px', borderRadius: '4px' }}>
+                              {etiquetaStatus(o.status)}
+                            </span>
+                            {o.prioridad === 'Urgente' && (
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#fff', background: '#C8102E', padding: '1px 6px', borderRadius: '4px' }}>Urgente</span>
+                            )}
+                            {o.origen === 'AUDITORIA' && (
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#1A4A7A', background: '#E8F0FB', padding: '1px 6px', borderRadius: '4px' }}>De auditoría</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#1F2937', marginTop: '4px', lineHeight: 1.4 }}>{o.desc}</div>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: '11.5px', color: '#8A97A8', lineHeight: 1.45, marginTop: '9px' }}>
+                        Si alguna ya cubre lo que encontraste, no levantes otra.
+                        El seguimiento se hace en la app de Mantenimiento.
+                      </div>
+                    </div>
+                  )}
+
+                  {!otCargando && (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                      <button onClick={() => {
+                        setOtDesc(otContexto.hallazgos.join('. '));
+                        setOtPaso('ALTA');
+                      }} style={{
+                        flex: '1 1 200px', minWidth: 0, padding: '11px 14px', border: 'none', borderRadius: '8px',
+                        background: '#C8102E', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+                      }}>Levantar orden nueva</button>
+                      <button onClick={cerrarPasoOT} style={{
+                        flex: '1 1 120px', minWidth: 0, padding: '11px 14px', borderRadius: '8px',
+                        background: '#fff', color: '#5A6A80', border: '1px solid #D5DCE6',
+                        fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                      }}>Listo</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── 3. El alta ── */}
+              {otPaso === 'ALTA' && !otResultado && (
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                    Qué necesita atención
+                  </div>
+                  <textarea
+                    id="ot-desc"
+                    value={otDesc}
+                    onChange={(e) => setOtDesc(e.target.value)}
+                    rows={4}
+                    style={{
+                      width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: '13px',
+                      border: '1px solid #D5DCE6', borderRadius: '8px', fontFamily: 'inherit',
+                      resize: 'vertical', lineHeight: 1.45
+                    }}
+                  />
+                  <div style={{ fontSize: '11.5px', color: '#8A97A8', margin: '4px 0 12px' }}>
+                    Viene de tus hallazgos. Ajústalo a lo que Mantenimiento necesita saber.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                    <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Nave</div>
+                      <select id="ot-nave" value={otNave} onChange={(e) => setOtNave(e.target.value)} style={{
+                        width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: '13px',
+                        border: '1px solid #D5DCE6', borderRadius: '8px', background: '#fff'
+                      }}>
+                        {otContexto.naves.length === 0 && <option value="">Sin nave en el catálogo</option>}
+                        {otContexto.naves.map((n) => <option key={n} value={n}>NAVE {n}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Prioridad</div>
+                      <select id="ot-prioridad" value={otPrioridad} onChange={(e) => setOtPrioridad(e.target.value as 'Normal' | 'Urgente')} style={{
+                        width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: '13px',
+                        border: '1px solid #D5DCE6', borderRadius: '8px', background: '#fff'
+                      }}>
+                        <option value="Normal">Normal</option>
+                        <option value="Urgente">Urgente</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#F8FAFD', border: '1px solid #E8EEF8', borderRadius: '8px', padding: '9px 11px', fontSize: '11.5px', color: '#5A6A80', lineHeight: 1.5, marginBottom: '14px' }}>
+                    Se levanta como <b>{otContexto.equipo}</b> y queda marcada como
+                    originada en auditoría. Asignar técnico y darle seguimiento se
+                    hace en la app de Mantenimiento.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={enviarOT}
+                      disabled={otEnviando || !otDesc.trim() || !otNave}
+                      style={{
+                        flex: '1 1 200px', minWidth: 0, padding: '11px 14px', border: 'none', borderRadius: '8px',
+                        background: (otEnviando || !otDesc.trim() || !otNave) ? '#B8C4D4' : '#C8102E',
+                        color: '#fff', fontSize: '13px', fontWeight: 700,
+                        cursor: (otEnviando || !otDesc.trim() || !otNave) ? 'default' : 'pointer'
+                      }}
+                    >{otEnviando ? 'Levantando…' : 'Levantar la orden'}</button>
+                    <button onClick={() => setOtPaso('LISTA')} disabled={otEnviando} style={{
+                      flex: '1 1 120px', minWidth: 0, padding: '11px 14px', borderRadius: '8px',
+                      background: '#fff', color: '#5A6A80', border: '1px solid #D5DCE6',
+                      fontSize: '13px', fontWeight: 600, cursor: otEnviando ? 'default' : 'pointer'
+                    }}>Regresar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── El acuse ── */}
+              {otResultado && (
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '6px' }}>
+                    Orden {otResultado.folio} registrada
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#1F2937', lineHeight: 1.5, marginBottom: '14px' }}>
+                    Quedó en Mantenimiento como {otContexto.equipo}, marcada como
+                    originada en auditoría.
+                  </div>
+                  {otResultado.sinAviso && (
+                    <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: '10px', padding: '12px 14px', marginBottom: '14px' }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#9A3412', marginBottom: '3px' }}>
+                        El aviso no salió
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#9A3412', lineHeight: 1.45 }}>
+                        La orden está registrada, pero no se pudo mandar la
+                        notificación al equipo. La van a ver cuando abran la app.
+                        Si es urgente, avísales directo.
+                      </div>
+                    </div>
+                  )}
+                  <button onClick={cerrarPasoOT} style={{
+                    width: '100%', padding: '11px 14px', border: 'none', borderRadius: '8px',
+                    background: '#002060', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+                  }}>Listo</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DEL LAYOUT ISOMÉTRICO 3D CON PASILLOS AMPLIOS */}
       {modalLayout3DAbierto && (
