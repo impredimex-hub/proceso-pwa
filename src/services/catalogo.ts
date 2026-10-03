@@ -49,8 +49,12 @@ const CONFIG_MANTO = {
 };
 
 const NOMBRE_APP = 'manto';
-const LLAVE_CACHE = 'catalogoManto';
-const LLAVE_VERSION = 'catalogoMantoVer';
+// La `v2` es la forma de la ficha, no la versión del catálogo. Al cambiar de
+// forma —la SPEC-021 le sumó `nombreManto` y `naves`— la llave cambia también,
+// así que una caché vieja simplemente no se encuentra y se baja de nuevo. Es
+// más seguro que leer una ficha incompleta y escribir una OT mal armada.
+const LLAVE_CACHE = 'catalogoManto.v2';
+const LLAVE_VERSION = 'catalogoMantoVer.v2';
 
 /** La forma que esta app necesita. `tipo` es la `familia` de Mantenimiento. */
 export interface MaquinaCatalogo {
@@ -59,6 +63,19 @@ export interface MaquinaCatalogo {
   tipo: string;
   moduloProceso: boolean;
   modulo5S: boolean;
+  /**
+   * El nombre con que Mantenimiento conoce la máquina (SPEC-021).
+   *
+   * Hace falta para levantar una OT: el campo `equipo` de una orden guarda el
+   * **nombre**, no la clave, y para tres máquinas no coinciden —Omega/OME1,
+   * Depuradora/DEP1, Depuradora acondicionado/DEP2—. Escribir la clave ahí
+   * crearía una OT que nadie puede ligar a una máquina.
+   *
+   * Opcional porque una caché guardada antes de la SPEC-021 no lo trae.
+   */
+  nombreManto?: string;
+  /** Naves donde está. También la pide la OT. */
+  naves?: string[];
 }
 
 /* ── Lo que manda Mantenimiento ────────────────────────────────────────── */
@@ -69,6 +86,7 @@ interface FichaManto {
   nombre?: string;
   familia?: string;
   descripcion?: string;
+  naves?: string[];
   usos?: { cincoS?: boolean; proceso?: boolean };
   activo?: boolean;
 }
@@ -103,7 +121,9 @@ const traducir = (f: FichaManto): MaquinaCatalogo | null => {
     nombre: desc && desc !== clave ? `${clave} (${desc})` : clave,
     tipo: (f.familia || 'Sin familia').trim(),
     moduloProceso: proceso,
-    modulo5S: cincoS
+    modulo5S: cincoS,
+    nombreManto: nombre,
+    naves: Array.isArray(f.naves) ? f.naves : []
   };
 };
 
@@ -112,7 +132,10 @@ const traducirZona = (f: FichaManto): MaquinaCatalogo | null => {
   const clave = (f.clave || '').trim();
   const nombre = (f.nombre || '').trim();
   if (!clave || !nombre || f.activo === false) return null;
-  return { id: clave, nombre, tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true };
+  return {
+    id: clave, nombre, tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true,
+    nombreManto: nombre, naves: Array.isArray(f.naves) ? f.naves : []
+  };
 };
 
 /* ── Caché ─────────────────────────────────────────────────────────────── */
