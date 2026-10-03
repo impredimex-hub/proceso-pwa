@@ -18,6 +18,7 @@ import type { Periodo } from './utils/merma';
 import {
   nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas
 } from './utils/comportamiento';
+import { catalogoGuardado } from './services/catalogo';
 
 (window as any).db = db;
 
@@ -79,7 +80,14 @@ export interface UserProfile {
 
 let USUARIOS_SISTEMA: UserProfile[] = [];
 
-// --- CATÁLOGO DE MÁQUINAS Y ÁREAS ---
+// --- CATÁLOGO DE MÁQUINAS Y ÁREAS (SPEC-020) ---
+//
+// El dueño de esta lista es la app de Mantenimiento. Lo que sigue es el
+// respaldo: con lo que arranca la app la primera vez, y a lo que se vuelve si
+// la lectura falla. Ver `services/catalogo.ts`.
+//
+// Lo que se baje de Mantenimiento entra en la siguiente apertura, no al
+// instante, para no cambiarle las listas debajo a alguien que esté capturando.
 interface Maquina {
   id: string;
   nombre: string;
@@ -88,7 +96,7 @@ interface Maquina {
   modulo5S: boolean;
 }
 
-const CATALOGO: Maquina[] = [
+const CATALOGO_LOCAL: Maquina[] = [
   { id: 'FL1', nombre: 'FL1 (Flexográfica 1)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL2', nombre: 'FL2 (Flexográfica 2)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
   { id: 'FL3', nombre: 'FL3 (Flexográfica 3)', tipo: 'Flexografía', moduloProceso: true, modulo5S: true },
@@ -105,12 +113,14 @@ const CATALOGO: Maquina[] = [
   { id: 'REF3', nombre: 'REF3 (Refiladora 3)', tipo: 'Refilado', moduloProceso: true, modulo5S: true },
   { id: 'PEG1', nombre: 'PEG1 (Pegadora 1)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
   { id: 'PEG2', nombre: 'PEG2 (Pegadora 2)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
+  { id: 'PEG3', nombre: 'PEG3 (Pegadora 3)', tipo: 'Pegado', moduloProceso: true, modulo5S: true },
   { id: 'REV1', nombre: 'REV1 (Revisadora 1)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV2', nombre: 'REV2 (Revisadora 2)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV3', nombre: 'REV3 (Revisadora 3)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV4', nombre: 'REV4 (Revisadora 4)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV5', nombre: 'REV5 (Revisadora 5)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV6', nombre: 'REV6 (Revisadora 6)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'REV8', nombre: 'REV8 (Revisadora 8)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  { id: 'REV7', nombre: 'REV7 (Revisadora 7)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'DEP2', nombre: 'DEP2 (Depuración Etiquetas)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
@@ -123,6 +133,11 @@ const CATALOGO: Maquina[] = [
   { id: 'area-prep', nombre: 'Área Pre-prensa', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
   { id: 'area-cal', nombre: 'Laboratorio Calidad', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true }
 ];
+
+// Lo guardado manda sobre el respaldo. Es una lectura síncrona de
+// localStorage, así que las pantallas siguen recibiendo una lista ya armada al
+// cargar el módulo, igual que cuando estaba escrita aquí.
+const CATALOGO: Maquina[] = catalogoGuardado() ?? CATALOGO_LOCAL;
 
 const FAMILIAS_TODAS = Array.from(new Set(CATALOGO.map((m) => m.tipo)));
 const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
