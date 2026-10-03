@@ -6,6 +6,50 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.13.0] — 2026-10-02
+
+### Agregado
+
+- **Levantar una OT de Mantenimiento al cerrar un check de condiciones**
+  (SPEC-021). Si la auditoría dejó hallazgos sobre una máquina, la app pregunta
+  si quieres revisar las órdenes abiertas, te las muestra, y si ninguna cubre lo
+  que encontraste puedes levantar una nueva sin salir.
+
+  El momento en que alguien va a hacer algo con un hallazgo de condiciones es
+  cuando todavía está frente a la máquina. Antes había que acordarse, salir y
+  abrir la otra app, y en la práctica el hallazgo se quedaba en el reporte.
+
+  **Solo levanta.** Asignar técnico, actividades, refacciones y cierre siguen
+  siendo de la app de Mantenimiento.
+
+  La OT queda marcada como originada en auditoría, con la fecha, el auditor y el
+  hallazgo. Es lo que permite saber después cuántas OT nacen de auditorías y
+  cuántas se cierran.
+
+- `src/services/ot.ts`. Lee las OT abiertas de una máquina y levanta nuevas.
+
+  No consulta `manto_db/ots`: las reglas de Mantenimiento no tienen `.indexOn`,
+  así que una consulta filtrada descargaría el nodo completo —de 123 a 613 KB
+  por revisión— y Realtime Database cobra por bytes bajados. Lee el índice que
+  publica Mantenimiento, unos 525 bytes, y solo de la máquina que se auditó.
+
+  El folio se aparta con una transacción en el servidor, así que no choca con
+  una alta simultánea desde Mantenimiento. Si el servidor no confirma, no se
+  levanta nada: un folio inventado desde aquí chocaría con una orden real.
+
+### Cambiado
+
+- El catálogo trae dos campos más desde Mantenimiento: `nombreManto` y `naves`.
+  El `equipo` de una OT guarda el **nombre** de la máquina, no la clave, y para
+  tres no coinciden (Omega/OME1, Depuradora/DEP1, Depuradora acondicionado/DEP2).
+
+  La caché cambió de llave (`catalogoManto.v2`), así que la guardada se descarta
+  y se baja de nuevo. Mientras no estén esos campos el paso de OT no se ofrece:
+  en la primera apertura después de actualizar no aparece, y entra en la
+  siguiente.
+
+---
+
 ## [2.12.0] — 2026-10-02
 
 ### Cambiado

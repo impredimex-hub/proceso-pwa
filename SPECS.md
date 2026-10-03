@@ -404,6 +404,121 @@ catálogo. Un elemento del plano que apunte a una clave que ya no está no rompe
 nada —se pinta como «Sin auditorías»—, pero el dibujo necesita corregirse con
 las posiciones reales.
 
+---
+
+## SPEC-021 — Levantar una OT de Mantenimiento al cerrar el check
+
+**Actor** — Quien audita 5S y condiciones, parado frente a la máquina.
+
+### El problema
+
+Un check de condiciones encuentra cosas que esta app no puede resolver: una
+guarda suelta, una fuga, un extractor que no jala. Las atiende Mantenimiento.
+
+Antes el auditor tenía que acordarse, salir, abrir la otra app y buscar si ya
+había una OT por lo mismo. En la práctica eso no pasa, y el hallazgo se queda en
+el reporte. El momento en que alguien va a hacer algo al respecto es cuando
+todavía está frente a la máquina.
+
+### Flujo principal
+
+1. Se guarda la auditoría como siempre.
+2. **Si hay hallazgos y es una máquina** —no una zona—, la app pregunta si
+   quiere revisar las órdenes abiertas. Una auditoría limpia no tiene nada que
+   mandar, y preguntar siempre convertiría el paso en algo que se contesta «no»
+   por costumbre.
+3. Se leen las OT abiertas de esa máquina y se muestran con folio, estatus,
+   prioridad y descripción.
+4. Si alguna ya cubre el hallazgo, el auditor cierra y no levanta nada.
+5. Si no, levanta una nueva: la descripción viene prellenada con sus hallazgos y
+   puede ajustarla, elegir nave y prioridad.
+6. La OT se registra en Mantenimiento y se avisa al equipo.
+
+### Lo que esta app hace y lo que no
+
+**Solo levanta.** Tomar la orden, asignar técnico, registrar actividades,
+refacciones, pausas y cierre siguen siendo de la app de Mantenimiento, que es
+donde vive ese flujo completo. Esta app escribe en dos rutas y nada más.
+
+### El folio
+
+El contador vive en `manto_db/folioSig` y lo comparten las dos apps. Se aparta
+con una **transacción**, que el servidor atiende de una en una, así que dos altas
+simultáneas no se llevan el mismo número.
+
+A diferencia de Mantenimiento, aquí **no hay respaldo con contador local**: si el
+servidor no confirma, no se levanta nada y se pide intentar otra vez. Un folio
+inventado desde esta app chocaría con una orden real y nadie podría rastrearlo.
+
+### La escritura
+
+Las dos rutas van en una sola operación, que Realtime Database aplica de forma
+atómica:
+
+| Ruta | Qué lleva |
+|---|---|
+| `manto_db/ots/<folio>` | La OT completa, con la forma de Mantenimiento |
+| `manto_db/abiertasPorMaquina/<clave>/<folio>` | El resumen para el índice |
+
+Así no puede quedar una OT que esta app no vea en el índice, ni una entrada de
+índice sin orden detrás.
+
+### Las dos llaves, otra vez
+
+El campo `equipo` de una OT guarda el **nombre** de la máquina, no la clave. Para
+tres máquinas no coinciden: Omega/OME1, Depuradora/DEP1, Depuradora
+acondicionado/DEP2. Escribir la clave ahí crearía una OT que nadie puede ligar a
+una máquina.
+
+Por eso el catálogo trae `nombreManto` desde la SPEC-020, y **si falta, el paso
+no se ofrece**. Una caché guardada antes de esta spec no lo tiene, así que en la
+primera apertura después de actualizar el paso no aparece; se resuelve solo en la
+siguiente, cuando el catálogo se vuelve a bajar.
+
+### El tipo de servicio
+
+Siempre `MTTO-MAQ-PROD`, incluso cuando el hallazgo es de seguridad. En
+Mantenimiento, `MTTO-SEGURIDAD` cambia el significado de `equipo`: en lugar de la
+máquina guarda el tipo de riesgo, y la orden dejaría de poder ligarse a una
+máquina del catálogo. La urgencia de un hallazgo de seguridad viaja por
+`prioridad`, que es lo que de verdad mueve la atención del equipo.
+
+### El aviso
+
+El push no va directo a OneSignal: pasa por el mismo Worker de Cloudflare que
+usa Mantenimiento, con las nóminas que esa app publica en `manto_db/notificarA`
+ya filtradas por departamento. Pedirlas a la suite costaría leer el padrón
+completo.
+
+**Si el aviso falla la OT ya existe**, así que la pantalla lo dice en lugar de
+callarlo: «la orden está registrada, pero no se pudo mandar la notificación».
+Una OT que nadie sabe que entró es peor que no haberla levantado, porque todos
+suponen que ya está atendida.
+
+### Qué pasa si falla
+
+| Situación | Resultado |
+|---|---|
+| No se pueden leer las OT abiertas | Se dice **«no se pudieron consultar»**, nunca «no hay ninguna». Confundirlas haría que el auditor levantara una duplicada |
+| No se aparta el folio | No se levanta nada; la auditoría ya quedó guardada |
+| Falla la escritura | Lo mismo, y se ofrece hacerlo desde Mantenimiento |
+| Falla el aviso | La OT queda; se avisa al auditor que hable con el equipo |
+| El catálogo no trae `nombreManto` | El paso no se ofrece |
+
+En todos los casos **la auditoría ya está guardada antes de que empiece este
+paso**. Nada de lo que falle aquí puede perderla.
+
+### Consumo
+
+Las OT no se consultan de `manto_db/ots`. Las reglas de Mantenimiento no tienen
+`.indexOn`, así que una consulta filtrada por máquina descargaría el nodo
+completo —de 123 a 613 KB por revisión— y Realtime Database cobra por bytes
+bajados.
+
+Mantenimiento publica `abiertasPorMaquina/<clave>`, unos 525 bytes. Esta app lee
+solo la máquina que acaba de auditar, y **solo cuando el auditor contesta que sí
+quiere ver las OT**: no en cada check.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
