@@ -1004,8 +1004,21 @@ export const App: React.FC = () => {
       // spec no lo trae. Se resuelve solo en la siguiente apertura, cuando el
       // catálogo se vuelve a bajar.
       const maq = maquinaSeleccionada;
+
+      // Un punto marcado «es la misma, sigue abierta» no levanta hallazgo
+      // nuevo, pero sí es algo que sigue sin resolverse en esa máquina —y
+      // llevar varias auditorías así es justo cuando vale la pena preguntarle
+      // a Mantenimiento si alguien lo está viendo. Cuentan igual para ofrecer
+      // el paso.
+      const textosReincidentes = puntosSoloReincidentes
+        .map((pid) => {
+          const it = itemsChecklistActivo.find((i) => i.id === pid);
+          return it ? `Sigue abierto: ${it.queObservar}` : '';
+        })
+        .filter(Boolean);
+
       const ofrecerOT =
-        listaHallazgos.length > 0 &&
+        (listaHallazgos.length > 0 || textosReincidentes.length > 0) &&
         !!maq &&
         maq.tipo !== 'Área Auxiliar' &&
         !!maq.nombreManto;
@@ -1023,7 +1036,7 @@ export const App: React.FC = () => {
           // vieja lo guardó con otro nombre.
           hallazgos: listaHallazgos.map((x: any) =>
             String(x?.hallazgo || x?.descripcion || x?.texto || '').trim()
-          ).filter(Boolean)
+          ).filter(Boolean).concat(textosReincidentes)
         });
         setOtNave(maq.naves && maq.naves.length ? maq.naves[0] : '');
         setOtPaso('PREGUNTA');
@@ -3969,6 +3982,100 @@ export const App: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* ── SPEC-022: PUNTO QUE YA FALLÓ ANTES ──────────────────────────────
+          Este modal **no existía**. El estado y el manejador estaban escritos
+          desde antes, pero nada los dibujaba: al contestar NO en un punto con
+          historia, se abría un modal invisible y el hallazgo nunca se creaba.
+          El punto contaba como NO y bajaba el cumplimiento, pero la desviación
+          desaparecía: no llegaba al Gantt ni al tablero.
+
+          Y pasaba justo en los puntos que más importan, los que reinciden. */}
+      {modalReincidencia.abierto && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 32, 96, 0.65)', backdropFilter: 'blur(8px)',
+          zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px'
+        }}>
+          <div style={{
+            background: '#ffffff', borderRadius: '18px', maxWidth: '540px', width: '100%',
+            maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)', overflow: 'hidden'
+          }}>
+            <div style={{ padding: '1rem 1.3rem', borderBottom: '1px solid #E8EEF8', background: '#FFF7ED' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#9A3412' }}>
+                Este punto ya había fallado
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#9A3412', marginTop: '2px' }}>
+                {maquinaSeleccionada?.nombre} · {modalReincidencia.hallazgosPrevios.length} vez
+                {modalReincidencia.hallazgosPrevios.length === 1 ? '' : 'es'} antes
+              </div>
+            </div>
+
+            <div style={{ padding: '1.1rem 1.3rem', overflowY: 'auto', flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1F2937', marginBottom: '8px' }}>
+                {modalReincidencia.itemCheck?.queObservar || 'Punto del checklist'}
+              </div>
+
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                Lo que se levantó antes
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                {modalReincidencia.hallazgosPrevios.slice(0, 5).map((p: any, i: number) => (
+                  <div key={i} style={{
+                    border: '1px solid #E8EEF8', borderLeft: '3px solid #FDBA74',
+                    borderRadius: '8px', padding: '8px 11px', marginBottom: '6px', background: '#FCFDFE'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#1F2937', lineHeight: 1.4 }}>{p.hallazgo}</div>
+                    <div style={{ fontSize: '11px', color: '#8A97A8', marginTop: '3px' }}>
+                      {p.fechaAuditoria}{p.auditor ? ' · ' + p.auditor : ''}
+                      {p.estadoSeguimiento ? ' · ' + p.estadoSeguimiento : ''}
+                    </div>
+                    {p.accion && (
+                      <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '3px' }}>
+                        Acción: {p.accion}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {modalReincidencia.hallazgosPrevios.length > 5 && (
+                  <div style={{ fontSize: '11.5px', color: '#8A97A8' }}>
+                    y {modalReincidencia.hallazgosPrevios.length - 5} más
+                  </div>
+                )}
+              </div>
+
+              <div style={{ fontSize: '13px', color: '#1F2937', lineHeight: 1.5, marginBottom: '14px' }}>
+                ¿Lo que estás viendo ahora es una desviación nueva, o es la misma
+                que sigue sin resolverse?
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button onClick={() => handleConfirmarReincidencia(true)} style={{
+                  width: '100%', padding: '11px 14px', border: 'none', borderRadius: '8px',
+                  background: '#C8102E', color: '#fff', fontSize: '13px', fontWeight: 700,
+                  cursor: 'pointer', textAlign: 'left'
+                }}>
+                  Es una desviación nueva
+                  <div style={{ fontSize: '11.5px', fontWeight: 400, opacity: 0.9, marginTop: '2px' }}>
+                    Se levanta un hallazgo marcado como reincidente
+                  </div>
+                </button>
+                <button onClick={() => handleConfirmarReincidencia(false)} style={{
+                  width: '100%', padding: '11px 14px', borderRadius: '8px',
+                  background: '#fff', color: '#1F2937', border: '1px solid #D5DCE6',
+                  fontSize: '13px', fontWeight: 700, cursor: 'pointer', textAlign: 'left'
+                }}>
+                  Es la misma, sigue abierta
+                  <div style={{ fontSize: '11.5px', fontWeight: 400, color: '#5A6A80', marginTop: '2px' }}>
+                    No se duplica el hallazgo; el punto queda marcado como pendiente de antes
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── SPEC-021: PASO DE ÓRDENES DE TRABAJO ────────────────────────────
           Aparece al cerrar un check con hallazgos sobre una máquina. Son tres
