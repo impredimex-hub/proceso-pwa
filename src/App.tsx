@@ -467,7 +467,7 @@ export const App: React.FC = () => {
   const [otNave, setOtNave] = useState('');
   const [otPrioridad, setOtPrioridad] = useState<'Normal' | 'Urgente'>('Normal');
   const [otEnviando, setOtEnviando] = useState(false);
-  const [otResultado, setOtResultado] = useState<{ folio: string; sinAviso: boolean } | null>(null);
+  const [otResultado, setOtResultado] = useState<{ folio: string; sinAviso: boolean; motivoAviso?: string } | null>(null);
 
   const cerrarPasoOT = () => {
     setOtPaso('NO'); setOtContexto(null); setOtAbiertas([]);
@@ -506,7 +506,7 @@ export const App: React.FC = () => {
       hallazgoTexto: otContexto.hallazgos.join(' | ')
     });
     setOtEnviando(false);
-    if (r.estado === 'ok') setOtResultado({ folio: r.folio || '', sinAviso: !!r.sinAviso });
+    if (r.estado === 'ok') setOtResultado({ folio: r.folio || '', sinAviso: !!r.sinAviso, motivoAviso: r.motivoAviso });
     else alert('No se pudo levantar la orden: ' + (r.motivo || 'error desconocido') + '\n\nLa auditoría ya quedó guardada. Puedes levantarla desde la app de Mantenimiento.');
   };
   const [historial, setHistorial] = useState<any[]>([]);
@@ -4227,7 +4227,11 @@ export const App: React.FC = () => {
                     style={{
                       width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: '13px',
                       border: '1px solid #D5DCE6', borderRadius: '8px', fontFamily: 'inherit',
-                      resize: 'vertical', lineHeight: 1.45
+                      resize: 'vertical', lineHeight: 1.45,
+                      // Explícitos aunque el CSS base ya fije `color-scheme: light`:
+                      // un control que se lee mal no es un detalle de estilo, es
+                      // un campo que el usuario no puede verificar antes de enviar.
+                      background: '#ffffff', color: '#1F2937', colorScheme: 'light'
                     }}
                   />
                   <div style={{ fontSize: '11.5px', color: '#8A97A8', margin: '4px 0 12px' }}>
@@ -4239,7 +4243,8 @@ export const App: React.FC = () => {
                       <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Nave</div>
                       <select id="ot-nave" value={otNave} onChange={(e) => setOtNave(e.target.value)} style={{
                         width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: '13px',
-                        border: '1px solid #D5DCE6', borderRadius: '8px', background: '#fff'
+                        border: '1px solid #D5DCE6', borderRadius: '8px',
+                        background: '#ffffff', color: '#1F2937', colorScheme: 'light'
                       }}>
                         {otContexto.naves.length === 0 && <option value="">Sin nave en el catálogo</option>}
                         {otContexto.naves.map((n) => <option key={n} value={n}>NAVE {n}</option>)}
@@ -4249,7 +4254,8 @@ export const App: React.FC = () => {
                       <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Prioridad</div>
                       <select id="ot-prioridad" value={otPrioridad} onChange={(e) => setOtPrioridad(e.target.value as 'Normal' | 'Urgente')} style={{
                         width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: '13px',
-                        border: '1px solid #D5DCE6', borderRadius: '8px', background: '#fff'
+                        border: '1px solid #D5DCE6', borderRadius: '8px',
+                        background: '#ffffff', color: '#1F2937', colorScheme: 'light'
                       }}>
                         <option value="Normal">Normal</option>
                         <option value="Urgente">Urgente</option>
@@ -4303,6 +4309,15 @@ export const App: React.FC = () => {
                         notificación al equipo. La van a ver cuando abran la app.
                         Si es urgente, avísales directo.
                       </div>
+                      {otResultado.motivoAviso && (
+                        <div style={{
+                          fontSize: '11px', color: '#7C2D12', lineHeight: 1.4, marginTop: '7px',
+                          paddingTop: '7px', borderTop: '1px solid #FDBA74',
+                          fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word'
+                        }}>
+                          {otResultado.motivoAviso}
+                        </div>
+                      )}
                     </div>
                   )}
                   <button onClick={cerrarPasoOT} style={{
