@@ -519,6 +519,65 @@ Mantenimiento publica `abiertasPorMaquina/<clave>`, unos 525 bytes. Esta app lee
 solo la máquina que acaba de auditar, y **solo cuando el auditor contesta que sí
 quiere ver las OT**: no en cada check.
 
+---
+
+## SPEC-022 — El punto que ya falló antes
+
+**Actor** — Quien audita, al contestar NO en un punto con historia.
+
+### El problema: hallazgos que desaparecían
+
+El código preguntaba, al contestar NO en un punto que ya había fallado antes en
+esa máquina, si lo que se veía ahora era una desviación nueva o la misma sin
+resolver. Existía el estado (`modalReincidencia`) y el manejador
+(`handleConfirmarReincidencia`).
+
+**Nunca se dibujó el modal.** Nada leía `modalReincidencia.abierto` y nada
+llamaba al manejador.
+
+El efecto: el auditor contestaba NO, el punto contaba como NO y bajaba el
+cumplimiento, pero **el hallazgo no se creaba**. No llegaba al Gantt, al tablero
+de hallazgos, al ranking de puntos ni a ningún otro lado. Desaparecía sin dejar
+rastro ni aviso.
+
+Y pasaba justo en los puntos que más importan: los que reinciden. Un punto que
+falla por primera vez tomaba el camino normal y se registraba bien; uno que ya
+había fallado se perdía.
+
+El síntoma visible era un aviso de TypeScript —`handleConfirmarReincidencia`
+declarada y nunca usada— que se venía arrastrando como variable muerta de una
+refactorización. No lo era.
+
+### Flujo principal
+
+1. El auditor contesta NO en un punto que ya tuvo hallazgos en esa máquina.
+2. Se muestra lo que se levantó antes: texto, fecha, auditor, estado de
+   seguimiento y la acción que se había acordado. Hasta cinco, y el conteo del
+   resto.
+3. El auditor decide:
+
+| Elige | Qué pasa |
+|---|---|
+| **Es una desviación nueva** | Se levanta un hallazgo marcado `esReincidente: true` |
+| **Es la misma, sigue abierta** | No se duplica. El punto entra a `puntosSoloReincidentes` |
+
+4. Cambiar de opinión no deja residuo: elegir una opción deshace lo que dejó la
+   otra.
+
+### Por qué la distinción importa
+
+No es cosmética. `puntosSoloReincidentes` alimenta el ranking de puntos
+(SPEC-007): sin ella, un problema que lleva meses abierto se contaría como seis
+hallazgos distintos y parecería que falla todo el tiempo, en lugar de que falla
+una vez y nadie lo cierra. Son dos diagnósticos opuestos.
+
+### Relación con el paso de órdenes de trabajo
+
+Un punto marcado «sigue abierta» no levanta hallazgo nuevo, pero sí es algo sin
+resolver en esa máquina. Llevar varias auditorías así es justo cuando conviene
+preguntarle a Mantenimiento si alguien lo está viendo, así que **esos puntos
+también ofrecen el paso de la SPEC-021**, aunque no haya hallazgos nuevos.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

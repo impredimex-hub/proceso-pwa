@@ -6,6 +6,37 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.14.0] — 2026-10-04
+
+### Corregido
+
+- **Los hallazgos de puntos reincidentes se perdían en silencio** (SPEC-022).
+
+  Al contestar NO en un punto que ya había fallado antes en esa máquina, el
+  código abría un modal para preguntar si era una desviación nueva o la misma
+  sin resolver. **Ese modal nunca se dibujó**: existía el estado y el manejador,
+  pero nada los usaba.
+
+  El punto contaba como NO y bajaba el cumplimiento, pero el hallazgo no se
+  creaba. No llegaba al Gantt, al tablero, al ranking ni a ningún lado, y no
+  había aviso de que se hubiera perdido.
+
+  Pasaba justo en los puntos que más importan: los que reinciden. Un punto que
+  fallaba por primera vez se registraba bien; uno con historia se perdía.
+
+  El síntoma era un aviso de TypeScript —`handleConfirmarReincidencia` declarada
+  y nunca usada— que se venía arrastrando como variable muerta de una
+  refactorización.
+
+### Cambiado
+
+- **Un punto marcado «sigue abierta» también ofrece revisar las OT** (SPEC-021).
+  No levanta hallazgo nuevo, pero es algo sin resolver en esa máquina, y llevar
+  varias auditorías así es cuando más conviene preguntarle a Mantenimiento si
+  alguien lo está viendo.
+
+---
+
 ## [2.13.0] — 2026-10-02
 
 ### Agregado
