@@ -164,6 +164,8 @@ export interface ResultadoAlta {
   folio?: string;
   /** El aviso al equipo falló aunque la OT quedó registrada. */
   sinAviso?: boolean;
+  /** Por qué falló el aviso. Se muestra para no tener que adivinar. */
+  motivoAviso?: string;
   motivo?: string;
 }
 
@@ -190,7 +192,15 @@ const apartarFolio = async (bd: Awaited<ReturnType<typeof conectar>>): Promise<s
   return String(asignado).padStart(6, '0');
 };
 
-/** Avisa al equipo de mantenimiento. Nunca lanza: devuelve si lo logró. */
+/**
+ * Avisa al equipo de mantenimiento.
+ *
+ * Nunca lanza, y **dice por qué falló** en lugar de devolver un sí/no mudo.
+ * Cuando el aviso no sale, la OT ya existe y alguien tiene que decidir qué
+ * hacer; sin el motivo, ni el auditor ni quien revise el código después pueden
+ * distinguir «no hay a quién avisar» de «el servicio rechazó» o de «no se pudo
+ * llegar al servicio», que se arreglan en lugares distintos.
+ */
 const avisar = async (
   bd: Awaited<ReturnType<typeof conectar>>,
   folio: string,
@@ -198,15 +208,31 @@ const avisar = async (
   equipo: string,
   nave: string,
   urgente: boolean
-): Promise<boolean> => {
+): Promise<{ ok: boolean; motivo?: string }> => {
+  let nominas: unknown;
+  let url: string | undefined;
   try {
     const [snapNom, snapUrl] = await Promise.all([
       get(ref(bd, 'manto_db/notificarA')),
       get(ref(bd, 'manto_db/urlApp'))
     ]);
-    const nominas = snapNom.val();
-    if (!Array.isArray(nominas) || nominas.length === 0) return false;
+    nominas = snapNom.val();
+    url = snapUrl.val() || undefined;
+  } catch (e) {
+    return {
+      ok: false,
+      motivo: 'no se pudo leer la lista de destinatarios: ' +
+        (e instanceof Error ? e.message : 'error de lectura')
+    };
+  }
 
+  if (!Array.isArray(nominas) || nominas.length === 0) {
+    // Mantenimiento publica esa lista al conectarse con el padrón cargado. Si
+    // está vacía, nadie ha abierto esa app desde que se instaló el cambio.
+    return { ok: false, motivo: 'Mantenimiento todavía no publica a quién avisar' };
+  }
+
+  try {
     const r = await fetch(WORKER_PUSH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -214,12 +240,30 @@ const avisar = async (
         nominas: nominas.map(String),
         title: `${urgente ? 'URGENTE' : 'Nueva OT'} #${folio} · de auditoría`,
         message: `${desc.slice(0, 60)} - ${equipo} NAVE ${nave}`,
-        url: snapUrl.val() || undefined
+        url
       })
     });
-    return r.ok;
-  } catch {
-    return false;
+    if (!r.ok) {
+      let detalle = '';
+      try { detalle = (await r.text()).slice(0, 120); } catch { /* sin cuerpo */ }
+      return { ok: false, motivo: `el servicio de avisos respondió ${r.status}${detalle ? ': ' + detalle : ''}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    // Un `fetch` que truena sin respuesta es red o CORS.
+    //
+    // CORS es poco probable: las dos apps se publican por ruta dentro del mismo
+    // sitio —`/proceso-pwa/` y `/Mantenimiento-Impredimex/`— y para el
+    // navegador el origen es el host, no la ruta. Si el Worker acepta la
+    // llamada de Mantenimiento, tiene que aceptar ésta igual.
+    //
+    // Queda mencionado porque el mensaje del navegador no distingue los dos
+    // casos, y quien lea esto después merece saber qué ya se descartó.
+    return {
+      ok: false,
+      motivo: 'no se pudo contactar el servicio de avisos: ' +
+        (e instanceof Error ? e.message : 'sin respuesta')
+    };
   }
 };
 
@@ -312,6 +356,7 @@ export const levantarOT = async (d: DatosNuevaOT): Promise<ResultadoAlta> => {
     };
   }
 
-  const avisado = await avisar(bd, folio, ot.desc, d.equipo, d.nave, d.prioridad === 'Urgente');
-  return { estado: 'ok', folio: ot.folio, sinAviso: !avisado };
+  const aviso = await avisar(bd, folio, ot.desc, d.equipo, d.nave, d.prioridad === 'Urgente');
+  if (!aviso.ok) console.warn('[OT] el aviso no salió:', aviso.motivo);
+  return { estado: 'ok', folio: ot.folio, sinAviso: !aviso.ok, motivoAviso: aviso.motivo };
 };
