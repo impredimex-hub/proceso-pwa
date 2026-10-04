@@ -6,6 +6,38 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.15.0] — 2026-10-04
+
+### Corregido
+
+- **Los desplegables se veían vacíos en modo oscuro** (SPEC-023). El CSS base
+  declaraba `color-scheme: light dark`, heredado de la plantilla de Vite. Con el
+  sistema en modo oscuro, el navegador pintaba el texto de los `select`,
+  `option` e `input` en **blanco**, sobre el fondo blanco que les pone la app.
+
+  Se veía la caja vacía y, al desplegarla, solo la opción resaltada. Afectaba a
+  todos los controles de la app, no solo al modal de órdenes de trabajo.
+
+  La app no tiene tema oscuro —todas sus pantallas pintan colores fijos—, así
+  que ahora lo declara: `color-scheme: light`, y se retiró el bloque de tema
+  oscuro de la plantilla.
+
+### Cambiado
+
+- **Cuando el aviso de una OT no sale, la app dice por qué.** Antes solo decía
+  que no se pudo mandar, que no alcanza para saber dónde está el problema.
+  Ahora distingue tres causas, que se arreglan en lugares distintos:
+
+  | Mensaje | Qué significa |
+  |---|---|
+  | Mantenimiento todavía no publica a quién avisar | Nadie ha abierto esa app desde el cambio, o su padrón no cargó |
+  | el servicio de avisos respondió `<código>` | El Worker recibió la llamada y la rechazó |
+  | no se pudo contactar el servicio de avisos | La llamada no llegó: red, o el Worker rechazando el origen. Lo segundo es poco probable: las dos apps se publican por ruta dentro del mismo sitio, y para el navegador el origen es el host, no la ruta |
+
+  El motivo aparece en la misma tarjeta y también en la consola.
+
+---
+
 ## [2.14.0] — 2026-10-04
 
 ### Corregido

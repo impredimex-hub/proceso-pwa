@@ -578,6 +578,51 @@ resolver en esa máquina. Llevar varias auditorías así es justo cuando convien
 preguntarle a Mantenimiento si alguien lo está viendo, así que **esos puntos
 también ofrecen el paso de la SPEC-021**, aunque no haya hallazgos nuevos.
 
+---
+
+## SPEC-023 — La app es de tema claro, y hay que decirlo
+
+**Actor** — Cualquiera que tenga su sistema en modo oscuro.
+
+### El problema
+
+El CSS base declaraba `color-scheme: light dark`, heredado de la plantilla de
+Vite igual que el `text-align: center` que ya se había quitado.
+
+Esa declaración le dice al navegador que la página sabe verse en los dos modos.
+Con el sistema en oscuro, el navegador pinta los controles nativos —`select`,
+`option`, `input`, `textarea`— con **texto blanco**. Pero las pantallas de esta
+app les ponen fondo blanco fijo.
+
+Blanco sobre blanco: el usuario veía la caja de Nave y Prioridad **vacías**, y al
+desplegarlas solo aparecía la opción que el navegador resaltaba. La opción no
+resaltada era invisible.
+
+No era un problema de un modal: afectaba a todos los controles de la app, y a
+cualquiera que trabaje en modo oscuro.
+
+### La decisión
+
+Esta app **no tiene tema oscuro**. Todas sus pantallas pintan colores fijos:
+fondos `#ffffff`, texto `#002060`, acentos `#C8102E`. No existe ninguna regla
+que los cambie.
+
+Así que el CSS declara `color-scheme: light` y se retiró el bloque
+`@media (prefers-color-scheme: dark)` de la plantilla, que solo redefinía
+variables; la única que llegaba a verse era `--bg`, que ponía un fondo casi
+negro detrás de pantallas que son todas blancas.
+
+Los controles del modal de órdenes de trabajo además fijan su `color`,
+`background` y `colorScheme` explícitamente. Es redundante con la regla global,
+y a propósito: un campo que no se puede leer antes de enviarlo no es un detalle
+de estilo.
+
+### Si algún día se quiere tema oscuro
+
+Hay que diseñarlo, no declararlo: definir los colores de cada pantalla como
+variables y darles su valor oscuro. Declarar `light dark` sin hacer eso es lo
+que produjo este defecto.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
