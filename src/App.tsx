@@ -129,10 +129,10 @@ const CATALOGO_LOCAL: Maquina[] = [
   { id: 'REV1', nombre: 'REV1 (Revisadora 1)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV2', nombre: 'REV2 (Revisadora 2)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV3', nombre: 'REV3 (Revisadora 3)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
+  // Las revisadoras son cinco: 1, 2, 3, 4 y 6. REV5, REV7 y REV8 no existen en
+  // planta —comprobado en piso el 6 de octubre de 2026—. La numeración salta.
   { id: 'REV4', nombre: 'REV4 (Revisadora 4)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'REV5', nombre: 'REV5 (Revisadora 5)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'REV6', nombre: 'REV6 (Revisadora 6)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
-  { id: 'REV7', nombre: 'REV7 (Revisadora 7)', tipo: 'Revisión', moduloProceso: true, modulo5S: true },
   { id: 'DEP2', nombre: 'DEP2 (Depuración Etiquetas)', tipo: 'Depuración', moduloProceso: true, modulo5S: true },
   { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
@@ -298,13 +298,15 @@ const ELEMENTOS_LAYOUT_3D: ElementoLayout3D[] = [
   // Bloque Pegado y Depuración (Y = 260, pasillo central amplio de 65px)
   { id: 'peg1', label: 'PEG 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG1', gridX: 45, gridY: 260, width: 75, depth: 110, height: 38 },
   { id: 'peg2', label: 'PEG 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG2', gridX: 175, gridY: 260, width: 75, depth: 110, height: 38 },
-  { id: 'rev8', label: 'REV 8', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV8', gridX: 305, gridY: 260, width: 55, depth: 65, height: 25 },
   { id: 'dep2', label: 'DEP 2 (Etiquetas)', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'DEP2', gridX: 420, gridY: 260, width: 65, depth: 75, height: 28 },
 
-  // Bloque Revisadoras (Y = 445, sin REV5 ni REV7)
+  // Bloque Revisadoras (Y = 445). Son cinco: 1, 2, 3, 4 y 6, en ese orden físico.
+  // REV5 y REV7 no existen; REV8 tampoco, y estaba dibujada donde no hay nada.
+  // La fila se repartió para que quepan las cinco sin cambiar su extensión.
   { id: 'rev1', label: 'REV 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV1', gridX: 35, gridY: 445, width: 50, depth: 60, height: 24 },
-  { id: 'rev2', label: 'REV 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV2', gridX: 105, gridY: 445, width: 50, depth: 60, height: 24 },
-  { id: 'rev3', label: 'REV 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV3', gridX: 175, gridY: 445, width: 50, depth: 60, height: 24 },
+  { id: 'rev2', label: 'REV 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV2', gridX: 95, gridY: 445, width: 50, depth: 60, height: 24 },
+  { id: 'rev3', label: 'REV 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV3', gridX: 155, gridY: 445, width: 50, depth: 60, height: 24 },
+  { id: 'rev4', label: 'REV 4', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV4', gridX: 215, gridY: 445, width: 50, depth: 60, height: 24 },
   { id: 'rev6', label: 'REV 6', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REV6', gridX: 275, gridY: 445, width: 55, depth: 60, height: 25 },
 
   // Batería Cortadoras (Y escalonada con 25px de separación vertical)
@@ -4483,7 +4485,7 @@ export const App: React.FC = () => {
             </div>
 
             <div style={{ padding: '0.75rem 1.4rem', background: '#FFFFFF', borderTop: '1px solid #E8EEF8', fontSize: '11px', color: '#5A6A80', textAlign: 'center' }}>
-              Plano de Nave Acondicionado[cite: 1] · Calidad en ubicación REF4, REV5/REV7/REF4 retiradas[cite: 1].
+              Plano de Nave Acondicionado · Calidad ocupa la ubicación de REF4 · Revisadoras en piso: 1, 2, 3, 4 y 6
             </div>
           </div>
         </div>
