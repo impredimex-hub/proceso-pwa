@@ -6,6 +6,28 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.10.3] — 2026-10-06
+
+### Corregido
+
+- **Cada borrado de OT se repetía en todos los guardados siguientes.** Al
+  corregir los testigos de sincronización el 4 de octubre, la ruta de una OT
+  borrada se quedaba registrada apuntando a nada en lugar de quitarse. El
+  recorrido que busca rutas muertas la volvía a encontrar en cada guardado y
+  mandaba otra vez la orden de borrar algo que ya no estaba.
+
+  Firebase lo ignoraba, pero son bytes que se pagan y que se acumulan con cada
+  OT borrada en la sesión. Ahora la clave se quita, y si la escritura falla
+  vuelve a ponerse para que el siguiente guardado reintente.
+
+### Confirmado
+
+- **Las notificaciones push llegan a los teléfonos.** Probado con un técnico el
+  6 de octubre, con la app cerrada. Cierra lo que quedaba abierto del arreglo
+  del Worker.
+
+---
+
 ## [2.10.2] — 2026-10-04
 
 ### Corregido
@@ -38,34 +60,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
   haya vuelto a cambiar mientras tanto, porque la escritura es asíncrona y puede
   correr otra pasada en medio.
 
-### Resuelto fuera del repositorio
+### Pendiente
 
-- **Las notificaciones push estuvieron rotas del 18 de septiembre al 5 de
-  octubre de 2026.** No era un problema de esta app: al mover los repos a
-  `impredimex-hub`, el Worker de Cloudflare `mantoapp-push` siguió respondiendo
-  con `Access-Control-Allow-Origin: https://victormorenogarcia05-ux.github.io`,
-  el dominio anterior, y el navegador bloqueaba la llamada de las dos apps.
+- **Las notificaciones push llevan rotas desde que los repos se movieron a
+  `impredimex-hub`.** No es un problema de esta app: el Worker de Cloudflare
+  `mantoapp-push` responde con `Access-Control-Allow-Origin:
+  https://victormorenogarcia05-ux.github.io`, el dominio anterior, así que el
+  navegador bloquea la llamada de las dos apps.
 
-  **Dos semanas y media sin que saliera un solo aviso**, de los cinco eventos
-  que los mandan: OT nueva, técnico asignado, OT suspendida, OT concluida y
-  cierre rechazado. El tablero de OneSignal lo muestra como un hueco entre el
-  18 de septiembre y el 4 de octubre.
+  Pasó desapercibido porque `notifyPush` muestra un aviso local en la pantalla
+  **antes** de llamar al Worker, y ese aviso sí se ve. El push real moría en un
+  `console.warn` que nadie leía.
 
-  Pasó desapercibido por dos razones que conviene recordar:
-
-  1. `notifyPush` pinta un aviso local en la pantalla **antes** de llamar al
-     Worker. Ese recuadro azul sí se veía, así que parecía que la notificación
-     había salido. No es una push: es un `<div>` que la propia página dibuja.
-  2. El fallo real moría en un `console.warn` que nadie lee.
-
-  Se arregló el 5 de octubre de 2026 en el Worker, poniendo
-  `https://impredimex-hub.github.io` en `ALLOWED_ORIGINS`. No hizo falta cambiar
-  ninguna de las dos apps.
-
-  **Lección para la próxima mudanza:** el dominio no solo vive en el código de
-  las apps. Está también en el Worker de Cloudflare y en la configuración de
-  OneSignal. `urlDeLaApp()` se corrigió entonces para deducirlo de `location`;
-  el Worker se quedó atrás porque nadie lo revisó.
+  Se arregla en el Worker, cambiando ese origen por `https://impredimex-hub.github.io`.
 
 ---
 
