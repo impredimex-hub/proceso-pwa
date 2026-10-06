@@ -295,9 +295,11 @@ const ELEMENTOS_LAYOUT_3D: ElementoLayout3D[] = [
   { id: 'ref3', label: 'REF 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'REF3', gridX: 285, gridY: 120, width: 75, depth: 70, height: 30 },
   { id: 'calidad-nueva', label: 'Lab. Calidad', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'area-cal', gridX: 430, gridY: 120, width: 85, depth: 65, height: 22 },
 
-  // Bloque Pegado y Depuración (Y = 260, pasillo central amplio de 65px)
+  // Bloque Pegado y Depuración (Y = 260). Las tres pegadoras con el mismo
+  // paso de 130 px; PEG3 ocupa donde antes se dibujaba REV8, que no existe.
   { id: 'peg1', label: 'PEG 1', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG1', gridX: 45, gridY: 260, width: 75, depth: 110, height: 38 },
   { id: 'peg2', label: 'PEG 2', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG2', gridX: 175, gridY: 260, width: 75, depth: 110, height: 38 },
+  { id: 'peg3', label: 'PEG 3', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'PEG3', gridX: 305, gridY: 260, width: 75, depth: 110, height: 38 },
   { id: 'dep2', label: 'DEP 2 (Etiquetas)', tipoEntidad: 'MAQUINA', maquinaCatalogoId: 'DEP2', gridX: 420, gridY: 260, width: 65, depth: 75, height: 28 },
 
   // Bloque Revisadoras (Y = 445). Son cinco: 1, 2, 3, 4 y 6, en ese orden físico.
@@ -4406,12 +4408,6 @@ export const App: React.FC = () => {
                 {/* Suelo Nave */}
                 <polygon points="120,30  1040,30  1040,820  120,820" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
                 <rect x="120" y="30" width="920" height="790" fill="url(#grid-piso-3d)" />
-
-                {/* Pasillo Principal Central Rotulado Despejado */}
-                <rect x="130" y="275" width="900" height="55" fill="rgba(0, 32, 96, 0.025)" rx="4" />
-                <text x="580" y="308" fill="#94A3B8" fontSize="11" fontWeight="800" letterSpacing="5" textAnchor="middle">
-                  PASILLO PRINCIPAL CENTRAL
-                </text>
 
                 <text x="980" y="370" fill="#94A3B8" fontSize="12" fontWeight="800" transform="rotate(90 980,370)" letterSpacing="4">
                   SALIDA DE EMERGENCIA 🚪
