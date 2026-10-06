@@ -6,6 +6,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [2.17.0] — 2026-10-06
+
+### Corregido
+
+- **Faltaba PEG3 en el plano de nave.** Queda junto a PEG2, con el mismo tamaño
+  y el mismo paso que las otras dos pegadoras, en el lugar donde antes se
+  dibujaba REV8.
+
+### Quitado
+
+- **El rótulo «Pasillo Principal Central» y su banda sombreada.** El texto
+  quedaba tapado por las pegadoras, que se apoyan en esa misma franja, y con
+  tres máquinas encima solo iba a verse peor. El pasillo se sigue leyendo por el
+  espacio entre las filas.
+
+---
+
 ## [2.16.0] — 2026-10-06
 
 ### Corregido
