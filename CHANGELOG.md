@@ -1,710 +1,1208 @@
 # CHANGELOG
 
-Todos los cambios notables del proyecto Ingeniería de Procesos se documentan en este archivo.
+Todos los cambios notables del proyecto MantoApp se documentan en este archivo.
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
-## [2.15.0] — 2026-10-04
+## [2.10.2] — 2026-10-04
 
 ### Corregido
 
-- **Los desplegables se veían vacíos en modo oscuro** (SPEC-023). El CSS base
-  declaraba `color-scheme: light dark`, heredado de la plantilla de Vite. Con el
-  sistema en modo oscuro, el navegador pintaba el texto de los `select`,
-  `option` e `input` en **blanco**, sobre el fondo blanco que les pone la app.
+- **Ninguna OT creada en esta app llegaba a Firebase** desde la versión 2.10.0.
 
-  Se veía la caja vacía y, al desplegarla, solo la opción resaltada. Afectaba a
-  todos los controles de la app, no solo al modal de órdenes de trabajo.
+  El campo nuevo se escribía como `folioLocal: apartado.local || undefined`, y en
+  JavaScript `false || undefined` da `undefined`. Como el folio sí se aparta bien
+  del servidor, ese campo quedaba indefinido **siempre**, y Firebase rechaza ese
+  valor tirando la escritura completa:
 
-  La app no tiene tema oscuro —todas sus pantallas pintan colores fijos—, así
-  que ahora lo declara: `color-scheme: light`, y se retiró el bloque de tema
-  oscuro de la plantilla.
+  ```
+  update failed: values argument contains undefined
+  in property 'manto_db.ots.000315.folioLocal'
+  ```
 
-### Cambiado
+  La orden aparecía en la pantalla de quien la creó, porque se guarda primero en
+  el aparato, pero no salía de ahí: ningún otro dispositivo la veía.
 
-- **Cuando el aviso de una OT no sale, la app dice por qué.** Antes solo decía
-  que no se pudo mandar, que no alcanza para saber dónde está el problema.
-  Ahora distingue tres causas, que se arreglan en lugares distintos:
+  Ahora el campo solo existe cuando de verdad hubo que usar el contador local.
 
-  | Mensaje | Qué significa |
-  |---|---|
-  | Mantenimiento todavía no publica a quién avisar | Nadie ha abierto esa app desde el cambio, o su padrón no cargó |
-  | el servicio de avisos respondió `<código>` | El Worker recibió la llamada y la rechazó |
-  | no se pudo contactar el servicio de avisos | La llamada no llegó: red, o el Worker rechazando el origen. Lo segundo es poco probable: las dos apps se publican por ruta dentro del mismo sitio, y para el navegador el origen es el host, no la ruta |
+- **Una escritura fallida se daba por sincronizada.** `_snap` —el testigo de lo
+  que ya está en la nube— se marcaba **antes** de saber si la escritura
+  funcionaba. Al fallar, ninguna pasada posterior volvía a intentarlo y el dato
+  se quedaba solo en ese aparato, sin aviso.
 
-  El motivo aparece en la misma tarjeta y también en la consola.
+  Es lo que convirtió el error anterior en pérdida de datos en lugar de un
+  reintento. Ahora, si la escritura falla, los testigos se deshacen y la
+  siguiente pasada vuelve a mandar lo que no llegó. Solo se deshace lo que nadie
+  haya vuelto a cambiar mientras tanto, porque la escritura es asíncrona y puede
+  correr otra pasada en medio.
+
+### Resuelto fuera del repositorio
+
+- **Las notificaciones push estuvieron rotas del 18 de septiembre al 5 de
+  octubre de 2026.** No era un problema de esta app: al mover los repos a
+  `impredimex-hub`, el Worker de Cloudflare `mantoapp-push` siguió respondiendo
+  con `Access-Control-Allow-Origin: https://victormorenogarcia05-ux.github.io`,
+  el dominio anterior, y el navegador bloqueaba la llamada de las dos apps.
+
+  **Dos semanas y media sin que saliera un solo aviso**, de los cinco eventos
+  que los mandan: OT nueva, técnico asignado, OT suspendida, OT concluida y
+  cierre rechazado. El tablero de OneSignal lo muestra como un hueco entre el
+  18 de septiembre y el 4 de octubre.
+
+  Pasó desapercibido por dos razones que conviene recordar:
+
+  1. `notifyPush` pinta un aviso local en la pantalla **antes** de llamar al
+     Worker. Ese recuadro azul sí se veía, así que parecía que la notificación
+     había salido. No es una push: es un `<div>` que la propia página dibuja.
+  2. El fallo real moría en un `console.warn` que nadie lee.
+
+  Se arregló el 5 de octubre de 2026 en el Worker, poniendo
+  `https://impredimex-hub.github.io` en `ALLOWED_ORIGINS`. No hizo falta cambiar
+  ninguna de las dos apps.
+
+  **Lección para la próxima mudanza:** el dominio no solo vive en el código de
+  las apps. Está también en el Worker de Cloudflare y en la configuración de
+  OneSignal. `urlDeLaApp()` se corrigió entonces para deducirlo de `location`;
+  el Worker se quedó atrás porque nadie lo revisó.
 
 ---
 
-## [2.14.0] — 2026-10-04
+## [2.10.1] — 2026-10-04
 
 ### Corregido
 
-- **Los hallazgos de puntos reincidentes se perdían en silencio** (SPEC-022).
+- **`notificarA` no se llegaba a publicar**, así que Ingeniería de Procesos
+  levantaba la OT pero no tenía a quién avisar y el equipo no se enteraba.
 
-  Al contestar NO en un punto que ya había fallado antes en esa máquina, el
-  código abría un modal para preguntar si era una desviación nueva o la misma
-  sin resolver. **Ese modal nunca se dibujó**: existía el estado y el manejador,
-  pero nada los usaba.
+  `publicarNotificarA()` se llama desde `armarPersonal()`, y empieza saliéndose
+  si la conexión a Firebase todavía no está confirmada. En el arranque el padrón
+  de la suite suele llegar **antes** que esa confirmación, así que se salía sin
+  escribir; y como `armarPersonal()` solo vuelve a correr cuando cambia
+  `operativo` —que es casi nunca—, la lista no se publicaba jamás.
 
-  El punto contaba como NO y bajaba el cumplimiento, pero el hallazgo no se
-  creaba. No llegaba al Gantt, al tablero, al ranking ni a ningún lado, y no
-  había aviso de que se hubiera perdido.
-
-  Pasaba justo en los puntos que más importan: los que reinciden. Un punto que
-  fallaba por primera vez se registraba bien; uno con historia se perdía.
-
-  El síntoma era un aviso de TypeScript —`handleConfirmarReincidencia` declarada
-  y nunca usada— que se venía arrastrando como variable muerta de una
-  refactorización.
-
-### Cambiado
-
-- **Un punto marcado «sigue abierta» también ofrece revisar las OT** (SPEC-021).
-  No levanta hallazgo nuevo, pero es algo sin resolver en esa máquina, y llevar
-  varias auditorías así es cuando más conviene preguntarle a Mantenimiento si
-  alguien lo está viendo.
-
----
-
-## [2.13.0] — 2026-10-02
-
-### Agregado
-
-- **Levantar una OT de Mantenimiento al cerrar un check de condiciones**
-  (SPEC-021). Si la auditoría dejó hallazgos sobre una máquina, la app pregunta
-  si quieres revisar las órdenes abiertas, te las muestra, y si ninguna cubre lo
-  que encontraste puedes levantar una nueva sin salir.
-
-  El momento en que alguien va a hacer algo con un hallazgo de condiciones es
-  cuando todavía está frente a la máquina. Antes había que acordarse, salir y
-  abrir la otra app, y en la práctica el hallazgo se quedaba en el reporte.
-
-  **Solo levanta.** Asignar técnico, actividades, refacciones y cierre siguen
-  siendo de la app de Mantenimiento.
-
-  La OT queda marcada como originada en auditoría, con la fecha, el auditor y el
-  hallazgo. Es lo que permite saber después cuántas OT nacen de auditorías y
-  cuántas se cierran.
-
-- `src/services/ot.ts`. Lee las OT abiertas de una máquina y levanta nuevas.
-
-  No consulta `manto_db/ots`: las reglas de Mantenimiento no tienen `.indexOn`,
-  así que una consulta filtrada descargaría el nodo completo —de 123 a 613 KB
-  por revisión— y Realtime Database cobra por bytes bajados. Lee el índice que
-  publica Mantenimiento, unos 525 bytes, y solo de la máquina que se auditó.
-
-  El folio se aparta con una transacción en el servidor, así que no choca con
-  una alta simultánea desde Mantenimiento. Si el servidor no confirma, no se
-  levanta nada: un folio inventado desde aquí chocaría con una orden real.
-
-### Cambiado
-
-- El catálogo trae dos campos más desde Mantenimiento: `nombreManto` y `naves`.
-  El `equipo` de una OT guarda el **nombre** de la máquina, no la clave, y para
-  tres no coinciden (Omega/OME1, Depuradora/DEP1, Depuradora acondicionado/DEP2).
-
-  La caché cambió de llave (`catalogoManto.v2`), así que la guardada se descarta
-  y se baja de nuevo. Mientras no estén esos campos el paso de OT no se ofrece:
-  en la primera apertura después de actualizar no aparece, y entra en la
-  siguiente.
-
----
-
-## [2.12.0] — 2026-10-02
-
-### Cambiado
-
-- **El catálogo de máquinas y zonas ya no vive aquí** (SPEC-020). Su dueño es la
-  app de Mantenimiento; esta app lo lee.
-
-  Era el mismo problema que tenía la lista de personal antes de centralizarla en
-  RRHH: dos copias de lo mismo, actualizadas a distinto ritmo. Al compararlas,
-  solo **21 de 33** registros coincidían. Faltaban PEG3, REV5 y REV7, que sí se
-  auditan; sobraba REV8, que no existe en planta; y tres máquinas tenían un
-  nombre distinto en cada app.
-
-  **La app arranca con el catálogo guardado en el dispositivo** y pregunta a
-  Mantenimiento en segundo plano si cambió. Lo que se baje entra en la siguiente
-  apertura, para no cambiarle las listas debajo a quien esté capturando.
-
-  Si la lectura falla, se sigue con lo último guardado y, si nunca se guardó
-  nada, con la lista escrita en el código. Un corte de red deja la app como
-  estaba antes de este cambio.
-
-### Agregado
-
-- `src/services/catalogo.ts`. Lee el catálogo de Mantenimiento con caché y
-  respaldo. Antes de bajar las fichas consulta `manto_db/catalogoVer`, un número
-  de unos quince bytes, y solo descarga las listas completas cuando cambió:
-  Realtime Database cobra por bytes bajados, y sin esto cada apertura costaría
-  8 KB para descubrir que el catálogo es el mismo de ayer.
-
-### Corregido
-
-- **REV8 sale del catálogo**: no existe en planta.
-- **PEG3, REV5 y REV7 entran**: se auditan y faltaban.
-- Omega, Depuradora y Depuradora acondicionado quedan como **OME1**, **DEP1** y
-  **DEP2**, que es como ya estaban aquí. En Mantenimiento conservan su nombre
-  porque las OT guardan la máquina por nombre y renombrarlas dejaría huérfanas
-  las órdenes ya levantadas.
-
-### Pendiente
-
-- **ZEI1** existe aquí y no en Mantenimiento. Hasta que se dé de alta allá, el
-  catálogo que llega trae 34 registros en lugar de 35.
-- El **plano de nave** sigue escrito en el código y contradice al catálogo: dice
-  que REV5 y REV7 se retiraron y que REV8 existe. No rompe nada —un elemento sin
-  máquina se pinta como «Sin auditorías»— pero el dibujo necesita corregirse.
-
----
-
-## [2.11.0] — 2026-10-02
-
-### Agregado
-
-- **Tarjeta «Comportamiento»** en el inicio (SPEC-019). Las demás pantallas
-  miran la planta; esta mira a una persona y contesta «¿y yo cómo voy?».
-
-  - **Como auditor**: de sus máquinas asignadas, a cuáles ya les hizo su
-    revisión —de proceso y de 5S por separado— y a cuáles le falta.
-  - **Como auditado**: las auditorías que le hicieron, con su cumplimiento,
-    sus hallazgos y quién lo auditó.
-  - **Su Gantt**: los hallazgos abiertos de sus propias auditorías, con
-    seguridad primero y lo más vencido después.
-
-  Un **corte por fecha** evita que «ya la revisó» sea cierto para siempre, y el
-  **ADMIN puede ver a cualquiera**: la jefatura no tiene máquinas asignadas, así
-  que sin eso la pantalla le saldría vacía.
-
-- **Campo `nominaAuditor`** en las auditorías nuevas. Para saber quién hizo una
-  solo existía el nombre escrito a mano, que es editable. Los documentos
-  anteriores se siguen reconociendo por nombre, y la pantalla lo declara.
-
-### Cambiado
-
-- **La matriz de supervisores por máquina se movió a `utils/comportamiento.ts`.**
-  Estaba dentro de `App.tsx` mezclada con la búsqueda en el padrón y solo sabía
-  responder «¿quién atiende esta máquina?»; esta pantalla necesita lo contrario.
-  Sigue siendo una lista fija en código —la deuda técnica 2— pero ya está en un
-  solo lugar y es probable.
-
-  Archivo nuevo `src/utils/comportamiento.ts`, verificado con 40 casos de la
-  lógica y 13 de la pantalla.
-
-### Pendiente de decidir
-
-- Si esta pantalla resulta suficiente, **se retira el Gantt general**. Primero
-  hay que usarla.
+  Ahora también se publica en cuanto la conexión queda lista. Es idempotente, así
+  que una reconexión no reescribe nada si la lista sigue igual.
 
 ---
 
 ## [2.10.0] — 2026-10-02
 
-### Cambiado
+### Corregido
 
-- **El periodo pasa de una lista a tres controles** (SPEC-018): **Año**, **Mes**
-  y el botón **Últimos 3 meses**. Los 19 meses en una sola lista obligaban a
-  recorrerla entera, y cada mes que Calidad cargue la hacía más larga.
+- **Dos solicitantes creando una OT al mismo tiempo se llevaban el mismo folio**
+  (SPEC-059). El contador se leía de memoria, se usaba y se reescribía; entre
+  leer y escribir no había nada que impidiera que otro hiciera lo mismo.
 
-  Ahora ninguna lista pasa de trece renglones, y no crecen con los años: un año
-  nuevo agrega una opción al primer control, no doce al único.
+  Simulado con tres solicitantes simultáneos: `000042`, `000042`, `000042`, y el
+  contador avanzando uno en lugar de tres. Era raro que coincidieran en el mismo
+  segundo, por eso no se había visto, pero el riesgo estaba desde el principio.
 
-  El mes depende del año y está bloqueado hasta elegirlo, porque «julio» a secas
-  sería ambiguo. Cambiar de año limpia el mes. Solo el año abarca enero a
-  diciembre. El atajo de tres meses va aparte porque cruza el año, y mientras
-  está activo bloquea los dos selectores.
+  Ahora el folio lo aparta el **servidor** con una transacción, que se atiende de
+  una en una. Probado con veinte altas simultáneas desde las dos apps: veinte
+  folios distintos y contiguos. Un contador ausente, en cero, negativo o con
+  basura adentro devuelve `000001` en lugar de romperse.
 
-  Sin filtro, la pantalla ahora dice qué está viendo —19 meses, de enero 2025 a
-  julio 2026— en vez de quedarse muda.
+  Sin conexión se sigue usando el contador local —es mejor una OT con folio
+  dudoso que una OT perdida— y la orden queda marcada con `folioLocal` para
+  poder encontrarla si hubo repetido.
 
-- **«Dónde se concentran los rechazos» pasa a «Prioridades a revisar».** El
-  nombre anterior describía el dato; el nuevo describe para qué sirve.
-
-### Retirado
-
-- **La tarjeta «Explican el 80%»** del resumen. El dato no se perdió: sigue
-  pintando en rojo a esas máquinas y el inicio lo resume. Como tarjeta competía
-  con los dos números que de verdad se leen sin aportar una tercera cosa.
-
-  Verificado con 15 casos de la pantalla montada.
-
----
-
-## [2.9.0] — 2026-10-01
+- El botón **«Enviar solicitud» se deshabilita mientras se crea la orden**.
+  Apartar el folio es un viaje a la red, así que ahora hay una pausa entre el
+  toque y el cambio de pantalla donde un doble toque habría creado dos OT.
 
 ### Agregado
 
-- **Filtro de periodo en la pantalla de rechazos** (SPEC-017): todo el
-  histórico, los últimos 3 meses con datos, o cualquiera de los 19 meses.
+- **Ingeniería de Procesos puede levantar una OT** al cerrar un check de
+  condiciones, estando frente a la máquina. Solo levantar: tomar la orden,
+  asignar técnico, actividades, refacciones y cierre siguen siendo de esta app.
 
-  Todo se recalcula con el periodo —metros, defectos, participación y qué
-  máquinas explican el 80%—, porque **el perfil de una máquina cambia según el
-  mes**: en RT7 el histórico dice lagrimeo primero y julio dice raya. Un
-  promedio de veinte meses nunca lo habría mostrado.
+- **Las OT nacidas de una auditoría se distinguen.** Llevan un distintivo
+  «Auditoría» en las listas de solicitante, técnico y supervisor, y el detalle
+  muestra de qué auditoría salieron, quién las levantó y el hallazgo.
 
-  Para lograrlo se copió de Control el detalle **mes por mes** en lugar de solo
-  los totales. Pesa 10 KB, viaja en el código y no cuesta una lectura. Los
-  totales del histórico salen idénticos a los de antes.
+  Es lo que permite medir si el programa de 5S sirve de algo: cuántas OT nacen
+  de auditorías y cuántas de ésas se cierran, en lugar de suponer que el
+  hallazgo se atendió porque se levantó un papel.
 
-  «Últimos 3 meses» son los últimos **con datos**, no los del calendario: si
-  Calidad lleva meses sin cargar merma, contar meses vacíos daría un periodo
-  vacío y parecería una falla.
+- **`manto_db/abiertasPorMaquina`**, un índice de las OT abiertas de cada
+  máquina con lo justo para decidir: folio, descripción, estatus y prioridad.
 
-### Corregido
+  Procesos no consulta `ots`: las reglas no tienen `.indexOn`, así que una
+  consulta filtrada descargaría el nodo completo —de 123 a 613 KB por revisión—
+  y Realtime Database cobra por bytes bajados. Con el índice son unos 525 bytes
+  de la máquina que se auditó.
 
-- **Las tarjetas mezclaban `border` con `borderTop`.** React avisaba de que eso
-  puede dejar el estilo a medias al redibujar. Los cuatro lados van ahora por
-  separado.
+  Se mantiene por elemento, dentro del `update` que ya iba a salir: una OT que
+  cambia mueve una sola ruta.
 
-### Avisos que la pantalla ahora da
-
-- **El último mes cargado es julio de 2026**: tres meses sin merma nueva de
-  Calidad. Sin decirlo, un agosto vacío parecería un error del filtro.
-- **1 072 metros tienen un año mal capturado** —RT6 · RAYA · «2006-06»—. Cuentan
-  en el total porque Calidad también los cuenta, pero no caen en ningún mes.
-  Conviene corregirlo del lado de Control.
-
-  Verificado con 31 casos de la lógica y 8 de la pantalla.
-
----
-
-## [2.8.0] — 2026-10-01
-
-### Cambiado
-
-- **La pantalla de rechazos pasa a tarjetas de cartera** (SPEC-016). Era una
-  lista de 33 renglones con un filtro arriba; ahora es **un bloque por proceso**
-  —ordenados por lo que cuesta cada uno— y dentro, las máquinas apiladas como
-  tarjetas: cerradas solo asoma su lomo con nombre y metros, y al tocar una se
-  trae al frente con su participación en la planta y sus principales defectos,
-  cada uno con su barra.
-
-  El filtro de familia desaparece: los bloques son la agrupación. Solo una
-  tarjeta al frente a la vez. Las 33 máquinas y áreas siguen ahí, incluidas las
-  que no rechazan.
-
-### Corregido
-
-- **El botón de exportar PDF imprimía el módulo completo** (SPEC-015). Llamaba a
-  `window.print()`, así que salían el encabezado de la app, el resumen y los
-  filtros, y el cronograma se repartía en cuatro hojas.
-
-  Ahora arma un documento solo con los datos del Gantt y lo imprime: tabla en
-  horizontal, encabezado repetido en cada hoja, sin renglones partidos, y con
-  los filtros que estaban puestos anotados arriba. Usa un marco oculto en vez de
-  una ventana nueva, que el navegador bloquearía.
-
-  Verificado con 10 casos de las pantallas montadas.
-
----
-
-## [2.7.1] — 2026-10-01
-
-### Corregido
-
-- **Al cerrar un hallazgo, su renglón desaparecía del tablero en el acto**
-  (SPEC-014). Era consecuencia de la SPEC-011 —el tablero solo muestra lo
-  abierto— pero dejaba sin confirmación de que se guardó y sin manera de
-  deshacer un clic mal dado, en la única pantalla donde ese hallazgo estaba.
-
-  Ahora lo que se cierra **se queda a la vista durante la visita**: marcado
-  ✓ CERRADO en verde, atenuado, al final de la tabla y con «Toca para
-  deshacer». Al salir del tablero ese recuerdo se borra, así que al volver
-  vuelve a mostrarse solo lo abierto y la SPEC-011 sigue intacta.
-
-- **Una escritura fallida de estatus ya no se queda callada.** Antes el error
-  solo iba a la consola: el renglón se quedaba igual y la pantalla se veía
-  idéntica a no haber hecho nada. Ahora avisa, y no marca nada como cerrado.
-
-  Verificado con 6 casos de la lógica y 6 del flujo montado, incluido el de la
-  escritura que falla.
-
----
-
-## [2.7.0] — 2026-09-30
-
-### Cambiado
-
-- **«Módulo de Calidad» pasa a «Módulo de Condiciones»** en la tarjeta de
-  Condiciones y 5S. El nombre anterior se confundía con la app de Calidad, que
-  es otra cosa.
-
-- **La pantalla de cobertura se convierte en «Dónde se concentran los
-  rechazos»** (SPEC-013, retira la SPEC-008). Se retiró la lógica de días sin
-  auditar: con una semana de uso, un tablero donde 33 de 33 salían en rojo no
-  orientaba. Queda lo que sí orienta:
-
-  | Columna | Qué muestra |
-  |---|---|
-  | Metros rechazados | Lo que cuesta esa máquina, y su % de la planta |
-  | **Principales defectos** | Los cuatro que más pesan, con su % **de esa máquina** |
-
-  En rojo los defectos que pesan 30% o más, porque ahí el problema ya tiene
-  nombre: RT6 es 42.9% raya, PEG2 es 43.3% adhesivo, FL4 es 17.6% tonos.
-
-  Ordenado por metros rechazados. Las 33 filas del catálogo siguen ahí; las que
-  no rechazan caen al final y dicen «Sin rechazos registrados», que no es lo
-  mismo que un dato faltante.
-
-### Retirado
-
-Con la SPEC-008 se fueron el objetivo de 15 días, los contadores de atrasadas y
-nunca auditadas, el selector de orden y el cuadrante de cumplimiento. **La app
-deja de leer el documento `configuracion/cobertura`** —una escucha menos— aunque
-el documento sigue en Firestore por si se retoma.
-
-`src/utils/cobertura.ts` **se conserva sin usarse**, y la SPEC-008 se conserva
-completa en SPECS.md: explican un razonamiento que sigue siendo válido aunque la
-pantalla ya no lo use.
-
----
-
-## [2.6.1] — 2026-09-30
-
-Salieron de mirar las primeras 16 auditorías reales.
-
-### Corregido
-
-- **El subtítulo de la cobertura contradecía el orden activo.** Decía siempre
-  «Ordenado por abandono», incluso con el selector en «Costo»: la tabla hacía
-  una cosa y el encabezado decía otra. Ahora sigue al selector.
-
-- **El ranking enterraba la seguridad.** Un punto de seguridad fallando 3 de 4
-  veces quedaba en gris pequeño dentro de «Sin historia suficiente»,
-  indistinguible de uno al 0%. La regla del umbral es correcta para ordenar
-  —con cuatro revisiones el porcentaje es ruido— pero la SPEC-010 dice que la
-  seguridad va primero en cualquier pantalla donde compita con otra cosa.
-
-  Ahora los puntos de seguridad **que ya fallaron** salen en una banda roja
-  arriba de la tabla, con su porcentaje y su conteo, y los demás puntos de
-  seguridad llevan distintivo en el ranking. No se mueven al ranking: siguen sin
-  historia para ordenarse, pero dejan de estar escondidos.
-
-- **El ranking podía sumar dos preguntas distintas como si fueran una.**
-  Agrupaba solo por número de punto, y los números son por plantilla: el punto 7
-  de Pegado y el 7 de Flexografía no son la misma pregunta. En cuanto se
-  editara una plantilla, el ranking las habría mezclado sin avisar.
-
-  Ahora agrupa por **número y texto**. Dos preguntas distintas ya no se mezclan,
-  y una misma pregunta reescrita aparece partida en dos renglones, que es un
-  error a la vista en vez de uno silencioso. Los acentos, las mayúsculas y los
-  espacios de más no separan nada.
-
-  Verificado con 15 casos de la lógica y 4 de las pantallas.
-
----
-
-## [2.6.0] — 2026-09-29
-
-Con esto quedan **implementadas las seis specs** del cambio de enfoque.
-
-### Agregado
-
-- **Ranking de puntos que más fallan** (SPEC-007). Pantalla nueva. Agrupa las
-  respuestas por punto del checklist en vez de por auditoría, que es lo que
-  permite mejorar el procedimiento y no solo señalar la auditoría que salió mal.
-
-  - **Dos tableros que nunca se mezclan**: 5S es comparable en toda la planta;
-    proceso obliga a elegir familia, porque su checklist es distinto en cada una
-    y el «punto 4» de Pegado no es la misma pregunta que el de Flexografía.
-  - Los puntos con menos de **5 revisiones** se listan aparte y no compiten por
-    el primer lugar: uno respondido una vez y fallado daría 100%.
-  - Cada renglón se abre con el desglose **por máquina y por turno**, y la app
-    dice qué significa: si falla **parejo**, se corrige el procedimiento; si
-    falla **en un solo lado**, se atiende ahí.
-  - **No publica nombres de personas.** Un tablero por nombre cambia el
-    incentivo y degrada el dato.
-
-- **La cobertura se cruza con los metros rechazados** (SPEC-012). Dos columnas
-  nuevas —metros rechazados y la lectura del cuadrante— y, por omisión, el orden
-  lo manda el costo: primero lo atrasado, y dentro de lo atrasado, lo que más
-  rechaza. El orden por puro abandono queda a un clic.
-
-  - Los números salen del histórico de Control de Procesos, 2025 y 2026. En rojo
-    las **cuatro máquinas que explican el 80%** de la merma: RT7, RT6, FL1, FL4.
-  - El cuadrante cruza costo con cumplimiento. El caso que importa es
-    **«el checklist no pregunta lo que importa»**: una máquina que cumple bien
-    la auditoría y aun así rechaza mucho. Eso es un hallazgo sobre el checklist.
-  - **No se multiplican días por metros**: ese número escondería de cuál de los
-    dos viene la urgencia.
-  - Los porcentajes suman **98.8%** a propósito. El 1.2% restante son 15 059
-    metros de identificadores que el catálogo de esta app no tiene (`LAM`,
-    `PEG3`, `XEIKON`, `PEG1 ` con espacio…). Se dejan en el denominador para que
-    RT7 diga 36.6% aquí y 36.6% en la pantalla de Calidad, y no dos números
-    distintos.
-
-  Archivos nuevos `src/utils/ranking.ts` y `src/utils/merma.ts`, verificados con
-  56 casos de la lógica pura y 9 de las pantallas.
+- **`manto_db/notificarA`** y **`manto_db/urlApp`**, para que el aviso que manda
+  Procesos llegue a las mismas personas y abra esta app al tocarlo. La dirección
+  se publica en lugar de dejarla escrita en la otra app porque va a cambiar
+  cuando el hosting se mude a Firebase Hosting.
 
 ### Pendiente
 
-- **El resumen de merma es una copia, no una consulta**, porque las dos apps
-  están en proyectos de Firebase distintos y la cuota es por proyecto. Para que
-  se actualice solo, Control tiene que publicar ese resumen en un documento del
-  proyecto de la suite. Ese cambio es del repositorio de Control;
-  `MERMA_PUBLICADA` es el hueco donde entra.
+- Las reglas son `".write": "auth != null"`, así que Procesos —que se autentica
+  de forma anónima— puede escribir cualquier ruta de esta base. Era así desde
+  antes de este cambio, pero ahora que escribe de verdad conviene acotarlas a
+  las rutas que le corresponden.
 
 ---
 
-## [2.5.0] — 2026-09-29
+## [2.9.0] — 2026-10-02
 
 ### Agregado
 
-- **El tablero muestra solo lo que sigue abierto** (SPEC-011). El Gantt dibujaba
-  cada hallazgo de cada auditoría, incluidos los cerrados: con uso real, cientos
-  de barras. Ahora quedan los abiertos, ordenados con la seguridad al frente y
-  lo más vencido después. Arriba, un resumen de abiertos, vencidos, de seguridad
-  y reincidentes.
+- **Esta app es ahora el dueño del catálogo de máquinas y zonas de la planta**
+  (SPEC-058). Era el mismo problema que tenía la lista de personas antes de
+  centralizarla en RRHH: el listado de equipo existía en varias aplicaciones a
+  la vez, cada una actualizándose a su ritmo. Al comparar el de aquí con el de
+  Ingeniería de Procesos, solo **21 de 33** registros coincidían.
 
-  **Nada se borró ni se archivó.** Lo cerrado sigue en su auditoría y en el
-  historial de su punto; de ahí lo lee la reincidencia, así que tiene que seguir
-  siendo consultable.
+  Cada máquina lleva ahora tres campos para los que leen el catálogo:
+  **`clave`** (`OME1`, la llave con la que pregunta Procesos), **`familia`**
+  (`Suajado`) y **`usos`** (si la audita 5S, validación de proceso, o ninguna).
+  Se editan desde Administración → Catálogos → Máquinas.
 
-- **Reincidencia de verdad** (SPEC-009). Antes se detectaba buscando la palabra
-  «reincidente» dentro del texto escrito a mano, y fallaba en los dos sentidos.
-  Ahora la llave es `(maquinaId, puntoId)`: un hallazgo reincide cuando ese
-  punto ya falló en esa máquina **y aquel se cerró**. Si el anterior sigue
-  abierto no es reincidencia, es que nunca se resolvió.
+- **Zonas de planta**, nueva sección en Catálogos. Son las 7 áreas que auditan
+  5S y condiciones: tintas, baños, los dos almacenes, taller, pre-prensa y
+  laboratorio.
 
-  Junto a la etiqueta va lo que importa: la fecha en que ya falló, la acción que
-  se intentó, el responsable y cuántos días aguantó cerrado. El botón abre el
-  historial completo del punto en esa máquina.
+  Van en su propia colección, **no revueltas con las máquinas**: si estuvieran
+  ahí aparecerían en el selector de equipo al levantar una OT y contarían como
+  máquina en el cálculo de disponibilidad. No se confunden con
+  `infraestructura`, que son 53 lugares con detalle de oficinas y vestidores
+  para ubicar OT.
 
-- **Los hallazgos de seguridad se separan** (SPEC-010). Se clasifican por el
-  punto que los originó: los tres de la sección 4 del checklist de 5S más
-  «guardas, cubiertas y protecciones» de la sección 3. Aparecen con distintivo
-  rojo y van primero en el tablero.
-
-  Los hallazgos levantados fuera del checklist no tienen punto de dónde
-  deducirlo, así que ahora se pregunta con una casilla al capturarlos.
-
-- Campo **`cerradoEn`**: cuándo se marcó terminado de verdad. `fechaCierre` es
-  la fecha comprometida al levantarlo, y sin la real no se puede saber cuánto
-  aguantó un hallazgo antes de volver.
-
-  Archivo nuevo `src/utils/hallazgos.ts`, verificado con 39 casos de la lógica
-  pura y 6 de las pantallas.
-
-### Corregido
-
-- **La tabla de cobertura no se alineaba con sus encabezados.** `#root` trae un
-  `text-align: center` heredado de la plantilla de Vite y las celdas lo
-  heredaban. Se corrigió en la tabla y **no en `#root`**, que habría cambiado la
-  apariencia de toda la app.
-
----
-
-## [2.4.0] — 2026-09-29
-
-### Agregado
-
-- **Cobertura de auditoría** (SPEC-008). Pantalla nueva, con su tarjeta en el
-  inicio: las 33 máquinas y áreas ordenadas por **días desde la última
-  auditoría**, con columnas separadas para validación de proceso y para 5S,
-  porque una máquina puede estar al día en una y llevar meses sin la otra.
-
-  - **Ordenada por abandono, no alfabética.** Las que nunca se han auditado van
-    primero, y entre ellas, antes las que no tienen ninguno de los dos tipos.
-  - **«Nunca» es el caso más grave, no un dato faltante**, y se ve distinto de
-    «No aplica», que es lo que muestran las áreas auxiliares en la columna de
-    proceso porque no llevan ese tipo de auditoría.
-  - En rojo lo que alcanzó o pasó el objetivo de **15 días**; con el cursor
-    encima del número aparece la fecha exacta.
-  - El objetivo se guarda en `configuracion/cobertura` y lo cambia `ADMIN` desde
-    la misma pantalla. Es **un documento**, no una colección: una sola escucha.
-  - Se calcula sobre **todas** las auditorías, no sobre las del usuario. Un
-    supervisor que sólo viera las suyas encontraría media planta «sin auditar»
-    cuando la revisó alguien más, y ese hueco falso es lo contrario de lo que la
-    pantalla existe para mostrar.
-
-  Archivo nuevo `src/utils/cobertura.ts`, verificado con 28 casos de la lógica
-  pura y 7 de la pantalla montada.
-
-### Corregido
-
-- **Las auditorías de proceso de 22 de las 26 máquinas se leían como 5S.**
-  `resolverTipoAuditoria` deducía el tipo en lugar de creerle al documento, y
-  una de sus condiciones marcaba como 5S cualquier auditoría con respuestas en
-  una máquina que no fuera Pegado —la única con plantilla de proceso por
-  omisión—. La regla venía de reparar documentos viejos, pero también reescribía
-  en silencio los nuevos, bien guardados.
-
-  Salió al construir la SPEC-008: su columna «sin validar proceso» habría dicho
-  «Nunca» para siempre en esas 22 máquinas.
-
-  Ahora se respeta el `tipoAuditoria` guardado cuando es entendible, y la
-  deducción queda sólo como respaldo para documentos sin el campo. No existe
-  ninguno: la colección se vació el mismo día. Verificado con 12 casos.
-
-  **Toca código compartido** —el histórico, el Gantt y los filtros usan esa
-  función—, por eso se dejó el respaldo en lugar de borrar la regla anterior.
-
----
-
-## [2.3.1] — 2026-09-29
-
-### Documentado
-
-Sólo specs. **No se tocó una línea de código**: es el diseño del cambio de
-enfoque, escrito para revisarse antes de implementar.
-
-- **SPEC-007 — Ranking de puntos que más fallan.** Agrupa las `respuestas` por
-  punto del checklist en vez de por auditoría. Los dos tipos de auditoría no se
-  mezclan: 5S es comparable en toda la planta, proceso sólo dentro de su familia
-  de máquina.
-- **SPEC-008 — Cobertura: qué no se ha auditado.** Invierte la mirada de la app:
-  máquinas y zonas ordenadas por días sin auditar. Es la única de las seis que
-  sirve desde la primera auditoría.
-- **SPEC-009 — Reincidencia por punto y máquina.** Sustituye la detección actual,
-  que busca la palabra «reincidente» dentro del texto escrito a mano, por la
-  llave `(maquinaId, puntoId)`.
-- **SPEC-010 — Los hallazgos de seguridad.** Se apoya en que la sección 4 del
-  checklist de 5S ya es seguridad, así que no hace falta campo de severidad.
-- **SPEC-011 — El tablero acotado, y dónde vive lo cerrado.** El Gantt pasa a
-  mostrar sólo lo abierto. Nada se borra ni se archiva: lo cerrado debe seguir
-  siendo consultable o la SPEC-009 deja de funcionar.
-- **SPEC-012 — El foco compartido con Control de Procesos.** Cruza la cobertura
-  con los metros rechazados que esa app ya calcula. Se comparte un resumen, no
-  la base: son proyectos distintos y la cuota del plan gratuito es por proyecto.
-
-### Decidido
-
-Ingeniería de Procesos resolvió el mismo día los tres valores que bloqueaban la
-implementación. Los tres quedan configurables desde la app, no fijos en código:
-
-- **Frecuencia objetivo de auditoría: 15 días**, tanto 5S como proceso
-  (SPEC-008). Son dos revisiones al mes por máquina y por tipo; conviene
-  contrastarlo contra la capacidad real de auditoría en los primeros meses.
-- **Mínimo para entrar al ranking: 5 revisiones** (SPEC-007).
-- **Cuentan como seguridad** los tres puntos de la sección 4 del checklist de
-  5S, más «guardas, cubiertas y protecciones» de la sección 3 (SPEC-010).
-
-Sigue pendiente el contenido de la matriz defecto ↔ variable, que define una
-junta de calidad y sólo bloquea una parte de la SPEC-012.
-
-### Datos
-
-- Se borró la colección `evaluaciones_proceso` completa. Eran auditorías de
-  prueba. Las plantillas (`plantillas_checklists` y `plantillas_5s`) se
-  conservaron.
-
----
-
-## [2.3.0] — 2026-09-21
-
-### Corregido
-- **SPEC-006:** al llegar desde el portal ya no se ve la pantalla de contraseña
-  de paso. Si hay sesión aparece la marca IMPREDIMEX; si no, la contraseña al
-  instante.
+- **`manto_db/catalogoVer`**, un sello de versión de unos quince bytes que se
+  mueve solo cuando el catálogo cambia de verdad. Las otras apps lo leen antes
+  de bajar las listas completas, así que una apertura cuesta esos quince bytes
+  en lugar de los 8 KB del catálogo entero. Realtime Database cobra por bytes
+  bajados y eso se suma por aparato y por apertura.
 
 ### Cambiado
-- La pantalla «Cargando…» pasa a ser la misma marca blanca de las demás apps.
+
+- El selector de equipo y la lista de Catálogos **muestran la clave** junto al
+  nombre (`OME1 · Omega`), para que el nombre que usa Mantenimiento y el que usa
+  Procesos se vean como la misma máquina.
+
+  **El nombre no cambió**, y es a propósito: las OT guardan la máquina por
+  nombre, no por `id`. Renombrar «Omega» a «OME1» dejaría huérfanas las órdenes
+  ya levantadas. Lo que se guarda en la OT sigue siendo el nombre de siempre.
+
+### Corregido
+
+- **Se restauraron `SPECS.md` y `CHANGELOG.md`.** El upload anterior
+  (`2123abb`) los sobreescribió con los de la app de RRHH, así que este repo
+  traía las specs de `rrhh-pwa` en lugar de las suyas. Se recuperaron del
+  commit `907c4e8`. El código no se vio afectado.
+
+### Pendiente
+
+- **Dar de alta ZEI1** (impresora digital) desde Administración → Catálogos →
+  Máquinas: clave `ZEI1`, familia `Digital`, las dos auditorías marcadas. Existe
+  en Procesos y no aquí.
 
 ---
 
-## [2.2.0] — 2026-09-20
+## [2.8.0] — 2026-09-23
 
-### Cambiado
-- **SPEC-005:** encabezado estándar de la suite, el mismo de Recursos Humanos,
-  EPP y Calidad. Fijo arriba, opaco y de borde a borde; marca en Jost a la
-  izquierda, botones a la derecha; nombre y puesto centrados en pantalla ancha.
-- **El nombre de la app pasa de «Control de Proceso» a «Ingeniería de
-  Procesos»**, como la llaman el portal y el título de la página. El anterior se
-  confundía con Calidad, que se llama «Control de Procesos».
-- **La flecha de regreso va a la izquierda de la marca**, y solo fuera del
-  inicio.
-- **El botón del histórico pasa a círculo con borde**, conservando su número.
-  El relleno azul queda solo para la nómina.
+### Quitado
 
-### Agregado
-- **Panel al tocar la nómina**, con nombre, puesto, conexión, nómina y papel.
-  En el teléfono es el único lugar donde el nombre completo cabe sin cortarse.
-- **Botón de portal** y **punto de conexión** sobre la nómina.
+- **Los avisos dentro de la app** (SPEC-057): la pestaña «Avisos» del
+  solicitante, su pantalla, los siete puntos que los generaban y —lo que de
+  verdad importa— **la suscripción a esa colección**, que era el 74 % del
+  consumo de datos. El aviso lo sigue dando el push de OneSignal y el estado se
+  ve en la lista de OT.
 
 ### Corregido
-- **El encabezado se veía lavado en iOS.** Tenía transparencia y desenfoque de
-  fondo; ahora es blanco opaco.
+
+- **La pestaña «Historial» del técnico mostraba notificaciones** en lugar de sus
+  órdenes cerradas. Había dos funciones escribiendo en la misma pantalla y la
+  pestaña llamaba a la equivocada.
 
 ### Notas
-- Cerrar sesión se mudó al panel y conserva su confirmación (SPEC-002).
-- La base ya traía dos errores de TypeScript (una función sin usar y la
-  declaración de tipos de `index.css`). No bloquean la publicación, porque ésta
-  corre solo `vite build`, y este cambio no agrega ninguno.
+
+Lo ya guardado en `manto_db/notifs` se queda donde está: no lo descarga nadie,
+así que no cuesta tráfico. Se puede borrar desde la consola de Firebase.
 
 ---
 
-## [2.1.0] — 2026-09-04
-
-### Agregado
-- **SPEC-004:** El papel del usuario dentro de la app se lee del campo `roles` del
-  colaborador en la suite. Se agrega `rol` a `UserProfile`.
+## [2.7.1] — 2026-09-23
 
 ### Cambiado
-- El administrador deja de estar fijo en el código. La condición
-  `nomina === '2435'` se sustituye por `rol === 'ADMIN'`. Nombrar administradores
-  ya no requiere publicar la aplicación.
 
-### Seguridad
-- Última nómina que quedaba escrita en el código para conceder privilegios.
-  Los permisos ahora viven íntegramente en Firestore.
+- **Los tres filtros de indicadores van en un solo renglón** (SPEC-056). En
+  pantalla angosta bajan en lugar de encogerse.
+
+### Agregado
+
+- **Dos columnas en OT correctivas cerradas:** tiempo total de la orden —de
+  alta a cierre, sin descontar esperas— y los técnicos que intervinieron.
+- **Botones de Excel y PDF en cada tabla de detalle**, redondos y con el mismo
+  trazo que en Recursos Humanos. Exportan lo que se ve, en el orden que se ve,
+  y anotan los filtros usados. El PDF sale por la ventana de impresión, sin
+  agregar ninguna librería.
 
 ---
 
-## [2.0.0] — 2026-09-03
-
-Primera integración con la suite Impredimex. La app deja de ser autónoma en materia
-de identidad: el login y la lista de personal pasan a leerse del proyecto compartido
-`impredimex-suite`. Los datos propios de la app (evaluaciones, plantillas 5S y
-checklists) no se movieron.
+## [2.7.0] — 2026-09-23
 
 ### Agregado
-- **SPEC-001:** Autenticación contra Firebase Auth del proyecto suite. El usuario
-  escribe su nómina y una clave de 6 dígitos; la app compone el identificador
-  `<nómina>@impredimex.local` internamente. La sesión la administra Firebase y
-  sobrevive al recargar la página.
-- **SPEC-003:** La lista de personal se lee de la colección `colaboradores` de la
-  suite, filtrada por quienes tienen `procesos` en su campo `apps` y están activos.
-- Nuevo archivo `src/services/suite.ts` con la conexión al proyecto compartido.
-  La app ahora inicializa dos proyectos de Firebase: el propio para sus datos y el
-  de la suite, con nombre `'suite'`, para identidad y personal.
-- Pantalla de carga mientras Firebase restaura una sesión existente.
-- Mensajes de error en español para los fallos de autenticación.
-- Este CHANGELOG y el documento SPECS.md, que antes no existían.
+
+- **Filtro por máquina en los indicadores** (SPEC-055), junto a periodo y
+  técnico. Aplica a los seis indicadores; con una máquina elegida, la
+  disponibilidad se calcula sobre esa sola máquina.
+- **Las tablas de detalle se ordenan al pulsar su encabezado**, de menor a
+  mayor y al revés, con flecha. Se ordena por el dato real: las duraciones por
+  tiempo y las fechas por fecha, no por el texto de la celda.
+- Cada tabla abre con el orden más útil: los intervalos más largos, las
+  reparaciones más tardadas, los paros más largos.
+
+---
+
+## [2.6.3] — 2026-09-22
+
+### Corregido
+
+- **El administrador veía un instante la pantalla de contraseña al llegar desde
+  la suite** (SPEC-054). La restauración de sesión corría antes de que
+  existieran unas variables de su pantalla y fallaba. Ahora es la última
+  instrucción del código.
+
+### Notas
+
+- Se probó con el código real completo: con el orden anterior se reprodujo el
+  error; con el nuevo, los cuatro papeles entran directo.
+
+---
+
+## [2.6.2] — 2026-09-22
+
+### Quitado
+
+- **La pantalla azul de bienvenida** con la frase «Sumamos más cuando sumamos
+  todos» (SPEC-053). Aparecía en cada apertura y esperaba a que terminara de
+  descargarse todo más un segundo y medio; con la marca blanca nueva, se veían
+  dos pantallas de marca seguidas. Ahora Mantenimiento abre igual que las otras
+  cinco apps.
+
+---
+
+## [2.6.1] — 2026-09-22
+
+### Corregido
+
+- **El administrador quedaba ante una pantalla en blanco al volver a la app**
+  en la misma ventana (SPEC-052). Su pantalla estaba al final del archivo,
+  después del código, y la restauración de sesión corre antes de que el
+  navegador llegue ahí. Se movió junto a las de los demás papeles.
+- **La restauración de sesión ya no falla en silencio.** Registra el error y
+  regresa a la pantalla de entrada, en lugar de dejar la app a medias.
+
+### Notas
+
+- Era un defecto antiguo, no del cambio de la versión 2.6.0: solo aparece al
+  regresar a la app en la misma ventana con sesión de administrador.
+- Se reprodujo en un navegador simulado con el archivo anterior —pantalla en
+  blanco y consola sin errores, igual que en el equipo— y se comprobó que el
+  arreglo lo resuelve.
+
+---
+
+## [2.6.0] — 2026-09-21
+
+### Corregido
+
+- **Al llegar desde el portal ya no se ve la pantalla de contraseña de paso**
+  (SPEC-051). Si hay sesión aparece la marca IMPREDIMEX; si no, la contraseña
+  al instante.
+
+---
+
+## [2.5.0] — 2026-09-20
+
+### Agregado
+
+- **Encabezado estándar de la suite** (SPEC-050), el mismo de Recursos Humanos,
+  EPP, Calidad y Procesos. Uno solo arriba de todas las pantallas, para los
+  cuatro papeles; se oculta en la pantalla de entrada. Las pestañas de abajo
+  siguen siendo la navegación.
+- **Panel al tocar la nómina**, con nombre, puesto, conexión, papel y el turno
+  del técnico, más «Ir al portal» y «Cerrar sesión».
+- **Botón de portal.**
+
+### Quitado
+
+- **Las barras de título de las doce pantallas principales.** Repetían el nombre
+  de la pestaña marcada abajo.
+- **El indicador flotante de conexión** de la esquina superior, fuera de la
+  pantalla de entrada. Su punto pasó al círculo de la nómina.
+
+### Corregido
+
+- **El Excel de «Todas las OT» y el cerrar sesión del administrador eran
+  invisibles**: icono blanco sobre barra blanca. El Excel vuelve como botón
+  redondo verde; cerrar sesión, al panel.
+
+### Notas
+
+- Las barras de las subpantallas se conservan: llevan la flecha de regreso y el
+  número y estado de la OT.
+- El código que escribía los saludos de las barras retiradas se ajustó. Quitar
+  solo el elemento habría hecho fallar la app justo al entrar.
+- Se probó en un navegador simulado: entrada, técnico con su turno, supervisor
+  sin puesto, cambios de conexión de Firebase, panel y salida.
+
+---
+
+## [2.4.0] — 2026-09-17
+
+### Agregado
+
+- **Se entra con la sesión de la suite** (SPEC-049). Al llegar desde el portal o
+  desde otra aplicación, ya no se vuelve a pedir la clave, como en Recursos
+  Humanos y EPP.
+
+### Notas
+
+Esto solo es posible desde que la aplicación vive en el mismo dominio que el
+resto de la suite: la sesión de Firebase se comparte entre páginas del mismo
+origen, y mientras el repositorio estuvo en la cuenta personal no había sesión
+que adoptar.
+
+Las comprobaciones de acceso no cambian. Quien no tenga registro activo o no
+tenga concedida esta aplicación ve el motivo y se queda en la pantalla de
+acceso, sin que se cierre su sesión en las demás aplicaciones.
+
+---
+
+## [2.3.0] — 2026-09-17
 
 ### Cambiado
-- **Ruptura:** la clave de acceso pasa de 4 a 6 dígitos, por el mínimo que impone
-  Firebase Auth. Todos los usuarios necesitan una clave nueva.
-- **Ruptura:** el campo de nómina deja de ser un desplegable y pasa a ser un campo
-  de texto. La lista de personal ya no puede mostrarse antes de iniciar sesión,
-  porque las reglas de Firestore exigen sesión activa para leerla. Como efecto
-  secundario, la app ya no revela quiénes son los supervisores a quien la abra.
-- **SPEC-002:** El cierre de sesión ahora invoca `signOut` en lugar de borrar el
-  navegador local.
+
+- **La dirección de la aplicación ya no está escrita a mano** (SPEC-048). Se
+  deduce de dónde está corriendo, así que el traslado del repositorio a la
+  organización no deja los avisos push abriendo una página inexistente, y un
+  cambio futuro de cuenta o de dominio no vuelve a exigir tocar código.
+
+### Notas
+
+El nombre del repositorio no cambia, así que la ruta `/Mantenimiento-Impredimex/`
+sigue siendo válida. `manifest.json` y el trabajador de servicio de OneSignal no
+se tocaron.
+
+---
+
+## [2.2.0] — 2026-09-17
+
+### Quitado
+
+- **Los diez avisos internos dirigidos al supervisor** (SPEC-047). Nunca hubo
+  pantalla donde verlos: se escribían en la base, se descargaban a cada teléfono
+  en cada reconexión y nadie los leía. El supervisor sigue enterándose por el
+  push de OneSignal, que no toca esta base.
+- La llamada al indicador `sup-notif-dot`, que apuntaba a un elemento que no
+  existe en la pantalla.
+
+### Agregado
+
+- **Archivado automático de notificaciones.** Las del supervisor se archivan
+  todas; las del solicitante y el técnico, pasados 15 días. Se mueven a
+  `manto_db_archivo/notifs` por tandas de 200.
+
+### Notas
+
+Este era el consumo más grande de la aplicación: el perfilador de Firebase lo
+midió en 74% de toda la descarga, 291 KB por cada conexión.
+
+El gasto no lo provocaba crear avisos —esos viajan de uno en uno— sino
+conectarse: un dispositivo que se engancha recibe todos los que existan.
+
+---
+
+## [2.1.0] — 2026-09-17
+
+### Corregido
+
+- **Los tiempos de comedor consumían ancho de banda al cuadrado** (SPEC-046).
+  Estaban clasificados como catálogo, así que cada comida marcada reescribía el
+  arreglo completo y todos los dispositivos conectados lo volvían a descargar
+  entero. Ahora viajan elemento por elemento, como las órdenes de trabajo: al
+  marcar una comida solo se transmite ese registro.
+
+### Agregado
+
+- **Archivado automático de comidas de más de 30 días.** No se borran: se mueven
+  a `manto_db_archivo/comidas`, donde siguen consultables pero dejan de
+  sincronizarse con los dispositivos. Lo ejecuta un administrador al entrar.
+
+### Notas
+
+Los datos guardados con el formato anterior se migran solos la primera vez que
+un administrador abra la aplicación. No hay que hacer nada a mano.
+
+Ante una fecha ilegible el registro se conserva: perder un dato pesa más que
+sincronizar uno de más.
+
+---
+
+## [2.0.0] — 2026-09-08
+
+Integración con la suite Impredimex. Es un cambio mayor: la forma de entrar a la
+aplicación cambia por completo y las contraseñas anteriores dejan de servir.
+
+### Agregado
+- **SPEC-001 reescrita:** acceso con nómina y clave contra Firebase Auth del
+  proyecto `impredimex-suite`. La sesión sobrevive al recargar y al cerrar el
+  navegador, y se cierra con el botón de apagado del encabezado.
+- **SPEC-042:** la identidad, el nombre, el puesto, el departamento y el papel
+  vienen de la colección `colaboradores` de la suite. Esta aplicación los lee y
+  nunca los escribe: solo RRHH los modifica.
+- **SPEC-043:** nodo `operativo`, indexado por nómina, con lo que sí decide
+  Mantenimiento de cada quien. Hoy guarda los tipos de orden que atiende cada
+  técnico y sus observaciones.
+- **SPEC-045:** 24 personas con acceso, repartidas en 1 administrador,
+  2 supervisores, 7 técnicos y 14 solicitantes. Se crearon 9 cuentas nuevas.
+
+### Cambiado
+- **La elegibilidad para tomar órdenes deja de deducirse del texto del puesto.**
+  Hasta ahora se comparaba contra cadenas como `AUXILIAR DE MANTENIMIENTO`. Con
+  el puesto administrado por RRHH, un cambio de nombre allá habría dejado de
+  aplicar la regla sin mostrar ningún error, enrutando órdenes mal en silencio.
+  Ahora es un atributo explícito y configurable (SPEC-030 y SPEC-043).
+- El módulo "Catálogo de personal" pasa a llamarse "Consulta del personal y
+  configuración operativa". Las altas, bajas y correcciones se hacen en RRHH;
+  dar de baja a alguien ahí lo deja fuera de las cinco aplicaciones a la vez.
+- El campo `estatus` llega de la suite en mayúsculas. La conversión a las
+  minúsculas que usa el resto del código se hace en un solo punto, al armar
+  `DB.personal`, para no tener que tocar las once comparaciones repartidas.
 
 ### Eliminado
-- La constante con las 10 personas y sus PIN de 4 dígitos escritas en `App.tsx`.
-  Esos PIN eran visibles para cualquiera en el repositorio público y quedaron
-  invalidados.
-- El guardado de sesión en `localStorage` bajo la llave `impredimex_user_session`.
-- El parche que corregía el nombre de la nómina 2435 al restaurar la sesión; el
-  nombre ahora viene correcto desde la suite.
+- **Las cuatro contraseñas compartidas** que estaban escritas en el código de un
+  repositorio público: `solicitud`, `mantenimiento`, `administrador` e
+  `IMPREDIMEX`. Cualquiera podía entrar con el papel que quisiera escribiendo la
+  nómina de otra persona.
+- **La lista de 119 personas escrita en el código**, con sus nombres, puestos y
+  departamentos.
+- **Los seis PIN de 4 dígitos que estaban en claro**, dos de los cuales eran el
+  propio número de nómina de la persona (1332 y 2047).
+- **El campo `turno` de la ficha de personal.** No se leía desde que existe el
+  rol de turnos de la SPEC-016: quien determina si alguien está en turno es el
+  calendario, día por día. Seguía ahí invitando a configurarlo.
+- El nodo `personal` de la Realtime Database.
 
-### Seguridad
-- Ninguna credencial permanece en el repositorio. Las claves las guarda Firebase
-  Auth cifradas.
-- El acceso deja de ser implícito: tener cuenta ya no basta, hace falta el permiso
-  explícito `procesos` en el campo `apps` del colaborador.
-- **Pendiente:** los PIN anteriores siguen siendo recuperables del historial de
-  commits. Quedaron invalidados al cambiar el sistema de acceso, pero no deben
-  reutilizarse como claves nuevas.
+### Corregido
+- `renderAdmPerfil()` escribía en un elemento `adm-perfil-content` que no existe
+  en el HTML, así que lanzaba un error en cada entrada de administrador desde la
+  v4. Pasaba desapercibido porque nadie lo atrapaba. Ahora no truena, aunque la
+  pantalla de Perfil del administrador **sigue sin dibujarse**: queda pendiente.
+
+### Pendiente
+- **SPEC-036:** el PIN de 4 dígitos como candado local del dispositivo, sobre una
+  sesión ya autenticada. Está especificado pero no implementado; por ahora todos
+  entran con nómina y clave.
+- **SPEC-044:** configurar App Check y publicar las reglas de la base, en ese
+  orden. Hoy la base sigue abierta a quien conozca el proyecto.
+- Reemplazar los iconos por los de la suite, con el engrane.
+- Revisar `HANDOVER.md` y `README.md`, que mencionan las contraseñas eliminadas.
 
 ---
 
-## [1.x] — anterior a 2026-09-03
+## [1.22.1] — 2026-09-06
 
-Versiones previas a la adopción de este CHANGELOG. El historial está en los commits
-del repositorio. Incluyen los módulos de evaluaciones de proceso, plantillas 5S,
-checklists, Gantt de hallazgos y layout 3D de planta.
+### Corregido
+- **SPEC-041:** Un técnico con su única OT en estado "En espera" por **"Poner en espera"** (sin refacción, sin tiempo, esperando proveedor, etc.) seguía apareciendo como ocupado en el aviso de "técnicos ocupados" al crear una OT nueva, aunque en la práctica estuviera libre. Causa: `otActivaDeTecnico()` contaba `espera` como ocupado sin distinguir el motivo. Las pausas reales ("=" y fin de semana) sí marcan la salida del técnico y ya quedaban excluidas correctamente; el ajuste solo afecta al caso de "Poner en espera", tal como se reportó.
+- Ahora usa el mismo criterio que SPEC-027 (`status==='proceso'`), alineando ambas reglas: si el técnico puede tomar una orden nueva, tampoco debe reportarse como ocupado.
+
+---
+
+## [1.22.0] — 2026-08-29
+
+### Agregado
+- **SPEC-040: Filtro por técnico** en Indicadores de mantenimiento. **MTTR** y **OT correctivas cerradas** se recalculan por persona (tabla de detalle incluida); **MTBF, Disponibilidad, Reducción de fallas correctivas y Cumplimiento preventivo** son métricas de máquina o de programa, no de persona, y se muestran como "No aplica a nivel técnico" cuando hay un filtro activo, en vez de un número engañoso.
+
+### Corregido
+- Un descuido al construir el filtro dejó una línea vieja que sobrescribía el resultado de Cumplimiento preventivo justo después de calcularlo, deshaciendo el estado "no aplica" recién asignado. Detectado en pruebas antes de publicar; corregido.
+
+---
+
+## [1.21.0] — 2026-08-28
+
+### Agregado
+- **SPEC-039:** Cada tarjeta de Indicadores de mantenimiento ahora se puede tocar para desplegar, debajo de la cuadrícula, la tabla con los registros exactos detrás de ese número (las OT, los intervalos entre fallas, o las celdas del programa preventivo, según corresponda). Un segundo toque la cierra; tocar otra tarjeta cambia el detalle. Cambiar el periodo cierra cualquier tabla abierta.
+
+---
+
+## [1.20.0] — 2026-08-27
+
+### Agregado
+- **SPEC-037:** Botón **"Marcar como realizado"** en cada celda del calendario de Preventivo con máquina asignada. Registra fecha y quién lo marcó; no permite marcar días futuros. Es el dato que hacía falta para poder medir el cumplimiento del programa preventivo.
+- **SPEC-038: Módulo "Indicadores de mantenimiento"** en el panel de administrador, con selector de periodo (últimos 30 días, este mes, mes anterior, todo el histórico) y seis indicadores:
+  - **MTBF** (tiempo medio entre fallos) y **MTTR** (tiempo medio de reparación, neto de esperas).
+  - **Disponibilidad**, calculada sin descontar esperas (la máquina sigue indisponible para la planta aunque el técnico esté esperando refacción).
+  - **OT correctivas cerradas** y **Reducción de fallas correctivas** contra el periodo anterior.
+  - **Cumplimiento del programa preventivo**, usando los registros de SPEC-037.
+  - MTBF, MTTR, Disponibilidad y el conteo de correctivas consideran únicamente OT de tipo Maquinaria (MTTO-MAQ-PROD).
+  - Cuando no hay datos suficientes para un cálculo, se muestra "Sin datos" en vez de un número engañoso.
+
+---
+
+## [1.19.0] — 2026-08-26
+
+### Agregado
+- **SPEC-036: PIN individual de 4 dígitos.** Los técnicos ya no comparten una sola contraseña; cada uno puede tener su propio PIN.
+  - Nuevo campo **PIN individual (opcional)** en el alta/edición de personal, validado como exactamente 4 dígitos.
+  - Si una persona tiene PIN asignado, debe usarlo — la contraseña compartida del rol deja de funcionarle. Si no tiene PIN, sigue entrando como siempre.
+  - El PIN asignado se muestra en el detalle de la persona.
+  - Precargados en `DEFAULT_PERSONAL`: nóminas 638, 1049, 1332, 1827, 2047 y 2366.
+
+### Notas
+- La nómina 2431 no existe en el catálogo por defecto de este archivo (se dio de alta en la base en vivo); su PIN debe asignarse manualmente desde el panel de administrador, igual que cualquier alta futura.
+- El estatus de baja sigue bloqueando el acceso incluso con el PIN correcto.
+
+---
+
+## [1.18.0] — 2026-08-25
+
+### Agregado
+- **SPEC-035: Pausa de fin de semana.** Nuevo botón flotante, arriba del de comedor, visible solo de sábado 21:20 a lunes 06:00 y solo con una OT en curso.
+  - Pausa la OT de verdad (estatus **"En espera"**), a diferencia del botón anterior que no cambiaba el estatus.
+  - **Se reactiva sola** al llegar el lunes 06:00 — no hay ningún botón ni acción manual para reanudarla. Se verificó que a las 05:59 sigue pausada y exactamente a las 06:00 se reactiva.
+  - El tiempo de pausa se descuenta automáticamente del técnico, igual que en el resto de los mecanismos de espera.
+
+### Eliminado
+- **SPEC-012 ("Fin de mi turno"):** botón dentro del detalle de la OT, reemplazado por SPEC-035. Solo registraba la salida del técnico sin pausar visiblemente la orden ni reactivarla sola — el nuevo botón hace ambas cosas.
+
+---
+
+## [1.17.0] — 2026-08-24
+
+### Agregado
+- **SPEC-034: Tiempo de comedor.** Nuevo botón circular en la pantalla del técnico, arriba del botón de pausar ("="), visible en todo momento.
+  - **Duración automática según el turno asignado:** 30 minutos para T1/T2/T3, 45 minutos para D12/N12 (jornadas de 12 horas).
+  - Si el técnico tiene una OT en proceso, ese tiempo se descuenta solo de su intervención — la OT **no cambia de estado**, sigue en proceso.
+  - **Auto-reanudación:** pasado el tiempo límite, el descuento se detiene solo, sin necesidad de que el técnico marque su regreso.
+  - **Un uso por turno:** el botón queda deshabilitado tras usarse, hasta el siguiente turno del técnico (calculado por bloque real de horario, no solo por fecha).
+  - Un técnico en el comedor, incluso **sin** OT asignada, ahora cuenta como "ocupado" en el aviso de técnicos ocupados (SPEC-020) al crear una nueva OT, con su hora estimada de regreso.
+- Nueva colección `DB.comidas`, sincronizada como catálogo.
+
+---
+
+## [1.16.1] — 2026-08-23
+
+### Corregido
+- **SPEC-033:** Un técnico podía unirse dos veces a su propia OT en el mismo turno. Causa: `tecnicoEnTurnoActual()` comparaba la fecha de "hoy" en **UTC**, mientras que `turnoActual()` calcula el turno en **hora local**. En México (UTC-6), pasadas ~18:00 horas el reloj UTC ya marca el día siguiente, así que la comparación de fecha fallaba y el sistema dejaba de reconocer que el técnico ya estaba registrado, ofreciéndole su propia orden como "disponible".
+- Mismo patrón corregido en la fecha que se precarga al abrir "Registrar actividad" (`buildDetalleTec`), que también usaba UTC mientras la hora sí usaba local — pasadas las 18:00 en México, el formulario precargaba la fecha del día siguiente.
+- Ambos casos ahora usan `_isoDe()` (fecha en componentes locales), consistente con el resto del código de turnos.
+
+### Notas
+- El problema no era aislado a un botón: `tecnicoEnTurnoActual()` alimenta el filtro de "Disponibles", el candado de re-registro en `tomarOT`, y la regla central `puedeTomarOrden` (SPEC-032) — la corrección repara la causa una sola vez para los tres.
+
+---
+
+## [1.16.0] — 2026-08-22
+
+### Corregido
+- **SPEC-032:** "Pausar orden y tomar otra" solo ofrecía OT en estado `abierto` como destino, dejando fuera candidatas legítimas: una OT en proceso cuyo técnico ya cambió de turno (sí se podía unir desde el detalle, pero no aparecía aquí), y cualquier OT pausada, que **nadie** podía tomar todavía por ningún camino.
+- Se creó `puedeTomarOrden()`, regla única reutilizada en el detalle, en "pausar y tomar otra", y en su confirmación — antes existían copias ligeramente distintas de esta lógica en cada lugar.
+
+### Agregado
+- Una **OT pausada** ahora puede tomarla otro técnico, **solo si quien la pausó ya salió de su propio turno**. Mientras siga en el mismo turno en que la pausó, sigue siendo su responsabilidad resolverla — nadie más puede tomarla todavía, para que le dé tiempo de retomarla él mismo.
+- El detalle de una OT pausada tomable ahora muestra el botón correspondiente, con el mensaje "OT pausada — disponible para retomar".
+- Las tarjetas del modal de "pausar y tomar otra" indican cuando la candidata no es una OT simplemente abierta (reasignada o pausada).
+
+---
+
+## [1.15.0] — 2026-08-21
+
+### Corregido
+- **SPEC-031:** El botón "Rechazar" del detalle de OT no hacía nada al pulsarlo. Causa: llamaba a `mostrarRechazo(id)`, una función que nunca se había definido (`ReferenceError` en consola). Se agregó la función faltante.
+
+### Cambiado
+- El motivo del rechazo ya no es texto libre obligatorio: se presentan **cuatro motivos predefinidos** en chips (Sin reparación al 100%, Técnico aún no termina, Suciedad en máquina, Sin acuerdo en dictamen), con un campo de detalle adicional **opcional**. Seleccionar un motivo es obligatorio para poder rechazar.
+- Se agregó `ot.rechazo = {motivo, detalle, fecha}` como registro estructurado, además de lo ya existente (comentario, notificaciones y push).
+
+### Notas
+- La OT sigue regresando a estado "En proceso" al rechazar, como ya ocurría.
+
+---
+
+## [1.14.0] — 2026-08-20
+
+### Corregido
+- **SPEC-029:** Al pausar una orden con el botón "=", la orden completa pasaba a estado "En espera" aunque **otro técnico siguiera trabajando activamente en ella**. Ahora solo pasa a espera si, tras la salida, no queda nadie más activo; si alguien continúa, la orden permanece en su estado actual y se notifica con un mensaje distinto ("se retiró para atender otra orden — otro técnico continúa").
+
+### Agregado
+- **SPEC-030:** Reglas de elegibilidad por puesto para el aviso de "técnicos ocupados" (SPEC-020):
+  - **Jefe de Mantenimiento** y **Analista de Mantenimiento** nunca cuentan como disponibles para tomar OT, aunque aparezcan en el rol de turnos.
+  - **Auxiliar de Mantenimiento** solo cuenta para OT de **Infraestructura** y **Seguridad**; para Maquinaria/Producción no se considera.
+
+---
+
+## [1.13.0] — 2026-08-19
+
+### Agregado
+- **SPEC-028:** Ventanas propias (`appAlert`, `appConfirm`, `appPrompt`) en reemplazo de los diálogos nativos del navegador, para eliminar el prefijo con el dominio del sitio ("victormorenogarcia05-ux.github.io dice") que el navegador agrega y que no se puede ocultar de ninguna otra forma.
+  - **83** llamadas a `alert()` renombradas a `appAlert()`.
+  - **13** llamadas a `confirm()` convertidas a `await appConfirm()`; las 13 funciones que las contienen pasaron a `async`.
+  - **3** llamadas a `prompt()` convertidas a `await appPrompt()`.
+  - El modal reutiliza el mismo estilo visual que el resto de las ventanas de la app.
+
+### Notas
+- Se verificó que las 14 funciones convertidas a `async` se invocan solo desde `onclick`/`onchange` del HTML, nunca desde código que dependa de su retorno síncrono — la conversión no tiene efectos secundarios.
+- El texto y el orden de todos los mensajes se conservó igual; solo cambió el mecanismo de presentación.
+
+---
+
+## [1.12.3] — 2026-08-18
+
+### Corregido
+- **SPEC-027:** Un técnico con una orden **en proceso** (sin pausar) podía tomar otra directamente desde "Disponibles", sin restricción. El candado de SPEC-022 solo cubría el caso de una orden **pausada** pendiente; el caso básico —simplemente tener una en proceso— no estaba contemplado.
+- `tomarOT()` ahora bloquea también este caso, e indica usar el botón **"="** (pausar) para cambiar de orden.
+
+### Notas
+- No afecta el reingreso a la propia orden, ni la toma que acompaña al flujo de pausar.
+- Deliberadamente no bloquea si la orden propia está en `espera` por falta de refacción u otro motivo (SPEC-008): esa suspensión es distinta a estar "en proceso" y no impide tomar otra orden mientras se resuelve.
+
+---
+
+## [1.12.2] — 2026-08-17
+
+### Corregido
+- **SPEC-026:** La persistencia de sesión (SPEC-024) usaba `localStorage`, compartido entre **todas** las ventanas del mismo navegador. Si dos personas usaban dos ventanas del mismo Chrome (por ejemplo, un solicitante y un técnico probando desde la misma PC), la sesión de quien iniciaba sesión después sobrescribía la del otro: al refrescar, la primera ventana mostraba al usuario equivocado.
+- La sesión ahora se guarda en **`sessionStorage`**, exclusivo de cada pestaña o ventana, y sigue sobreviviendo al F5 dentro de esa misma ventana. El cache de datos (`mantoDB`) permanece en `localStorage`, ya que no es específico de un usuario.
+
+---
+
+## [1.12.1] — 2026-08-16
+
+### Corregido
+- **SPEC-025:** La prioridad **"Máquina parada"** no se distinguía visualmente en ninguna pantalla; solo "Urgente" mostraba la línea y el badge en rojo. Ahora ambas se marcan igual (texto "Urgente", fondo rojo), en las tarjetas de OT del solicitante, técnico y supervisor, y en el detalle del técnico y del supervisor.
+- Se centralizó la comparación en un único helper (`esPrioridadUrgente`), para no volver a olvidar marcar alguna prioridad "alta" en una de las pantallas.
+- El reporte de Excel sigue distinguiendo el texto exacto exportado ("Urgente" vs. "Urgente — Máquina parada").
+
+---
+
+## [1.12.0] — 2026-08-15
+
+### Agregado
+- **SPEC-024: la sesión sobrevive a F5 / recargar la página.** Antes, `currentUser` solo vivía en memoria y cualquier recarga regresaba a la pantalla de login. Ahora la sesión se guarda en `localStorage` al iniciar sesión y se restaura automáticamente al cargar la app, con el cache local de la base para renderizar de inmediato mientras Firebase reconecta.
+- Botón circular pequeño y discreto (ícono de apagar) a la izquierda del indicador de conexión, visible solo con sesión activa, para cerrar sesión manualmente ahora que la recarga ya no lo hace por accidente.
+
+### Cambiado
+- Se retiró el ícono de campana del encabezado de **solicitante** y **técnico**. El acceso a notificaciones sigue disponible desde las pestañas **Avisos** / **Historial**.
+
+### Corregido
+- Las pestañas **Avisos** e **Historial** cambiaban de pantalla pero nunca llamaban a la función que llena la lista; ese renderizado dependía de pasar antes por la campana (ahora eliminada). Se corrigió para que las pestañas rendericen la lista directamente al pulsarse.
+
+---
+
+## [1.11.1] — 2026-08-14
+
+### Corregido
+- **SPEC-023:** En el listado de "Disponibles para tomar", una OT ya tomada por otro técnico mostraba el mismo badge **"Sin tomar"** que una realmente libre. Ahora muestra **"En proceso"** con el nombre del técnico junto al badge, y una fila "Técnico:" en el cuerpo de la tarjeta.
+- El mensaje al abrir el detalle de una OT en proceso decía siempre *"relevaste al turno anterior"*, aunque el técnico que la tomó estuviera en el **mismo turno**. Ahora distingue: *"relevo de turno"* cuando el turno guardado difiere del actual, y *"mismo turno"* cuando coincide.
+
+---
+
+## [1.11.0] — 2026-08-13
+
+### Agregado
+- **SPEC-022: la orden pausada no se abandona.**
+  - El técnico que pausó una orden **no puede tomar otras** mientras nadie la atienda. Debe retomarla, o esperar a que otro técnico la tome, lo que lo libera automáticamente.
+  - En su listado aparece un **recordatorio** con el folio de la orden pausada.
+  - Las órdenes pausadas sin atender se muestran a **los demás técnicos** en una sección de **prioridad**, antes de las disponibles, para que no queden olvidadas.
+  - Al retomar su propia orden se registra una **nueva entrada** con la hora de reingreso y se cierra el periodo de espera, de modo que el historial conserva los dos tramos.
+
+### Cambiado
+- El botón flotante de pausar pasa de ámbar a **azul**, igual que el de crear orden.
+- La validación que impide registrarse dos veces en el mismo turno ya **no aplica al reingreso** a una orden que el propio técnico había dejado.
+
+---
+
+## [1.10.0] — 2026-08-12
+
+### Agregado
+- **SPEC-021: pausar una orden para atender otra.** Cuando por urgencia el técnico debe dejar la orden en curso, ahora puede hacerlo sin perder la trazabilidad.
+  - **Botón flotante** con el signo `=` en la lista del técnico, visible desde que toma una orden y oculto cuando no tiene ninguna en curso.
+  - Al pulsarlo se pide confirmar la pausa y se listan las **órdenes disponibles**, con las urgentes y de máquina parada primero.
+  - **La pausa exige tomar otra orden**: no se puede pausar sin destino.
+  - Al pausar se registra la salida del técnico (su tiempo deja de contar), la orden pasa a espera con el motivo, se abre un periodo de espera para descontar ese tiempo, y se guarda el registro de la pausa con destino, autor y fecha.
+  - Se agrega comentario en la orden, aviso interno al supervisor y notificación push al solicitante.
+- Nuevo arreglo `ot.pausas` en el modelo de datos.
+
+### Notas
+- Si otro técnico toma la orden destino mientras la ventana está abierta, se avisa y se actualiza la lista.
+- Si no hay órdenes disponibles no se permite pausar, y así se indica.
+- La orden pausada conserva a su técnico y puede reanudarse registrando una actividad.
+
+---
+
+## [1.9.2] — 2026-08-11
+
+### Corregido
+- **SPEC-020:** La ventana de técnicos ocupados nunca aparecía. Causa: el catálogo guarda los nombres en **mayúsculas**, pero al iniciar sesión la app los convierte a **formato título**, y así quedan registrados en la orden. La comparación era exacta (`===`), por lo que jamás coincidía y ningún técnico se detectaba como ocupado.
+- **SPEC-019:** El mismo error afectaba al **ranking de técnicos**, que habría mostrado cero órdenes para todos.
+- Se agregó `_mismoNombre()`, que normaliza mayúsculas, acentos y espacios, y se aplicó en ambos lugares.
+
+### Cambiado
+- `avisarSiNoHayTecnicoLibre()` acepta una fecha opcional, para poder verificar el comportamiento a una hora concreta. En uso normal se omite y toma la hora del sistema.
+
+---
+
+## [1.9.1] — 2026-08-10
+
+### Corregido
+- **SPEC-020:** Cuando existían varios roles de turnos cubriendo las mismas fechas, el sistema tomaba el **primero de la lista** en lugar del más reciente, por lo que identificaba mal a los técnicos en turno. Detectado en pruebas: con cinco roles guardados, a las 19:22 devolvía a un técnico del turno 06–14 y omitía a uno del turno 14–21:30.
+- Ahora, ante roles traslapados, gana el **guardado más recientemente** (por fecha de modificación y, en empate, por fecha de inicio).
+
+### Agregado
+- Aviso en la pantalla de Turnos cuando hay **roles que cubren las mismas fechas**, indicando cuántos son y que el sistema usa el más reciente.
+
+---
+
+## [1.9.0] — 2026-08-09
+
+### Agregado
+- **SPEC-020: aviso de técnicos ocupados al levantar una OT.** Cuando el solicitante crea una orden y **todos los técnicos en turno están atendiendo otra**, se muestra una ventana emergente con el nombre y puesto de cada técnico, la OT que atiende, la nave y equipo donde se encuentra, y la etapa de la intervención.
+  - Si **al menos un técnico del turno está libre**, no se muestra el aviso.
+  - Los técnicos en turno se determinan a partir del **rol de turnos** (SPEC-016), cruzando la asignación del día con la hora del sistema.
+  - Se contemplan los **turnos que cruzan la medianoche** (T3 y N12): a las 02:00 se reconoce al técnico que entró a las 21:30 del día anterior.
+  - El turno libre usa las horas capturadas manualmente.
+- El catálogo `CAT_TURNOS` ahora incluye `ini` y `fin` en minutos desde medianoche.
+
+### Notas
+- Un técnico cuenta como ocupado si tiene una OT en `proceso` o `espera` de la que no ha registrado salida.
+- Si no hay rol de turnos que cubra la fecha, no se puede saber quién está en turno y el aviso no se muestra. La función depende de mantener el rol actualizado.
+- El aviso es informativo: la OT ya quedó registrada y el propio mensaje lo confirma.
+
+---
+
+## [1.8.1] — 2026-08-08
+
+### Cambiado
+- **SPEC-019:** En el módulo de OT del supervisor, las **cuatro tarjetas de estado ahora van primero**, seguidas de los filtros y después el listado. El bloque de filtros pasó al área desplazable.
+
+### Corregido
+- El listado del supervisor mostraba todas las órdenes al entrar al módulo. La causa: `initSupervisor()` llamaba a `renderSupOTs('todas')`, y pasar un filtro marcaba los filtros como aplicados. Ahora al entrar no se muestra ninguna orden hasta pulsar **Aplicar filtros**.
+- El re-render disparado por datos nuevos respeta el estado de los filtros: refresca la lista solo si ya se habían aplicado.
+
+---
+
+## [1.8.0] — 2026-08-07
+
+### Eliminado
+- **Módulo de Alertas** del perfil de supervisor. No aportaba información distinta a la que ya muestran las tarjetas de estado y el listado de OT.
+- **Módulo de Panel** como pestaña independiente. Sus cuatro tarjetas se integraron al encabezado del módulo de OT.
+- Sección **"OT activas por persona"** del módulo de Técnicos.
+
+### Agregado
+- **Ranking de técnicos** en el módulo de Técnicos: compara OT tomadas, OT cerradas, tiempo promedio de respuesta y tiempo promedio de intervención. El criterio de ordenamiento es seleccionable y los tres primeros llevan medalla.
+- **Filtro por mes** y **filtro por técnico** en el listado de OT del supervisor.
+- Botones **Aplicar filtros** y **Limpiar**.
+
+### Cambiado
+- El listado de OT del supervisor **no muestra ninguna orden hasta aplicar los filtros**. Con los filtros vacíos, el botón muestra todas las órdenes.
+- El módulo de OT es ahora la pantalla inicial del supervisor; la barra queda con cinco pestañas: OT, Técnicos, Turnos, Preventivo y Perfil.
+- El histórico de **roles de turnos se limita al último mes**: los roles terminados hace más de 30 días se eliminan al abrir el módulo.
+- El filtro por técnico considera a **todos los que participaron** en la OT, no solo al primero.
+
+### Corregido
+- `diffSecs2()` estaba definida dentro de `exportarExcelOTs()` y no era accesible fuera de ella. Se elevó a ámbito global, ya que el ranking la necesita para calcular tiempos.
+
+---
+
+## [1.7.0] — 2026-08-06
+
+### Cambiado
+- **SPEC-018: sincronización granular con Firebase.** Cambio de arquitectura para evitar agotar el ancho de banda del plan gratuito.
+  - **Escritura:** `saveDB()` ahora compara contra la última versión sincronizada y escribe **solo las rutas que cambiaron**, con OTs y notificaciones guardadas elemento por elemento. Si nada cambió, no escribe.
+  - **Lectura:** se sustituyó el listener único sobre `manto_db` por **un listener por colección**, y por **eventos por elemento** (`child_added`, `child_changed`, `child_removed`) en OTs y notificaciones. Modificar una OT ya no vuelve a descargar personal, máquinas, infraestructura, turnos ni preventivos.
+  - **Formato:** OTs y notificaciones pasan de guardarse como arreglo a estar indexadas por `id`. La migración es automática y ocurre una sola vez.
+  - El re-render se agrupa con 120 ms de retardo para no repintar en cada evento.
+
+### Agregado
+- **Archivar OT cerradas antiguas**, desde Perfil del supervisor. Mueve las OT cerradas con más de N meses (3 por omisión) a `manto_db_archivo`, donde se conservan pero dejan de cargarse en la app.
+
+### Corregido
+- Los ids de notificación se generaban con `Date.now()` y podían colisionar cuando se creaban dos en el mismo milisegundo. Ahora se garantiza su unicidad antes de escribir.
+
+### Resultados medidos
+- Cambiar una OT: de **158 KB a 436 bytes**.
+- Nueva notificación: de **158 KB a 85 bytes**.
+- Proyección con 15 OT diarias y 15 usuarios: de **126 GB a 1.4 GB al mes**, y con el archivado el consumo deja de crecer a partir del tercer mes.
+
+---
+
+## [1.6.2] — 2026-08-05
+
+### Agregado
+- **SPEC-017:** Botón **Exportar a PDF** en el programa preventivo, en sustitución del de Excel.
+  - Genera el documento ya formateado, con las máquinas en **texto** en lugar de listas desplegables.
+  - Hoja configurada en **carta horizontal** (`letter landscape`) con márgenes de 8 mm, para que el calendario completo entre en una sola página.
+  - Incluye el recuadro de control y las cuatro firmas.
+  - Si el navegador bloquea la ventana emergente, se avisa al usuario.
+
+### Cambiado
+- Los botones de acción se redujeron un **20 %** y quedaron **centrados**.
+- El calendario se **expande y alinea** al mismo ancho que los botones: ambos comparten un contenedor centrado del 80 % del ancho.
+- Los anchos de columna pasaron de píxeles fijos a **porcentajes**, conservando la proporción original y manteniendo idénticas las columnas de los siete días.
+
+### Eliminado
+- Exportación a Excel del programa preventivo, reemplazada por la de PDF. La exportación a Excel del módulo de Turnos no cambia.
+
+---
+
+## [1.6.1] — 2026-08-04
+
+### Cambiado
+- **SPEC-017:** Ajustes de formato del programa preventivo para acercarlo al documento impreso.
+  - Se eliminaron los **colores de fondo** (verde del mes, amarillo del año, naranja de los días y gris de las celdas fuera del mes) y el **texto en rojo** del recuadro de control. El documento queda en blanco y negro.
+  - Los renglones **Código**, **Creado** y **Actualizado** ahora tienen la **misma altura**, mediante una tabla anidada en el recuadro de control.
+  - Las columnas de los **siete días miden exactamente lo mismo**, con `table-layout:fixed` y anchos declarados en un `colgroup`. Antes el domingo se veía más ancho.
+  - Las **firmas del pie se alinean con el calendario**, repartidas en cuatro columnas iguales dentro del mismo contenedor de la tabla.
+  - El campo *Actualizado* del encabezado ahora muestra la fecha fija del formato, **03/09/2026**, en lugar de la fecha del último guardado.
+
+### Notas
+- En la lista de programas, la fecha del último guardado se etiqueta ahora como **"Guardado"**, para no confundirla con el *Actualizado* del formato.
+
+---
+
+## [1.6.0] — 2026-08-03
+
+### Agregado
+- **SPEC-017: Módulo Preventivo.** Nueva pestaña **"Preventivo"** en la barra del supervisor, entre Turnos y Alertas.
+  - Reproduce el formato controlado **F20-PR-MA-01 Rev. C**, "Programa mensual de mantenimiento preventivo".
+  - **Lista desplegable de mes** y **lista desplegable de año** en el encabezado.
+  - Cuadrícula de siete días (lunes a domingo) con tres turnos por semana y una **lista desplegable de máquinas** por cada día y turno.
+  - **Numeración automática de los días** según el mes y año seleccionados; las semanas arrancan en lunes y el número de semanas se ajusta al mes (4, 5 o 6).
+  - Pie con las cuatro firmas del formato: Planeación, Jefe de producción, Gerente de operaciones y Jefe de Mantenimiento.
+  - Exportación a Excel, edición y eliminación del programa.
+- Nueva colección `DB.preventivos` en el modelo de datos, sincronizada con Firebase.
+
+### Notas
+- Las asignaciones se guardan por fecha y turno, así que cambiar de mes o año no arrastra datos de otro periodo.
+- Solo se ofrecen máquinas activas del catálogo.
+- El campo *Actualizado* del encabezado muestra la fecha del último guardado; código, revisión y fecha de creación son fijos.
+
+---
+
+## [1.5.1] — 2026-08-02
+
+### Agregado
+- **SPEC-016:** Copiar y pegar turnos en el rol de turnos, para agilizar la captura cuando una persona repite el mismo horario.
+  - Botón **Copiar** en cada celda con turno asignado.
+  - Botón **Pegar** en cualquier celda mientras haya algo copiado.
+  - Botón **Pegar fila**, que aplica el turno copiado a **todos los días del periodo** de esa persona (con confirmación).
+  - Botón **Limpiar fila**, que borra los turnos de esa persona en el periodo.
+  - Barra indicadora que muestra el turno copiado, con opción de cancelar.
+
+### Notas
+- El portapapeles copia también las horas del **turno libre**.
+- Se guarda una copia independiente, así que editar la celda origen no altera las celdas pegadas.
+- El portapapeles no se persiste: vive solo durante la edición.
+
+---
+
+## [1.5.0] — 2026-08-01
+
+### Agregado
+- **SPEC-016: Módulo de Turnos.** Nueva pestaña **"Turnos"** en la barra del supervisor, entre Técnicos y Alertas.
+  - Permite crear **roles de turnos** por periodo: semanal (7 días), quincenal (14 días) o mensual (mes completo).
+  - Cuadrícula con una fila por persona activa de Mantenimiento y una columna por día, con desplazamiento horizontal y columna de personal fija.
+  - **Catálogo de 7 turnos:** 06:00–14:00, 14:00–21:30, 21:30–06:00, 06:00–18:00, 18:00–06:00, 08:00–18:00 y horario libre con captura manual de entrada y salida.
+  - Celda vacía = descanso.
+  - Exportación del rol a Excel, edición y eliminación.
+- Nueva colección `DB.turnos` en el modelo de datos, sincronizada con Firebase.
+
+### Notas
+- El módulo es de **planeación**: no altera el campo `turno` del catálogo de personal ni la función `turnoActual()`, que sigue calculando el turno por la hora del sistema al tomar una OT.
+- Las horas del turno libre se validan en formato HH:MM de 24 horas.
+
+---
+
+## [1.4.0] — 2026-07-31
+
+### Agregado
+- **SPEC-015:** Los tipos de problema ahora dependen del **tipo de servicio** de la OT. Nueva función `getTipoFallas(tipoServicio)`.
+  - **MTTO-MAQ-PROD** (sin cambios, 7 opciones): Mecánico, Eléctrico, Neumático, Electrónico, Hidráulico, Parámetros, Infraestructura.
+  - **MTTO-INFRAESTRUCTURA** (8 opciones): Eléctrico, Hidráulico, Mobiliario, Pintura, Edificios, Fontanería, Alarmas, Otros.
+  - **MTTO-SEGURIDAD** (9 opciones): Mecánico, Eléctrico, Neumático, Electrónico, Hidráulico, Guardas, Infraestructura, Riesgo de incendio, Riesgo de caídas.
+
+### Corregido
+- Las OT de Infraestructura y Seguridad mostraban las mismas opciones de tipo de problema que las de maquinaria de producción, que no correspondían a su naturaleza.
+
+### Notas
+- Las OT ya registradas conservan y muestran su tipo de problema original, aunque ese valor no exista en el nuevo catálogo de su tipo.
+- El tipo de problema sigue siendo inmutable una vez guardado.
+
+---
+
+## [1.3.0] — 2026-07-30
+
+### Cambiado
+- **SPEC-011:** Las OT de **MTTO-INFRAESTRUCTURA** y **MTTO-SEGURIDAD** vuelven a notificar a **todo el personal activo del departamento de Mantenimiento**, igual que MTTO-MAQ-PROD.
+- Se desactivó el enrutamiento diferenciado por puesto (Jefe, Auxiliar y Analista) introducido en 1.1.0. Decisión operativa.
+- La función `getNominasByTipoServicio()` se conserva como punto único de cambio: ahora retorna todo el departamento para cualquier tipo. Si se requiere reactivar el filtrado, solo se modifica esa función.
+- SPEC-009 actualizada: "Nueva OT" y "OT rechazada" ahora indican todo el departamento como destinatario.
+
+### Notas
+- Aplica a los dos eventos enrutados: creación de OT y rechazo de cierre.
+- Las notificaciones dirigidas al solicitante (técnico asignado, OT concluida, OT en espera) no cambian.
+
+---
+
+## [1.2.0] — 2026-07-29
+
+### Agregado
+- **SPEC-012:** Botón **"Fin de mi turno"** para que el técnico cierre su participación en una OT durante el paro de fin de semana. Disponible únicamente de **sábado 21:20 a lunes 06:00**; fuera de esa ventana no se muestra. Registra `fechaSalida` en la entrada del técnico y deja la OT abierta para el siguiente turno.
+- **SPEC-013:** Registro del tiempo en espera. Al suspender una OT se guarda el periodo en `ot.esperas` con hora de inicio y fin, y ese tiempo se **descuenta** del tiempo de intervención del técnico. Nueva columna "Tiempo en espera" en el reporte.
+- **SPEC-014:** Nueva columna "Tiempo validación solicitante", que mide desde que Mantenimiento concluyó hasta que el solicitante validó el cierre.
+
+### Cambiado
+- El tiempo de intervención del **último técnico** ahora corta en `fechaCierreMantenimiento` en lugar de `fechaCierre`. Antes absorbía la espera de validación del solicitante, que no dependía de él.
+- El corte del tiempo de intervención sigue esta prioridad: salida propia registrada (SPEC-012) → entrada del siguiente técnico (relevo continuo) → cierre de mantenimiento si es el último.
+- El reporte de Excel pasa de 30 a 32 columnas.
+
+### Notas
+- La regla operativa de **relevo continuo** (el técnico no se va hasta que el del siguiente turno toma la OT) hace que el tiempo de intervención entre semana refleje la realidad sin necesidad de registrar salida.
+- El tiempo total de la orden sigue midiéndose de la creación a la validación del solicitante.
+
+---
+
+## [1.1.0] — 2026-07-27
+
+### Agregado
+- **SPEC-011:** Enrutamiento de notificaciones push de nueva OT según el tipo de servicio.
+  - Nueva función `getNominasByTipoServicio(tipo)` que determina los destinatarios del push según `ot.tipo`.
+  - **MTTO-MAQ-PROD:** notifica a todo el departamento de Mantenimiento activo (comportamiento previo, sin cambios).
+  - **MTTO-INFRAESTRUCTURA** y **MTTO-SEGURIDAD:** notifican únicamente a quienes tengan puesto de Jefe, Auxiliar o Analista de Mantenimiento.
+  - El filtro identifica a los destinatarios **por puesto, no por número de nómina**, para que sobreviva a la rotación de personal: el reemplazo recibe las notificaciones automáticamente con solo tener el puesto correcto en el catálogo.
+  - La comparación de puesto ignora mayúsculas, acentos y espacios extra.
+
+### Cambiado
+- La creación de OT ahora llama a `getNominasByTipoServicio(ot.tipo)` en lugar de `getNominasTecnicos()` directamente para decidir a quién notificar.
+- SPEC-009 actualizada: la regla "Nueva OT" ahora remite a SPEC-011, y se documentó que "OT rechazada" envía notificación interna al técnico y supervisor más push enrutado por tipo de servicio (SPEC-011).
+
+### Notas
+- El filtro afecta solo la **entrega del push**, no la visibilidad de la OT: cualquier técnico sigue viendo y pudiendo tomar todas las OTs abiertas en la app.
+- Solo se notifica a personal con estatus `activo` en el depto MANTENIMIENTO.
+
+---
+
+## [1.0.3] — 2026-06-29
+
+### Agregado
+- **Soporte completo de PWA (Progressive Web App):**
+  - Archivo `manifest.json` con metadatos de la aplicación
+  - Íconos personalizados de IMPREDIMEX (192x192 y 512x512)
+  - Meta tags en `<head>` para soporte Android e iOS
+- En Android Chrome ahora aparece la opción "Instalar app" (en lugar de solo "Agregar acceso directo")
+- Una vez instalada como PWA, la app se ve sin barra de URL de Chrome (pantalla completa)
+- Las notificaciones push ahora llegan correctamente en Android aunque Chrome esté cerrado
+
+### Corregido
+- Notificaciones push en Android no llegaban cuando Chrome estaba cerrado porque la app estaba instalada como acceso directo de Chrome (no como PWA real). Solución: agregar `manifest.json` y meta tags para convertir la aplicación en PWA instalable.
+
+---
+
+## [1.0.2] — 2026-06-28
+
+### Corregido
+- **SPEC-009:** Suscriptores marcados como "unsubscribed" en OneSignal Dashboard no se re-activaban automáticamente al volver a entrar a la app. Solución: agregar llamada explícita a `OneSignal.User.PushSubscription.optIn()` en cada login, tanto en la primera inicialización como en logins subsecuentes.
+
+---
+
+## [1.0.1] — 2026-06-28
+
+### Corregido
+- **SPEC-001:** Race condition en autenticación de Firebase. La app intentaba leer la base de datos antes de que `signInAnonymously()` terminara, causando `permission_denied` en dispositivos nuevos o con conexión lenta. Ahora se usa `onAuthStateChanged` para garantizar que la auth esté lista antes de iniciar los listeners.
+- **SPEC-009:** Notificaciones push al solicitante no llegaban (solo funcionaba la primera notificación a técnicos). Causa: `getNominaByName(ot.solicitante)` retornaba `null` por comparaciones frágiles de nombres (espacios, acentos, mayúsculas). Solución: usar el campo `ot.nomina` directamente que ya está guardado en cada OT al crearse.
+
+### Cambiado
+- Función `notifyPush()` en eventos "tomar OT", "concluir OT" y "OT en espera" ahora usa `ot.nomina` directamente en lugar de buscar por nombre
+
+---
+
+## [1.0.0] — 2026-06-27
+
+### 🎉 Primera versión estable en producción
+
+#### Agregado
+- **Sistema completo de notificaciones push** con OneSignal + Cloudflare Workers
+- **Autenticación anónima de Firebase** para reforzar seguridad
+- **Reglas de seguridad reforzadas** en Firebase Realtime Database
+- **Documento de especificaciones formales** (`SPECS.md`) bajo metodología SDD
+- **Documento de transición** (`HANDOVER.md`) para futuros desarrolladores
+- **README.md** profesional del proyecto
+- **Cloudflare Worker proxy** (`mantoapp-push`) para mantener la REST API Key segura
+- **Reinicio automático del contador de folio** (SPEC-002): si todas las OTs son eliminadas, el siguiente folio será `#000001`
+
+#### Cambiado
+- `notifyPush()` ahora llama al Worker de Cloudflare en lugar de OneSignal directamente
+- `saveFCMToken()` ahora se invoca después del login (antes se llamaba antes y `currentUser` era null)
+- `saveFCMToken()` ahora limpia los tags previos de OneSignal antes de aplicar los nuevos
+- `logout()` ahora limpia los tags de OneSignal al cerrar sesión
+- Service Worker path en OneSignal: ahora usa ruta absoluta `/Mantenimiento-Impredimex/OneSignalSDKWorker.js`
+
+#### Eliminado
+- Archivo `firebase-messaging-sw.js` (ya no se usaba, interfería con el Service Worker de OneSignal)
+- REST API key de OneSignal eliminada del frontend (ahora vive solo en Cloudflare Worker)
+
+#### Seguridad
+- 🔒 La REST API key de OneSignal ya no está expuesta en el HTML público
+- 🔒 Reglas de Firebase ahora requieren autenticación (`auth != null`)
+- 🔒 Agregado índice en Firebase para campos `status` y `folio` (mejora rendimiento)
+
+---
+
+## [0.9.0] — 2026-06-26
+
+### Versión pre-release con notificaciones funcionando
+
+#### Agregado
+- Integración inicial de OneSignal Web SDK v16
+- Web Configuration de OneSignal completada
+- Tags por nómina y rol al hacer login
+
+#### Conocidos en esta versión
+- ⚠️ Notificaciones bloqueadas por CORS (resuelto en 1.0.0 con Cloudflare Worker)
+- ⚠️ API key expuesta en frontend (resuelto en 1.0.0)
+
+---
+
+## [0.8.0] — 2026-06-25
+
+### Refinamiento de UI y panel supervisor
+
+#### Agregado
+- Panel de supervisor con 4 KPIs (abiertas, proceso, espera, por validar)
+- Detalle por técnico con historial de OTs
+- Tiempos promedio de respuesta calculados
+- Exportación a Excel desde panel supervisor
+
+#### Cambiado
+- Diseño visual unificado con azul marino `#1B3A6B`
+- Topbar blanco con sombra
+- Tabbar estilo WhatsApp con píldora activa
+- Iconos de logout en todas las pestañas
+
+---
+
+## [0.7.0] — 2026-06-24
+
+### Catálogos administrativos
+
+#### Agregado
+- Hub de administrador con módulos: Personal, Tipo de servicio, Naves, Máquinas, Infraestructura
+- Catálogo de tipos de servicio (3 tipos)
+- Catálogo de naves (4 naves: A1, A2, B16, B17)
+- Catálogo de máquinas (48 equipos)
+- Catálogo de infraestructura (53 áreas)
+- CRUD completo para todos los catálogos
+
+---
+
+## [0.6.0] — 2026-06-23
+
+### Flujo multi-técnico
+
+#### Agregado
+- Soporte para múltiples técnicos asignados a la misma OT
+- Cada técnico requiere confirmación independiente del solicitante
+- Botón "Técnico en máquina" por cada técnico asignado
+
+#### Cambiado
+- Tipo de problema ahora es inmutable una vez guardado
+- 7 opciones fijas de tipo de problema
+
+---
+
+## [0.5.0] — 2026-06-22
+
+### Flujo de conclusión y validación
+
+#### Agregado
+- Modal de "error operativo" al concluir OT
+- Validación de cierre por solicitante
+- Alerta visual cuando hay error operativo reportado
+- Botón de rechazar cierre (regresa la OT al pool disponible)
+- Notificaciones internas al solicitante al concluir
+
+---
+
+## [0.4.0] — 2026-06-20
+
+### Tipos de servicio especiales
+
+#### Agregado
+- MTTO-SEGURIDAD con 4 casillas de tipo de riesgo (en lugar de equipo)
+- Validación específica para tipo de servicio de seguridad
+
+---
+
+## [0.3.0] — 2026-06-18
+
+### Sincronización en tiempo real
+
+#### Agregado
+- Listeners de Firebase para sincronización en tiempo real
+- Indicador visual de estado de conexión
+- Cambios instantáneos visibles para todos los usuarios
+
+---
+
+## [0.2.0] — 2026-06-15
+
+### Estructura básica de 4 roles
+
+#### Agregado
+- Sistema de login con nómina y contraseña
+- 4 roles diferenciados (solicitante, técnico, supervisor, admin)
+- Pantallas iniciales por rol
+- Catálogo inicial de personal
+
+---
+
+## [0.1.0] — 2026-06-10
+
+### Versión inicial del proyecto
+
+#### Agregado
+- Estructura inicial del HTML
+- Configuración de Firebase Realtime Database (modo prueba)
+- Repositorio en GitHub
+- GitHub Pages habilitado
+- Pantalla de login básica
+
+---
+
+## Convenciones para futuros cambios
+
+A partir de la versión 1.0.0, este proyecto sigue **metodología SDD (Spec-Driven Development)**. Cada cambio nuevo debe:
+
+1. ✅ Tener una entrada en `SPECS.md` antes de implementar
+2. ✅ Tener una entrada en este CHANGELOG.md
+3. ✅ Tener comentario en código referenciando la spec: `// SPEC-XXX: descripción`
+
+### Tipos de cambios
+
+- `Agregado` para funcionalidades nuevas
+- `Cambiado` para cambios en funcionalidades existentes
+- `Obsoleto` para funcionalidades que serán removidas pronto
+- `Eliminado` para funcionalidades removidas
+- `Corregido` para corrección de bugs
+- `Seguridad` para cambios relacionados con seguridad
+
+### Versionado
+
+- **MAJOR** (X.0.0) — Cambios incompatibles con versiones previas
+- **MINOR** (0.X.0) — Nuevas funcionalidades compatibles
+- **PATCH** (0.0.X) — Correcciones de bugs compatibles
+
+---
+
+*Última actualización: 13 de agosto de 2026*
