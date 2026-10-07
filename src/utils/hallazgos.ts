@@ -53,6 +53,15 @@ export interface HallazgoPlano extends HallazgoBase {
   maquinaNombre: string;
   ordenTrabajo: string;
   auditor: string;
+  /**
+   * Quién lo levantó, por nómina (SPEC-024).
+   *
+   * Cerrar un hallazgo es de quien lo encontró, no de quien lo tiene que
+   * arreglar, así que hay que poder reconocerlo. `auditor` es texto editable y
+   * nunca fue confiable para esto; los documentos anteriores a la SPEC-019 no
+   * traen nómina y se siguen reconociendo por nombre.
+   */
+  nominaAuditor: string;
   fechaAuditoria: string;
   tipoAuditoria: string;
   /** El texto del punto del checklist, cuando viene de uno. */
@@ -188,6 +197,7 @@ export const aplanarHallazgos = (
         maquinaNombre: a.maquinaNombre || '',
         ordenTrabajo: a.ordenTrabajo || '',
         auditor: a.auditor || '',
+        nominaAuditor: (a as { nominaAuditor?: string }).nominaAuditor || '',
         fechaAuditoria,
         tipoAuditoria: a.tipoAuditoria || 'PROCESO',
         textoPunto: item?.queObservar || (h.esExtra ? 'Hallazgo fuera del checklist' : ''),

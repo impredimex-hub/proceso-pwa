@@ -219,3 +219,27 @@ export const comoAuditado = (
 /** Quiénes tienen al menos una máquina asignada. Para el selector del ADMIN. */
 export const nominasConMaquinas = (catalogo: MaquinaAsignable[]): string[] =>
   [...new Set(catalogo.flatMap(nominasDeMaquina))].sort();
+
+/**
+ * ¿Esta persona puede cerrar este hallazgo? (SPEC-024)
+ *
+ * Solo quien lo levantó, o un administrador. **El auditado no**: cerrar es
+ * dar por buena la corrección, y quien la hizo no puede ser el que la aprueba.
+ * Lo ve en su pantalla y sabe qué le falta, pero no lo marca él.
+ *
+ * Los documentos anteriores a la SPEC-019 no traen `nominaAuditor`, así que
+ * ahí se compara por el nombre escrito, que es lo único que hay.
+ */
+export const puedeCerrarHallazgo = (
+  h: { nominaAuditor?: string; auditor?: string },
+  miNomina: string,
+  miNombre: string,
+  esAdmin: boolean
+): boolean => {
+  if (esAdmin) return true;
+  const mia = String(miNomina || '').trim();
+  if (!mia) return false;
+  if (h.nominaAuditor) return String(h.nominaAuditor).trim() === mia;
+  const n = norm(miNombre);
+  return !!n && norm(h.auditor || '') === n;
+};
