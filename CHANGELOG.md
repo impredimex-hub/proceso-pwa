@@ -6,6 +6,43 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.0.0] — 2026-10-06
+
+### Quitado
+
+- **El Gantt general.** Dibujaba los hallazgos de toda la planta en una tabla y
+  contestaba «qué se encontró», que no es la pregunta de nadie. Esa función la
+  hace Comportamiento, que contesta «qué me toca a mí».
+
+  Con él se va la exportación a Excel. La de PDF se conserva.
+
+### Agregado
+
+- **«Lo que levanté y sigue abierto»**, nueva sección en Comportamiento
+  (SPEC-024). Los hallazgos de las auditorías que uno mismo hizo, **y el botón
+  para cerrarlos**.
+
+  El Gantt general era el único lugar donde se podía cerrar un hallazgo.
+  Quitarlo sin poner esto habría dejado el seguimiento como una lista que solo
+  crece.
+
+### Cambiado
+
+- **Cerrar un hallazgo le toca a quien lo levantó, o a un administrador. Al
+  auditado no.** Cerrar es dar la corrección por buena, y quien la hizo no puede
+  ser quien la aprueba. El auditado lo ve en su pantalla y sabe qué le falta,
+  pero no lo marca él.
+
+- **El auditado es obligatorio cuando la máquina no tiene supervisores
+  asignados.** Comportamiento busca los hallazgos por auditado o por supervisor;
+  sin ninguno de los dos, el hallazgo nacía sin dueño, no aparecía en la pantalla
+  de nadie y nadie podía cerrarlo.
+
+- La pantalla de histórico se llama ahora «Histórico de auditorías», sin el
+  cronograma.
+
+---
+
 ## [2.17.0] — 2026-10-06
 
 ### Corregido

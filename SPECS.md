@@ -623,6 +623,68 @@ Hay que diseñarlo, no declararlo: definir los colores de cada pantalla como
 variables y darles su valor oscuro. Declarar `light dark` sin hacer eso es lo
 que produjo este defecto.
 
+---
+
+## SPEC-024 — Cerrar un hallazgo le toca a quien lo levantó
+
+**Actor** — Quien audita, desde Comportamiento. Y el ADMIN, sobre cualquiera.
+
+### El cambio
+
+Se retira el **Gantt general**. Dibujaba los hallazgos de toda la planta en una
+sola tabla y contestaba «qué se encontró», que no es la pregunta de nadie. Esa
+función la hace ahora Comportamiento, que contesta «qué me toca a mí».
+
+Pero el Gantt general era **el único lugar donde se podía cerrar un hallazgo**.
+Quitarlo sin más habría dejado el seguimiento como una lista que solo crece.
+
+### Quién puede cerrar
+
+| Quién | ¿Puede? |
+|---|---|
+| Quien levantó el hallazgo | Sí |
+| Un administrador | Sí |
+| **El auditado** | **No** |
+| Cualquier otro | No |
+
+El auditado no cierra porque **cerrar es dar la corrección por buena**, y quien
+la hizo no puede ser quien la aprueba. La ve en su pantalla y sabe qué le falta;
+el que la marca es quien encontró la falla.
+
+Los documentos anteriores a la SPEC-019 no traen `nominaAuditor`, así que ahí se
+compara por el nombre escrito —sin acentos ni mayúsculas—, que es lo único que
+hay. `HallazgoPlano` carga ahora esa nómina para no tener que buscar la auditoría
+otra vez.
+
+### Las dos listas de Comportamiento
+
+La pantalla separa los dos papeles de una persona, y la separación es el punto:
+
+| Sección | Qué muestra | Se cierra ahí |
+|---|---|---|
+| **Lo que levanté y sigue abierto** | Hallazgos de sus propias auditorías | **Sí** |
+| **Mis hallazgos abiertos** | Lo que salió en auditorías que le hicieron | No, salvo el ADMIN |
+
+Abajo ve lo que le toca **arreglar**; arriba, lo que le toca **verificar**.
+
+El ADMIN puede mirar a cualquiera, así que desde ahí cierra lo de quien sea —y
+en la segunda lista también, porque entonces el permiso es suyo, no del dueño de
+la pantalla.
+
+La exportación a PDF se conserva y apunta a la primera lista, que es la que
+alguien se llevaría al piso. La de Excel se retiró con el Gantt general.
+
+### El auditado se vuelve obligatorio cuando no hay supervisor
+
+Comportamiento busca los hallazgos de una persona por `nominaAuditado` o
+`nominaSupervisor`. El supervisor ya era obligatorio al capturar, pero solo
+cuando la máquina tiene supervisores asignados en la matriz; si no tiene, no se
+pedía ninguno de los dos y el hallazgo **nacía sin dueño**: no aparecía en la
+pantalla de nadie y nadie podía cerrarlo.
+
+Ahora, cuando la máquina no tenga supervisores que asignar, la nómina del
+auditado es obligatoria. Con eso ningún hallazgo queda huérfano.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
