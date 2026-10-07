@@ -6,6 +6,28 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.1.0] — 2026-10-07
+
+### Corregido
+
+- **La numeración de los puntos del checklist quedaba con huecos** al borrar
+  preguntas, y no se podía corregir (SPEC-025).
+
+  Lo que se mostraba era el **identificador** del punto, que es con lo que cada
+  hallazgo queda amarrado a su pregunta. De él dependen la detección de
+  reincidencias, el ranking de puntos y las respuestas guardadas. Si al borrar el
+  punto 4 los de abajo se recorrieran, los hallazgos históricos del viejo #10
+  quedarían colgados de otra pregunta.
+
+  Los huecos eran el sistema cuidando el historial. Ahora lo que se muestra es la
+  **posición en la lista** —siempre consecutiva— y el identificador deja de
+  verse. El amarre no se toca.
+
+  Cada auditoría guarda su propia copia de la plantilla, así que al abrir una
+  vieja el número que se lee es el que se veía al capturarla.
+
+---
+
 ## [3.0.0] — 2026-10-06
 
 ### Quitado

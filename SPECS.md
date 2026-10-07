@@ -685,6 +685,60 @@ pantalla de nadie y nadie podía cerrarlo.
 Ahora, cuando la máquina no tenga supervisores que asignar, la nómina del
 auditado es obligatoria. Con eso ningún hallazgo queda huérfano.
 
+---
+
+## SPEC-025 — El número del punto es su posición, no su identificador
+
+**Actor** — Quien edita una plantilla, y quien captura una auditoría.
+
+### El problema
+
+Al simplificar los cuestionarios y borrar preguntas, la numeración quedaba con
+huecos: `#1 #2 #3 #5 #6 #8 #10 #11 #13`. No se podía corregir desde la pantalla.
+
+Y estaba bien que no se pudiera. Lo que se mostraba era el **identificador** del
+punto, que es con lo que cada hallazgo queda amarrado a su pregunta
+(`hallazgos[].puntoId`). De él dependen tres cosas:
+
+- La **detección de reincidencias**: un punto que vuelve a fallar en la misma
+  máquina se reconoce por ese número.
+- El **ranking de puntos** (SPEC-007), que agrupa por `puntoId` más el texto.
+- Las **respuestas** de la auditoría, que se guardan con esa clave.
+
+Si al borrar el punto 4 los de abajo se recorrieran, cada hallazgo histórico del
+viejo #10 quedaría colgado de la pregunta que ahora ocupa ese número. La
+reincidencia pasaría a señalar un punto que nunca falló, y el ranking mezclaría
+dos preguntas distintas.
+
+Por eso un identificador **no se reutiliza nunca**: al agregar una pregunta se
+toma el mayor más uno, aunque haya huecos. Los huecos eran el sistema cuidando el
+historial.
+
+### La solución
+
+Lo que se muestra pasa a ser la **posición en la lista**, y el identificador deja
+de verse. La numeración queda siempre consecutiva y el amarre no se toca.
+
+Los tres lugares donde aparecía:
+
+| Dónde | Qué muestra ahora |
+|---|---|
+| Editor de plantillas | Posición |
+| Pantalla de captura | Posición |
+| Selector de punto al levantar una desviación | Posición en el texto; el valor sigue siendo el identificador |
+
+### Sobre las referencias a un punto por su número
+
+Cada auditoría guarda su `itemsSnapshot`, la plantilla completa tal como estaba
+ese día. Al abrir una auditoría vieja, la posición se calcula sobre **su propia**
+copia, así que el número que se lee es el que se veía al capturarla, aunque la
+plantilla haya cambiado después.
+
+Lo que sí deja de ser estable es referirse a «el punto 13» de palabra entre una
+versión de la plantilla y otra. El hallazgo guarda el **texto** del punto, no
+solo su número, así que el rastro no se pierde; pero conviene nombrarlos por lo
+que dicen y no por el número cuando la plantilla esté cambiando.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
