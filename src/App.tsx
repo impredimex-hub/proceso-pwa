@@ -5,7 +5,7 @@ import {
   traerColaborador, traerUsuariosDeLaApp, mensajeDeError, APP_ID,
 } from './services/suite';
 import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { aplanarHallazgos, tableroAbiertos, resumenTablero, historialDePunto } from './utils/hallazgos';
+import { aplanarHallazgos, tableroAbiertos, historialDePunto } from './utils/hallazgos';
 import type { HallazgoPlano } from './utils/hallazgos';
 import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, UMBRAL_REVISIONES } from './utils/ranking';
 import type { FilaRanking } from './utils/ranking';
@@ -16,7 +16,8 @@ import {
 } from './utils/merma';
 import type { Periodo } from './utils/merma';
 import {
-  nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas
+  nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas,
+  puedeCerrarHallazgo, laHizo
 } from './utils/comportamiento';
 import { catalogoGuardado } from './services/catalogo';
 import { otsAbiertasDe, levantarOT, etiquetaStatus } from './services/ot';
@@ -515,12 +516,6 @@ export const App: React.FC = () => {
   };
   const [historial, setHistorial] = useState<any[]>([]);
 
-  // Filtros Gantt
-  const [filtroOrigenGantt, setFiltroOrigenGantt] = useState('');
-  const [filtroMaquinaGantt, setFiltroMaquinaGantt] = useState('');
-  const [filtroMesGantt, setFiltroMesGantt] = useState('');
-  const [filtroDiaGantt, setFiltroDiaGantt] = useState('');
-  const [filtroCumplimientoGantt, setFiltroCumplimientoGantt] = useState('');
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -536,10 +531,10 @@ export const App: React.FC = () => {
      mientras se está viendo, para confirmar el cambio y poder deshacerlo; al
      volver, el tablero vuelve a mostrar solo lo abierto. */
   useEffect(() => {
-    if (vista !== 'HISTORIAL' || subVistaHistorial !== 'GANTT') {
+    if (vista !== 'COMPORTAMIENTO') {
       setCerradosAhora((prev) => (prev.size === 0 ? prev : new Set()));
     }
-  }, [vista, subVistaHistorial]);
+  }, [vista]);
 
   useEffect(() => {
     const unsubAuditorias = onSnapshot(collection(db, 'evaluaciones_proceso'), (snapshot) => {
@@ -960,6 +955,13 @@ export const App: React.FC = () => {
       alert('Por favor selecciona el Nombre del Supervisor de la lista.');
       return;
     }
+    // SPEC-024: un hallazgo tiene que poder encontrarse después. Comportamiento
+    // los busca por auditado o por supervisor; sin ninguno de los dos, nacería
+    // sin dueño y no aparecería en la pantalla de nadie.
+    if (supervisoresDisponibles.length === 0 && !nominaAuditado.trim()) {
+      alert('Esta máquina no tiene supervisores asignados, así que hace falta la nómina del auditado. Sin ella, los hallazgos no le aparecerían a nadie para cerrarlos.');
+      return;
+    }
 
     if (itemsChecklistActivo.length > 0 && totalRespondidos < itemsChecklistActivo.length) {
       alert(`Faltan responder ${itemsChecklistActivo.length - totalRespondidos} puntos del checklist.`);
@@ -1308,29 +1310,6 @@ export const App: React.FC = () => {
      tres de una vez, sin tocar su dibujo. */
   const hallazgosPlanos = aplanarHallazgos(historialPermitido as any, todayStr);
 
-  const hallazgosFiltradosGantt = tableroAbiertos(hallazgosPlanos, cerradosAhora)
-    .filter((p) => {
-      if (filtroOrigenGantt && p.tipoAuditoria !== filtroOrigenGantt) return false;
-      if (filtroMaquinaGantt && p.maquinaNombre !== filtroMaquinaGantt) return false;
-      if (filtroMesGantt && p.fechaAuditoria.split('-')[1] !== filtroMesGantt) return false;
-      if (filtroDiaGantt && p.fechaAuditoria.split('-')[2] !== filtroDiaGantt.padStart(2, '0')) return false;
-      if (filtroCumplimientoGantt && p.estado !== filtroCumplimientoGantt) return false;
-      return true;
-    })
-    .map((p) => ({
-      ...p,
-      // Nombres que la vista y las exportaciones ya usaban.
-      fechaInicio: p.fechaAuditoria,
-      fechaFin: p.fechaCierre || todayStr,
-      estadoSeguimiento: p.estado,
-      // Ya no sale de buscar la palabra «reincidente» en el texto escrito a
-      // mano, sino de que el punto haya fallado y se haya cerrado antes en esta
-      // misma máquina (SPEC-009).
-      esReincidente: p.reincidenciaDe !== null
-    }));
-
-  const resumenDelTablero = resumenTablero(hallazgosPlanos);
-
   // --- AUDITORÍAS FILTRADAS ---
   const auditoriasFiltradas = historialPermitido.filter((item) => {
     const tipoDoc = item.tipoAuditoria || 'PROCESO';
@@ -1358,65 +1337,6 @@ export const App: React.FC = () => {
   });
 
   // --- EXPORTAR A EXCEL ---
-  const handleExportarExcelGantt = () => {
-    if (hallazgosFiltradosGantt.length === 0) {
-      alert('No hay datos en el Gantt.');
-      return;
-    }
-
-    const rowsHtml = hallazgosFiltradosGantt.map((item: any, index: number) => {
-      const dIni = new Date(item.fechaInicio);
-      const dFin = new Date(item.fechaFin);
-      const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
-      const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-
-      return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${item.tipoAuditoria}</td>
-          <td>${item.fechaAuditoria}</td>
-          <td>${item.maquinaNombre}</td>
-          <td>${item.ordenTrabajo || 'N/A'}</td>
-          <td>${item.auditor}</td>
-          <td>${item.hallazgo || ''}</td>
-          <td>${item.accion || 'Sin acción'}</td>
-          <td>${item.responsable || 'No asignado'}</td>
-          <td>${item.fechaInicio}</td>
-          <td>${item.fechaFin}</td>
-          <td>${diasTotal}</td>
-          <td>${item.estadoSeguimiento}</td>
-        </tr>
-      `;
-    }).join('');
-
-    const excelTemplate = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
-        <body>
-          <h2>IMPREDIMEX — Reporte de Cronograma Gantt</h2>
-          <table border="1">
-            <thead>
-              <tr>
-                <th>#</th><th>Tipo</th><th>Fecha</th><th>Máquina</th><th>OP</th><th>Auditor</th>
-                <th>Desviación</th><th>Acción</th><th>Responsable</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Estatus</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Gantt_IMPREDIMEX_${todayStr}.xls`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   /**
    * Exporta **solo el Gantt** (SPEC-015).
    *
@@ -1429,16 +1349,16 @@ export const App: React.FC = () => {
    * vez de una ventana nueva porque una ventana emergente la bloquea el
    * navegador; el marco no.
    */
-  const handleExportarPDFGantt = () => {
-    if (hallazgosFiltradosGantt.length === 0) {
-      alert('No hay datos en el Gantt.');
+  const handleExportarPDFGantt = (lista: any[], deQuien: string) => {
+    if (lista.length === 0) {
+      alert('No hay hallazgos que exportar.');
       return;
     }
 
     const esc = (t: any) => String(t ?? '').replace(/[&<>]/g, (c) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
-    const filas = hallazgosFiltradosGantt.map((item: any, i: number) => {
+    const filas = lista.map((item: any, i: number) => {
       const dIni = new Date(item.fechaInicio);
       const dFin = new Date(item.fechaFin);
       const dias = Math.max(1, Math.ceil(Math.abs(dFin.getTime() - dIni.getTime()) / 86400000) + 1);
@@ -1461,13 +1381,7 @@ export const App: React.FC = () => {
       </tr>`;
     }).join('');
 
-    const filtros = [
-      filtroOrigenGantt && `Módulo: ${filtroOrigenGantt === '5S' ? 'Condiciones y 5S' : 'Validación de proceso'}`,
-      filtroMaquinaGantt && `Máquina: ${filtroMaquinaGantt}`,
-      filtroMesGantt && `Mes: ${filtroMesGantt}`,
-      filtroDiaGantt && `Día: ${filtroDiaGantt}`,
-      filtroCumplimientoGantt && `Estatus: ${filtroCumplimientoGantt}`
-    ].filter(Boolean).join(' · ');
+    const filtros = `Hallazgos levantados por ${deQuien}, pendientes de cerrar`;
 
     const doc2 = `<!doctype html><html lang="es"><head><meta charset="utf-8">
       <title>Cronograma de hallazgos — IMPREDIMEX</title>
@@ -1496,7 +1410,7 @@ export const App: React.FC = () => {
       </style></head><body>
       <h1>IMPREDIMEX · Cronograma de hallazgos</h1>
       <div class="sub">
-        ${hallazgosFiltradosGantt.length} hallazgos · generado el ${todayStr} por ${esc(usuarioActivo?.nombre || '')}
+        ${lista.length} hallazgos · generado el ${todayStr} por ${esc(usuarioActivo?.nombre || '')}
         ${filtros ? ` · ${esc(filtros)}` : ''}
       </div>
       <table>
@@ -2098,7 +2012,44 @@ export const App: React.FC = () => {
           const suyas = historial.filter((a: any) =>
             String(a.nominaAuditado || '').trim() === nomina ||
             String(a.nominaSupervisor || '').trim() === nomina);
-          const susHallazgos = tableroAbiertos(aplanarHallazgos(suyas as any, todayStr));
+          const susHallazgos = tableroAbiertos(aplanarHallazgos(suyas as any, todayStr), cerradosAhora);
+
+          // Y lo que **él levantó** y sigue abierto (SPEC-024). Va aparte de lo
+          // anterior a propósito: son dos papeles distintos. Aquí es donde se
+          // cierra, porque cerrar le toca a quien encontró la falla.
+          const queLevanto = historial.filter((a: any) => laHizo(a, nomina, nombre));
+          const hallazgosQueLevanto = tableroAbiertos(
+            aplanarHallazgos(queLevanto as any, todayStr), cerradosAhora);
+
+          // Quien mira no siempre es la persona que se mira: el ADMIN puede ver
+          // a cualquiera, y entonces el permiso es suyo, no del dueño de la
+          // pantalla.
+          const puedoCerrar = (x: { nominaAuditor?: string; auditor?: string }) =>
+            puedeCerrarHallazgo(x, usuarioActivo?.nomina || '', usuarioActivo?.nombre || '', esAdminTotal);
+
+          const BotonCerrar: React.FC<{ h: any }> = ({ h: x }) => {
+            const terminado = x.estado === 'TERMINADO';
+            if (!puedoCerrar(x)) {
+              return (
+                <span title="Solo quien levantó el hallazgo o un administrador puede cerrarlo"
+                  style={{ fontSize: '9.5px', fontWeight: 700, color: '#8A9AB0', whiteSpace: 'nowrap' }}>
+                  {terminado ? 'Cerrado' : 'Abierto'}
+                </span>
+              );
+            }
+            return (
+              <button
+                onClick={() => handleToggleEstadoHallazgo(x.docId, x.hallazgoIdx, x.estadoSeguimiento)}
+                style={{
+                  background: terminado ? '#0F7A55' : '#ffffff',
+                  color: terminado ? '#ffffff' : '#C8102E',
+                  border: '1.5px solid ' + (terminado ? '#0F7A55' : '#C8102E'),
+                  borderRadius: '5px', padding: '3px 9px', fontSize: '9.5px',
+                  fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap'
+                }}
+              >{terminado ? 'Cerrado' : 'Cerrar'}</button>
+            );
+          };
 
           const conMaquinas = nominasConMaquinas(CATALOGO);
 
@@ -2275,6 +2226,81 @@ export const App: React.FC = () => {
                 )}
               </div>
 
+              {/* ── Lo que levantó como auditor (SPEC-024) ───────────────────
+                  Aquí es donde se cierra. Va separado de «sus hallazgos» porque
+                  son dos papeles distintos: abajo ve lo que le toca arreglar,
+                  aquí lo que le toca verificar. */}
+              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden', marginBottom: '1.2rem' }}>
+                <div style={{ padding: '.9rem 1.2rem', borderBottom: '2px solid #E8EEF8', textAlign: 'left' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Lo que levanté y sigue abierto
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
+                    Hallazgos de mis propias auditorías. Cerrarlos es darlos por corregidos,
+                    así que le toca a quien los encontró.
+                  </div>
+                </div>
+                {hallazgosQueLevanto.length > 0 && (
+                  <div style={{ padding: '8px 1.2rem', borderBottom: '1px solid #E8EEF8', textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleExportarPDFGantt(hallazgosQueLevanto, nombre)}
+                      style={{
+                        background: '#ffffff', color: '#003580', border: '1.5px solid #003580',
+                        borderRadius: '6px', padding: '5px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >Exportar PDF</button>
+                  </div>
+                )}
+                {hallazgosQueLevanto.length === 0 ? (
+                  <div style={{ padding: '22px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
+                    Nada pendiente de verificar.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Máquina</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Desviación</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Responsable</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Compromiso</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Estatus</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hallazgosQueLevanto.map((x) => (
+                          <tr key={`lev-${x.docId}-${x.hallazgoIdx}`} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
+                            <td style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#003580', whiteSpace: 'nowrap' }}>{x.maquinaNombre}</td>
+                            <td style={{ padding: '7px 10px', textAlign: 'left' }}>
+                              {x.seguridad && (
+                                <span style={{ background: '#C8102E', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>SEGURIDAD</span>
+                              )}
+                              {x.vecesPrevias > 0 && (
+                                <span style={{ background: '#D4840A', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>REINCIDE</span>
+                              )}
+                              {x.hallazgo}
+                              <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{x.accion || 'Sin acción'}</div>
+                            </td>
+                            <td style={{ padding: '7px 10px', textAlign: 'left', fontSize: '10.5px', color: '#5A6A80', whiteSpace: 'nowrap' }}>
+                              {x.responsable || '—'}
+                            </td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontWeight: 700, color: x.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#7A4500' }}>
+                                {x.fechaCierre}
+                              </span>
+                              {x.estado === 'PENDIENTE_ATRASADO' && (
+                                <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{x.diasVencido} días tarde</div>
+                              )}
+                            </td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center' }}><BotonCerrar h={x} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {/* ── Su Gantt ─────────────────────────────────────────────── */}
               <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden' }}>
                 <div style={{ padding: '.9rem 1.2rem', borderBottom: '2px solid #E8EEF8', textAlign: 'left' }}>
@@ -2283,7 +2309,7 @@ export const App: React.FC = () => {
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
                     Los que salieron en mis auditorías y siguen sin cerrarse. Seguridad primero, luego lo
-                    más vencido.
+                    más vencido. Los cierra quien los levantó, no quien los atiende.
                   </div>
                 </div>
                 {susHallazgos.length === 0 ? (
@@ -2298,6 +2324,7 @@ export const App: React.FC = () => {
                           <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Máquina</th>
                           <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Desviación</th>
                           <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Compromiso</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Estatus</th>
                           {diasGantt.map((d, i) => (
                             <th key={i} style={{ padding: '2px', fontSize: '7.5px', color: '#8A9AB0', fontWeight: 600, width: '16px' }}>{d.diaNum}</th>
                           ))}
@@ -2322,6 +2349,7 @@ export const App: React.FC = () => {
                                 <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{h.diasVencido} días tarde</div>
                               )}
                             </td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center' }}><BotonCerrar h={h} /></td>
                             {diasGantt.map((col, i) => {
                               const dentro = col.iso >= h.fechaAuditoria && col.iso <= (h.fechaCierre || todayStr);
                               return (
@@ -3180,7 +3208,7 @@ export const App: React.FC = () => {
           <div>
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico y Cronograma Gantt</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Histórico de auditorías</div>
                 <div style={{ fontSize: '11px', color: '#5A6A80' }}>
                   {esAdminTotal ? `Consolidación global (${historialPermitido.length} registros)` : `Mis Auditorías Asignadas (${historialPermitido.length} registros)`}
                 </div>
@@ -3197,279 +3225,12 @@ export const App: React.FC = () => {
                 >
                   <span>Auditorías ({historialPermitido.length})</span>
                 </button>
-                <button
-                  onClick={() => setSubVistaHistorial('GANTT')}
-                  style={{
-                    background: subVistaHistorial === 'GANTT' ? '#003580' : 'transparent',
-                    color: subVistaHistorial === 'GANTT' ? '#ffffff' : '#003580',
-                    border: '1.5px solid #003580', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                  }}
-                >
-                  <span>Tabla Gantt ({hallazgosFiltradosGantt.length})</span>
-                </button>
                 <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                   Cerrar
                 </button>
               </div>
             </div>
 
-            {/* TABLA GANTT CON FILTROS RESTAURADOS */}
-            {subVistaHistorial === 'GANTT' && (
-              <div>
-                <div style={{ ...STYLES.glassCard, padding: '16px', marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                      Filtros de Búsqueda para Cronograma
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={handleExportarExcelGantt}
-                        style={{
-                          background: '#0F7A55', color: '#ffffff', border: 'none',
-                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                        }}
-                      >
-                        📊 Exportar Excel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleExportarPDFGantt}
-                        style={{
-                          background: '#003580', color: '#ffffff', border: 'none',
-                          padding: '7px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                        }}
-                      >
-                        📄 Exportar PDF
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Resumen del tablero (SPEC-011). Solo cuenta lo abierto:
-                      el tablero dejó de dibujar lo ya cerrado. */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', marginBottom: '10px' }}>
-                    {[
-                      { et: 'Abiertos', v: resumenDelTablero.abiertos, c: '#003580' },
-                      { et: 'Vencidos', v: resumenDelTablero.vencidos, c: '#C8102E' },
-                      { et: 'Seguridad', v: resumenDelTablero.seguridad, c: '#C8102E' },
-                      { et: 'Reincidentes', v: resumenDelTablero.reincidentes, c: '#D4840A' }
-                    ].map((k) => (
-                      <div key={k.et} style={{
-                        border: `1px solid ${k.v > 0 ? k.c : 'rgba(0,32,96,0.12)'}`, borderRadius: '8px',
-                        padding: '7px 10px', background: '#fff', textAlign: 'center'
-                      }}>
-                        <div style={{ fontSize: '9.5px', color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '.05em' }}>{k.et}</div>
-                        <div style={{ fontSize: '19px', fontWeight: 800, color: k.v > 0 ? k.c : '#8A9AB0' }}>{k.v}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ fontSize: '10.5px', color: '#5A6A80', lineHeight: 1.5, marginBottom: '10px', textAlign: 'left' }}>
-                    El tablero muestra <b>solo lo que sigue abierto</b> (SPEC-011). Lo cerrado no se borró:
-                    se consulta en su auditoría y, punto por punto, con el botón «Reincide» de cada renglón.
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'center' }}>
-                    <select value={filtroOrigenGantt} onChange={(e) => setFiltroOrigenGantt(e.target.value)} style={STYLES.input}>
-                      <option value="">Todos los módulos</option>
-                      <option value="PROCESO">Validación de Proceso</option>
-                      <option value="5S">Condiciones y 5S</option>
-                    </select>
-
-                    <select value={filtroMaquinaGantt} onChange={(e) => setFiltroMaquinaGantt(e.target.value)} style={STYLES.input}>
-                      <option value="">Todas las máquinas y áreas</option>
-                      {CATALOGO.map((m) => (
-                        <option key={`gantt-maq-${m.id}`} value={m.nombre}>{m.nombre}</option>
-                      ))}
-                    </select>
-
-                    <select value={filtroMesGantt} onChange={(e) => setFiltroMesGantt(e.target.value)} style={STYLES.input}>
-                      <option value="">Todos los meses</option>
-                      <option value="01">Enero</option>
-                      <option value="02">Febrero</option>
-                      <option value="03">Marzo</option>
-                      <option value="04">Abril</option>
-                      <option value="05">Mayo</option>
-                      <option value="06">Junio</option>
-                      <option value="07">Julio</option>
-                      <option value="08">Agosto</option>
-                      <option value="09">Septiembre</option>
-                      <option value="10">Octubre</option>
-                      <option value="11">Noviembre</option>
-                      <option value="12">Diciembre</option>
-                    </select>
-
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      placeholder="Día (1–31)"
-                      value={filtroDiaGantt}
-                      onChange={(e) => setFiltroDiaGantt(e.target.value)}
-                      style={STYLES.input}
-                    />
-
-                    <select value={filtroCumplimientoGantt} onChange={(e) => setFiltroCumplimientoGantt(e.target.value)} style={STYLES.input}>
-                      {/* Ya no se ofrece TERMINADO: el tablero solo muestra lo
-                          abierto (SPEC-011), así que ese filtro no devolvería
-                          nunca nada y se vería como una falla. */}
-                      <option value="">Abiertos y vencidos</option>
-                      <option value="PENDIENTE">Solo en plazo</option>
-                      <option value="PENDIENTE_ATRASADO">Solo vencidos</option>
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFiltroOrigenGantt('');
-                        setFiltroMaquinaGantt('');
-                        setFiltroMesGantt('');
-                        setFiltroDiaGantt('');
-                        setFiltroCumplimientoGantt('');
-                      }}
-                      style={{
-                        background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#5A6A80',
-                        padding: '10px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 600, cursor: 'pointer'
-                      }}
-                    >
-                      Limpiar Filtros
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ ...STYLES.glassCard, padding: '16px', overflowX: 'auto' }}>
-                  {hallazgosFiltradosGantt.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: '#5A6A80', fontSize: '13px' }}>
-                      No se encontraron hallazgos registrados.
-                    </div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                      <thead>
-                        <tr style={{ background: '#002060', color: '#ffffff', textAlign: 'center' }}>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '28px' }} rowSpan={2}>#</th>
-                          <th style={{ padding: '8px 8px', border: '1px solid #1A4D9A', width: '85px' }} rowSpan={2}>Fecha</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '130px' }} rowSpan={2}>Máquina / Área</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '220px' }} rowSpan={2}>Desviación</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', textAlign: 'left', minWidth: '110px' }} rowSpan={2}>Responsable</th>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Inicio</th>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '70px' }} rowSpan={2}>Fin</th>
-                          <th style={{ padding: '8px 6px', border: '1px solid #1A4D9A', width: '40px' }} rowSpan={2}>Días</th>
-                          <th style={{ padding: '8px 10px', border: '1px solid #1A4D9A', minWidth: '130px' }} rowSpan={2}>Cumplimiento</th>
-                          <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#003580', fontSize: '11px', fontWeight: 700 }}>
-                            Semana 1 ({diasGantt[0].mesNum}/{diasGantt[0].diaNum})
-                          </th>
-                          <th colSpan={7} style={{ border: '1px solid #1A4D9A', padding: '4px', background: '#1A4D9A', fontSize: '11px', fontWeight: 700 }}>
-                            Semana 2 ({diasGantt[7].mesNum}/{diasGantt[7].diaNum})
-                          </th>
-                        </tr>
-                        <tr style={{ background: '#003580', color: '#ffffff', textAlign: 'center' }}>
-                          {diasGantt.map((d, i) => (
-                            <th key={`d-col-${i}`} style={{ padding: '4px 3px', border: '1px solid #1A4D9A', width: '22px', fontSize: '10px' }}>{d.letra}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {hallazgosFiltradosGantt.map((item: any, idx: number) => {
-                          const estatus: EstadoCumplimiento = item.estadoSeguimiento || 'PENDIENTE';
-                          const dIni = new Date(item.fechaInicio);
-                          const dFin = new Date(item.fechaFin);
-                          const diffTime = Math.abs(dFin.getTime() - dIni.getTime());
-                          const diasTotal = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-
-                          return (
-                            <tr key={`gantt-row-${item.docId}_${idx}`} style={{
-                              borderBottom: '1px solid #E8EEF8',
-                              // El recién cerrado se atenúa: sigue a la vista
-                              // para confirmarlo, pero deja de pesar (SPEC-014).
-                              opacity: estatus === 'TERMINADO' ? .55 : 1,
-                              background: estatus === 'TERMINADO' ? '#F4FAF7' : idx % 2 === 0 ? '#ffffff' : '#f8f9ff'
-                            }}>
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700, color: '#003580' }}>{idx + 1}</td>
-                              <td style={{ padding: '6px 6px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaAuditoria}</td>
-                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
-                                <span style={{ fontWeight: 700, color: '#003580', background: '#E8EEF8', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
-                                  {item.maquinaNombre}
-                                </span>
-                              </td>
-                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left' }}>
-                                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '2px' }}>
-                                  {/* Seguridad va antes que nada (SPEC-010). */}
-                                  {item.seguridad && (
-                                    <span style={{ background: '#C8102E', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '3px', letterSpacing: '.03em' }}>
-                                      SEGURIDAD
-                                    </span>
-                                  )}
-                                  {/* La etiqueta sola no sirve: abre la historia (SPEC-009). */}
-                                  {item.reincidenciaDe && (
-                                    <button
-                                      onClick={() => setPuntoHistorial({ maquinaId: item.maquinaId, puntoId: item.puntoId, texto: item.textoPunto, maquinaNombre: item.maquinaNombre })}
-                                      title="Ver todas las veces que este punto ha fallado en esta máquina"
-                                      style={{ background: '#FDF0D8', color: '#7A4500', border: '1px solid #D4840A', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '3px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                                      REINCIDE ×{item.vecesPrevias + 1}
-                                    </button>
-                                  )}
-                                </div>
-                                <div style={{ fontWeight: 600, color: '#0D1A2E' }}>{item.hallazgo}</div>
-                                <div style={{ fontSize: '10px', color: '#8A9AB0' }}>{item.accion || 'Sin acción'}</div>
-                                {item.reincidenciaDe && (
-                                  <div style={{ fontSize: '9.5px', color: '#7A4500', marginTop: '3px', lineHeight: 1.4 }}>
-                                    Ya falló el {item.reincidenciaDe.fechaAuditoria}. Se hizo «{item.reincidenciaDe.accion}»
-                                    {item.reincidenciaDe.responsable !== 'No asignado' && <>, {item.reincidenciaDe.responsable}</>}
-                                    {item.reincidenciaDe.diasHastaVolver !== null && <>, y volvió {item.reincidenciaDe.diasHastaVolver} días después del cierre</>}.
-                                  </div>
-                                )}
-                              </td>
-                              <td style={{ padding: '6px 10px', border: '1px solid #E8EEF8', textAlign: 'left', color: '#5A6A80' }}>{item.responsable || 'No asignado'}</td>
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaInicio}</td>
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center' }}>{item.fechaFin}</td>
-                              <td style={{ padding: '6px 4px', border: '1px solid #E8EEF8', textAlign: 'center', fontWeight: 700 }}>{diasTotal}</td>
-                              <td style={{ padding: '6px 8px', border: '1px solid #E8EEF8', textAlign: 'center' }}>
-                                {/* Al cerrar, el renglón ya no desaparece: se
-                                    queda marcado como cerrado para confirmar el
-                                    cambio y poder deshacerlo (SPEC-014). */}
-                                <button
-                                  onClick={() => handleToggleEstadoHallazgo(item.docId, item.hallazgoIdx, item.estadoSeguimiento)}
-                                  title={estatus === 'TERMINADO'
-                                    ? 'Cerrado. Toca otra vez para reabrirlo; al salir del tablero deja de mostrarse.'
-                                    : 'Marcar como terminado'}
-                                  style={{
-                                    padding: '4px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, cursor: 'pointer', width: '100%',
-                                    fontFamily: 'inherit',
-                                    border: estatus === 'TERMINADO' ? '1px solid #0F7A55' : 'none',
-                                    background: estatus === 'TERMINADO' ? '#E0F2EC' : estatus === 'PENDIENTE_ATRASADO' ? '#F9E8EB' : '#FDF0D8',
-                                    color: estatus === 'TERMINADO' ? '#085041' : estatus === 'PENDIENTE_ATRASADO' ? '#7A0B1D' : '#7A4500'
-                                  }}
-                                >
-                                  {estatus === 'TERMINADO'
-                                    ? '✓ CERRADO'
-                                    : estatus === 'PENDIENTE_ATRASADO' ? 'PEND. ATRASADO' : estatus}
-                                </button>
-                                {estatus === 'TERMINADO' && (
-                                  <div style={{ fontSize: '8.5px', color: '#085041', marginTop: '3px', lineHeight: 1.3 }}>
-                                    Toca para deshacer
-                                  </div>
-                                )}
-                              </td>
-                              {diasGantt.map((diaCol, dIdx) => {
-                                const enRango = diaCol.iso >= item.fechaInicio && diaCol.iso <= item.fechaFin;
-                                let bg = 'transparent';
-                                if (enRango) {
-                                  bg = estatus === 'TERMINADO' ? '#0F7A55' : estatus === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#D4840A';
-                                }
-                                return (
-                                  <td key={`celda-${idx}-${dIdx}`} style={{ border: '1px solid rgba(0,32,96,0.06)', background: bg, padding: 0, height: '24px' }}></td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* SUBVISTA AUDITORÍAS CON FILTROS Y CLICK RESTAURADO */}
             {subVistaHistorial === 'AUDITORIAS' && (
