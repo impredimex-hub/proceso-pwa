@@ -2865,7 +2865,10 @@ export const App: React.FC = () => {
                         }}>
                           <div style={{ flex: '1 1 300px', textAlign: 'left' }}>
                             <div style={{ fontSize: '12.5px', fontWeight: 600, color: resp === 'NO' ? '#7A0B1D' : '#0D1A2E' }}>
-                              <span style={{ color: '#003580', marginRight: '6px' }}>#{item.id}</span>
+                              {/* SPEC-025: la posición en la lista, no el identificador.
+                                  El `id` es lo que amarra cada hallazgo con su pregunta y
+                                  no se puede reutilizar; al borrar puntos deja huecos. */}
+                              <span style={{ color: '#003580', marginRight: '6px' }}>#{idx + 1}</span>
                               <span>{item.queObservar}</span>
                               {esSoloReincidente && (
                                 <span style={{ marginLeft: '8px', fontSize: '10px', background: '#FDE8EB', color: '#C8102E', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
@@ -3173,7 +3176,7 @@ export const App: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {checklistEnEdicion.map((item) => (
+                {checklistEnEdicion.map((item, idx) => (
                   <div
                     key={`edicion-item-${item.id}`}
                     style={{
@@ -3184,7 +3187,7 @@ export const App: React.FC = () => {
                   >
                     <div style={{ flex: '1 1 300px' }}>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', marginBottom: '2px' }}>{item.seccion}</div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>#{item.id} {item.queObservar}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#0D1A2E' }}>#{idx + 1} {item.queObservar}</div>
                       <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}><strong>Verificación:</strong> {item.comoVerifica}</div>
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -3564,9 +3567,11 @@ export const App: React.FC = () => {
                           required
                         >
                           <option value="">-- Selecciona el punto del checklist --</option>
-                          {plantillaActual.map((item) => (
+                          {plantillaActual.map((item, idx) => (
+                            // El valor sigue siendo el `id`: es con lo que el
+                            // hallazgo queda amarrado al punto. Solo cambia lo que se lee.
                             <option key={`opt-modal-p-${item.id}`} value={item.id}>
-                              #{item.id} - {item.queObservar}
+                              #{idx + 1} - {item.queObservar}
                             </option>
                           ))}
                         </select>
