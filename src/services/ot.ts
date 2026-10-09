@@ -27,29 +27,16 @@
  * auditor contesta que sí quiere ver las OT: no en cada check.
  */
 
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getDatabase, ref, get, update, runTransaction } from 'firebase/database';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { ref, get, update, runTransaction } from 'firebase/database';
+import { conectarManto, cabeceraDeSesion, SERVICIO_MANTO } from './manto';
 
-/** El mismo proyecto que lee el catálogo. Ver `catalogo.ts`. */
-const CONFIG_MANTO = {
-  apiKey: 'AIzaSyB6ZjPeh9bwY5d2M-ZpxIbEW3ZsLzhAz0M',
-  authDomain: 'impredimex-mantoapp.firebaseapp.com',
-  databaseURL: 'https://impredimex-mantoapp-default-rtdb.firebaseio.com',
-  projectId: 'impredimex-mantoapp',
-  storageBucket: 'impredimex-mantoapp.firebasestorage.app',
-  messagingSenderId: '294064610592',
-  appId: '1:294064610592:web:6a352dbf44ec6749898b45'
-};
-
-const NOMBRE_APP = 'manto';
 
 /**
  * El aviso de OT nueva no va directo a OneSignal: pasa por un Worker de
  * Cloudflare que recibe las nóminas y el texto. Es el mismo que usa
  * Mantenimiento, así que un aviso levantado aquí llega igual que cualquier otro.
  */
-const WORKER_PUSH = 'https://mantoapp-push.victormorenogarcia05.workers.dev/';
+const WORKER_PUSH = SERVICIO_MANTO;
 
 /**
  * Tipo de servicio con el que se levantan las OT de auditoría.
@@ -64,17 +51,8 @@ const WORKER_PUSH = 'https://mantoapp-push.victormorenogarcia05.workers.dev/';
  */
 const TIPO_SERVICIO = 'MTTO-MAQ-PROD';
 
-const app = () =>
-  getApps().some((a) => a.name === NOMBRE_APP)
-    ? getApp(NOMBRE_APP)
-    : initializeApp(CONFIG_MANTO, NOMBRE_APP);
-
-const conectar = async () => {
-  const a = app();
-  const auth = getAuth(a);
-  if (!auth.currentUser) await signInAnonymously(auth);
-  return getDatabase(a);
-};
+// SPEC-026: la conexión entra con la credencial de la persona, no anónima.
+const conectar = conectarManto;
 
 /* ── Leer las OT abiertas ──────────────────────────────────────────────── */
 
@@ -233,9 +211,10 @@ const avisar = async (
   }
 
   try {
+    // SPEC-026: el servicio solo envía avisos de alguien con sesión activa.
     const r = await fetch(WORKER_PUSH, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await cabeceraDeSesion()) },
       body: JSON.stringify({
         nominas: nominas.map(String),
         title: `${urgente ? 'URGENTE' : 'Nueva OT'} #${folio} · de auditoría`,

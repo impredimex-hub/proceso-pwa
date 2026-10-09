@@ -33,22 +33,11 @@
  * cambiar las listas debajo de alguien que está capturando una auditoría.
  */
 
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getDatabase, ref, get } from 'firebase/database';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
+import { onAuthStateChanged } from 'firebase/auth';
+import { conectarManto } from './manto';
+import { suiteAuth } from './suite';
 
-/** Proyecto de la app de Mantenimiento. Solo se lee de aquí. */
-const CONFIG_MANTO = {
-  apiKey: 'AIzaSyB6ZjPeh9bwY5d2M-ZpxIbEW3ZsLzhAz0M',
-  authDomain: 'impredimex-mantoapp.firebaseapp.com',
-  databaseURL: 'https://impredimex-mantoapp-default-rtdb.firebaseio.com',
-  projectId: 'impredimex-mantoapp',
-  storageBucket: 'impredimex-mantoapp.firebasestorage.app',
-  messagingSenderId: '294064610592',
-  appId: '1:294064610592:web:6a352dbf44ec6749898b45'
-};
-
-const NOMBRE_APP = 'manto';
 // La `v2` es la forma de la ficha, no la versión del catálogo. Al cambiar de
 // forma —la SPEC-021 le sumó `nombreManto` y `naves`— la llave cambia también,
 // así que una caché vieja simplemente no se encuentra y se baja de nuevo. Es
@@ -205,17 +194,21 @@ export const refrescarCatalogo = async (): Promise<ResultadoRefresco> => {
   yaCorrio = true;
 
   try {
-    const app = getApps().some((a) => a.name === NOMBRE_APP)
-      ? getApp(NOMBRE_APP)
-      : initializeApp(CONFIG_MANTO, NOMBRE_APP);
+    // SPEC-026: la base de Mantenimiento ya no abre a sesiones anónimas; se
+    // entra con la credencial de la persona. Antes de iniciar sesión no hay
+    // credencial, así que la consulta se aplaza hasta que alguien entre.
+    await suiteAuth.authStateReady();
+    if (!suiteAuth.currentUser) {
+      yaCorrio = false;
+      const dejar = onAuthStateChanged(suiteAuth, (u) => {
+        if (!u) return;
+        dejar();
+        refrescarCatalogo().catch(() => { /* no lanza; se cubre por si acaso */ });
+      });
+      return { estado: 'error', motivo: 'sin sesión: se consultará al entrar' };
+    }
 
-    // Las reglas de Mantenimiento piden `auth != null`. La sesión anónima no
-    // distingue personas; solo acredita que quien pregunta es una de nuestras
-    // apps. Es la misma que usa Mantenimiento para su propia base.
-    const auth = getAuth(app);
-    if (!auth.currentUser) await signInAnonymously(auth);
-
-    const bd = getDatabase(app);
+    const bd = await conectarManto();
 
     // Primero el sello: quince bytes para saber si vale la pena lo demás.
     const sello = await get(ref(bd, 'manto_db/catalogoVer'));

@@ -739,6 +739,48 @@ versión de la plantilla y otra. El hallazgo guarda el **texto** del punto, no
 solo su número, así que el rastro no se pierde; pero conviene nombrarlos por lo
 que dicen y no por el número cuando la plantilla esté cambiando.
 
+## SPEC-026 — Entrar a la base de Mantenimiento con credencial propia
+
+**Actor** — Quien levanta una OT desde un check, y el arranque de la app que
+refresca el catálogo de máquinas.
+
+### El problema
+
+Para leer el catálogo (SPEC-020) y levantar OT (SPEC-021) esta app entraba a la
+base de Mantenimiento con una **sesión anónima**. Esa sesión no decía quién era
+la persona, y las reglas de aquella base solo podían preguntar «¿hay sesión?».
+Con la configuración pública del proyecto, cualquiera podía abrir una y leer o
+borrar la base completa de Mantenimiento.
+
+### La solución
+
+Mantenimiento cerró su base (su SPEC-061). Esta app ahora pide una credencial
+al servicio `mantoapp-push`, presentando la sesión de la suite. El servicio
+comprueba que la persona esté ACTIVA y tenga `procesos` en `apps`, y devuelve
+una credencial con su nómina y `app: 'procesos'`.
+
+Todo vive en `services/manto.ts`, que usan `catalogo.ts` y `ot.ts`.
+
+| Con la credencial de Procesos | |
+|---|---|
+| Puede leer | `catalogoVer`, `maquinas`, `zonas`, `abiertasPorMaquina`, `notificarA`, `urlApp`, `folioSig` |
+| Puede escribir | Apartar folio; **crear** una OT `AUDITORIA` en estatus `abierto` a la nómina de quien la levanta; su entrada en `abiertasPorMaquina` |
+| No puede | Leer OT completas o personal; modificar o borrar OT; tocar catálogos |
+
+### Reglas
+
+- La credencial se renueva al pasar 12 horas o al cambiar de persona; las
+  reglas de Mantenimiento la rechazan a los 7 días.
+- **Antes de iniciar sesión no hay credencial.** El refresco del catálogo al
+  arrancar espera a que alguien entre y entonces consulta; mientras, se usa el
+  catálogo guardado.
+- **La OT se levanta a nombre de quien tiene la sesión.** `nomina` debe ser la
+  de la credencial o las reglas la rechazan.
+- **El aviso push manda la sesión** en la cabecera `Authorization`. Sin ella el
+  servicio lo rechaza.
+- **Al cerrar la sesión de la suite** se cierra también la credencial de
+  Mantenimiento.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

@@ -6,6 +6,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.2.0] — 2026-10-09
+
+### Seguridad
+
+- **La conexión a la base de Mantenimiento ya no es anónima** (SPEC-026). La
+  app pide una credencial con la sesión de la suite al servicio
+  `mantoapp-push`, y con ella solo lee el catálogo y el índice de OT abiertas y
+  solo puede crear OT de auditoría a nombre de quien la levanta.
+- **El aviso push manda la sesión de quien avisa.** El servicio rechaza los
+  avisos sin sesión.
+
+### Cambiado
+
+- El refresco del catálogo de Mantenimiento espera a que alguien inicie sesión,
+  en lugar de consultarlo antes del login.
+
+---
+
 ## [3.1.0] — 2026-10-07
 
 ### Corregido
