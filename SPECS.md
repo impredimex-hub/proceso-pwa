@@ -781,6 +781,58 @@ Todo vive en `services/manto.ts`, que usan `catalogo.ts` y `ot.ts`.
 - **Al cerrar la sesión de la suite** se cierra también la credencial de
   Mantenimiento.
 
+## SPEC-027 — Condiciones de Equipo y 5S por área
+
+**Actor** — Quien audita condiciones y 5S en piso.
+
+### El problema
+
+El formulario era por máquina. En un área como Revisión, con cinco máquinas,
+había que abrir y llenar el mismo checklist cinco veces. Recorrer el área una
+sola vez costaba cinco capturas.
+
+### La solución
+
+- Al elegir el proceso o área, **se abre directo un solo formulario**. Ya no se
+  elige máquina ni hay botón de iniciar.
+- A la derecha de cada punto va **cada máquina del área con una lista
+  desplegable — / Sí / No**. En celular las listas bajan debajo del texto del
+  punto.
+- Arriba, una ficha por máquina que se puede **desmarcar** si esa máquina no se
+  revisó (parada, sin operador). Cada ficha muestra cuántos puntos lleva.
+- Un «No» crea el hallazgo **de esa máquina**. Si el punto ya había fallado en
+  esa máquina, se hace la pregunta de la SPEC-022. Un hallazgo extra se asigna
+  a una de las máquinas con una lista.
+- Auditor, nómina del auditado, supervisor y turno se capturan una vez. La
+  lista de supervisores junta los de todas las máquinas del área.
+
+### Trazabilidad
+
+**Se guarda un documento por máquina** en `evaluaciones_proceso`, con la misma
+forma de siempre (`maquinaId`, `respuestas`, `hallazgos`, `cumplimiento`…). Por
+eso cobertura, ranking, reincidencia, comportamiento, Gantt y el layout siguen
+funcionando sin cambios. Los documentos de una misma revisión comparten:
+
+| Campo | Contenido |
+|---|---|
+| `grupoArea.id` | Identificador de la revisión |
+| `grupoArea.familia` | El área |
+| `grupoArea.maquinas` | Las máquinas que entraron |
+
+Todos se escriben en un solo lote: o se guardan todas las máquinas o ninguna.
+
+### Reglas
+
+- Para guardar, cada máquina marcada debe tener todos sus puntos contestados.
+- Si no hay supervisores en ninguna máquina del área, se pide la nómina del
+  auditado (SPEC-024).
+- **Paso de OT (SPEC-021)**: al guardar, se ofrece por turno para cada máquina
+  con hallazgos o puntos que siguen abiertos, una tras otra.
+- Desde el layout 3D, «Condiciones y 5S» de una máquina abre la revisión de su
+  área con solo esa máquina marcada.
+- La Validación de Proceso sigue siendo por máquina: lleva orden de trabajo y
+  checklist propio por familia.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

@@ -6,6 +6,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.3.0] — 2026-10-14
+
+### Cambiado
+
+- **Condiciones de Equipo y 5S se audita por área** (SPEC-027). Al elegir el
+  área se abre un solo formulario; a la derecha de cada punto va cada máquina
+  con su lista Sí / No. Las máquinas que no se revisaron se desmarcan. Se
+  guarda un registro por máquina, así que su historial y trazabilidad no
+  cambian. Al guardar, el paso de órdenes de Mantenimiento se ofrece máquina
+  por máquina.
+
+### Corregido
+
+- La fecha de la auditoría y del Gantt se toma en hora local. Después de las
+  18:00 marcaba el día siguiente.
+
+---
+
 ## [3.2.0] — 2026-10-09
 
 ### Seguridad

@@ -22,6 +22,8 @@ import {
 import { catalogoGuardado } from './services/catalogo';
 import { otsAbiertasDe, levantarOT, etiquetaStatus } from './services/ot';
 import type { OTAbierta } from './services/ot';
+import AuditoriaArea from './components/AuditoriaArea';
+import type { ContextoOT } from './components/AuditoriaArea';
 
 (window as any).db = db;
 
@@ -69,6 +71,10 @@ const STYLES = {
  * Avisa al arranque de la página si hay sesión (SPEC-006). La función vive en
  * `index.html` porque tiene que correr antes de que React cargue.
  */
+/** 'AAAA-MM-DD' en hora local. */
+const isoLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const avisarArranque = (haySesion: boolean) =>
   (window as unknown as { arranqueListo?: (s: boolean) => void }).arranqueListo?.(haySesion);
 
@@ -170,6 +176,10 @@ const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] =
   const nominas = nominasDeMaquina(maquina);
   return USUARIOS_SISTEMA.filter((u) => nominas.includes(u.nomina));
 };
+
+/** Lo mismo, para la revisión por área (SPEC-027). Fuera del componente para que no cambie en cada render. */
+const supervisoresDeArea = (m: { id: string }): UserProfile[] =>
+  obtenerSupervisoresPorMaquina(CATALOGO.find((x) => x.id === m.id) || null);
 
 interface ItemChecklist {
   id: number;
@@ -346,7 +356,7 @@ export const App: React.FC = () => {
   const [entrando, setEntrando] = useState(false);
 
   // Estados de navegación
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING' | 'COMPORTAMIENTO'>('LAUNCHER');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'EVALUACION_AREA' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING' | 'COMPORTAMIENTO'>('LAUNCHER');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
 
@@ -424,7 +434,14 @@ export const App: React.FC = () => {
   const [filtroProcesoFamilia, setFiltroProcesoFamilia] = useState('');
   const [filtroProcesoMaquinaId, setFiltroProcesoMaquinaId] = useState('');
   const [filtro5SFamilia, setFiltro5SFamilia] = useState('');
-  const [filtro5SMaquinaId, setFiltro5SMaquinaId] = useState('');
+  /* Revisión de Condiciones y 5S por área (SPEC-027). `marcadas` vacío = todas
+     las máquinas del área; desde el layout 3D llega solo la que se tocó. La
+     `vez` reinicia el formulario cada que se abre. */
+  const [revisionArea, setRevisionArea] = useState<{ familia: string; marcadas: string[]; vez: number } | null>(null);
+  const abrirRevisionArea = (familia: string, marcadas: string[] = []) => {
+    setRevisionArea({ familia, marcadas, vez: Date.now() });
+    setVista('EVALUACION_AREA');
+  };
 
   // Filtros Auditorías
   const [filtroAudTipoRevision, setFiltroAudTipoRevision] = useState('');
@@ -473,13 +490,42 @@ export const App: React.FC = () => {
   const [otPrioridad, setOtPrioridad] = useState<'Normal' | 'Urgente'>('Normal');
   const [otEnviando, setOtEnviando] = useState(false);
   const [otResultado, setOtResultado] = useState<{ folio: string; sinAviso: boolean; motivoAviso?: string } | null>(null);
+  /** Máquinas que aún esperan su paso de OT tras una revisión por área (SPEC-027). */
+  const [otCola, setOtCola] = useState<ContextoOT[]>([]);
+
+  const abrirPasoOT = (ctx: ContextoOT) => {
+    setOtAbiertas([]); setOtErrorLectura(''); setOtDesc('');
+    setOtPrioridad('Normal'); setOtResultado(null);
+    setOtContexto(ctx);
+    setOtNave(ctx.naves.length ? ctx.naves[0] : '');
+    setOtPaso('PREGUNTA');
+  };
 
   const cerrarPasoOT = () => {
+    // Revisión por área: una máquina a la vez, en orden.
+    if (otCola.length) {
+      const [sig, ...resto] = otCola;
+      setOtCola(resto);
+      abrirPasoOT(sig);
+      return;
+    }
     setOtPaso('NO'); setOtContexto(null); setOtAbiertas([]);
     setOtErrorLectura(''); setOtDesc(''); setOtNave('');
     setOtPrioridad('Normal'); setOtResultado(null);
     setVista('HISTORIAL');
     setSubVistaHistorial('AUDITORIAS');
+  };
+
+  const alGuardarRevisionArea = (contextos: ContextoOT[]) => {
+    if (!contextos.length) {
+      alert('✅ Revisión guardada correctamente.');
+      setVista('HISTORIAL');
+      setSubVistaHistorial('AUDITORIAS');
+      return;
+    }
+    const [primero, ...resto] = contextos;
+    setOtCola(resto);
+    abrirPasoOT(primero);
   };
 
   const consultarOTs = async (clave: string) => {
@@ -517,7 +563,9 @@ export const App: React.FC = () => {
   const [historial, setHistorial] = useState<any[]>([]);
 
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Fecha local. `toISOString` da la de UTC: después de las 18:00 en México
+  // ya marcaba el día siguiente.
+  const todayStr = isoLocal(new Date());
 
   useEffect(() => {
     if (usuarioActivo) setAuditor(usuarioActivo.nombre);
@@ -737,6 +785,14 @@ export const App: React.FC = () => {
 
   const handleIniciarAuditoriaDesdeLayout = (tipo: 'PROCESO' | '5S') => {
     if (!detalleElementoLayout?.maquina) return;
+    if (tipo === '5S') {
+      // SPEC-027: se abre la revisión del área con esa máquina marcada.
+      const m = detalleElementoLayout.maquina;
+      setDetalleElementoLayout(null);
+      setModalLayout3DAbierto(false);
+      abrirRevisionArea(m.tipo, [m.id]);
+      return;
+    }
     setMaquinaSeleccionada(detalleElementoLayout.maquina);
     setTipoAuditoriaActiva(tipo);
     setDetalleElementoLayout(null);
@@ -1326,7 +1382,7 @@ export const App: React.FC = () => {
   const diasGantt = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const iso = d.toISOString().split('T')[0];
+    const iso = isoLocal(d);
     const diasLetra = ['D', 'L', 'M', 'MI', 'J', 'V', 'S'];
     return {
       iso,
@@ -2674,7 +2730,7 @@ export const App: React.FC = () => {
             <div style={{ ...STYLES.glassCard, padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060' }}>Condiciones de Equipo y 5S</div>
-                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el tipo de área/proceso y el equipo a auditar</div>
+                <div style={{ fontSize: '11px', color: '#5A6A80' }}>Selecciona el área: el formulario incluye todas sus máquinas</div>
               </div>
               <button onClick={() => setVista('LAUNCHER')} style={{ background: 'transparent', border: '1px solid rgba(0,32,96,0.12)', color: '#003580', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                 Volver
@@ -2684,59 +2740,43 @@ export const App: React.FC = () => {
             <div style={{ ...STYLES.glassCard, maxWidth: '560px', margin: '0 auto', textAlign: 'left' }}>
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                  1. Selecciona el Proceso o Área:
+                  Selecciona el Proceso o Área:
                 </label>
                 <select
-                  value={filtro5SFamilia}
-                  onChange={(e) => { setFiltro5SFamilia(e.target.value); setFiltro5SMaquinaId(''); }}
+                  value=""
+                  onChange={(e) => { if (e.target.value) { setFiltro5SFamilia(e.target.value); abrirRevisionArea(e.target.value); } }}
                   style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
                 >
                   <option value="">-- Elige un proceso / área --</option>
-                  {FAMILIAS_5S.map((fam) => (
-                    <option key={fam} value={fam}>{fam}</option>
-                  ))}
+                  {FAMILIAS_5S.map((fam) => {
+                    const n = CATALOGO.filter((m) => m.modulo5S && m.tipo === fam).length;
+                    return <option key={fam} value={fam}>{fam} ({n})</option>;
+                  })}
                 </select>
               </div>
-
-              {filtro5SFamilia && (
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>
-                    2. Selecciona la Máquina o Área Auxiliar:
-                  </label>
-                  <select
-                    value={filtro5SMaquinaId}
-                    onChange={(e) => setFiltro5SMaquinaId(e.target.value)}
-                    style={{ ...STYLES.input, fontSize: '14px', fontWeight: 600 }}
-                  >
-                    <option value="">-- Elige la máquina o área específica --</option>
-                    {CATALOGO.filter((m) => m.modulo5S && m.tipo === filtro5SFamilia).map((m) => (
-                      <option key={m.id} value={m.id}>{m.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <button
-                type="button"
-                disabled={!filtro5SMaquinaId}
-                onClick={() => {
-                  const m = CATALOGO.find((maq) => maq.id === filtro5SMaquinaId);
-                  if (m) {
-                    setMaquinaSeleccionada(m);
-                    setTipoAuditoriaActiva('5S');
-                    setVista('EVALUACION');
-                  }
-                }}
-                style={{
-                  width: '100%', padding: '12px', background: filtro5SMaquinaId ? '#003580' : '#E8EEF8',
-                  color: filtro5SMaquinaId ? '#ffffff' : '#8A9AB0', border: 'none', borderRadius: '8px',
-                  fontSize: '13px', fontWeight: 700, cursor: filtro5SMaquinaId ? 'pointer' : 'not-allowed'
-                }}
-              >
-                Iniciar Auditoría 5S →
-              </button>
+              <div style={{ fontSize: '11.5px', color: '#5A6A80', lineHeight: 1.5 }}>
+                Se abre un solo formulario con cada máquina del área a la derecha de cada punto.
+                Cada máquina se guarda por separado, así que su historial no cambia.
+                {filtro5SFamilia && <> Última área: <strong>{filtro5SFamilia}</strong>.</>}
+              </div>
             </div>
           </div>
+        )}
+
+        {/* 3b. REVISIÓN POR ÁREA (SPEC-027) */}
+        {vista === 'EVALUACION_AREA' && revisionArea && (
+          <AuditoriaArea
+            key={revisionArea.vez}
+            familia={revisionArea.familia}
+            maquinas={CATALOGO.filter((m) => m.modulo5S && m.tipo === revisionArea.familia)}
+            marcadasInicial={revisionArea.marcadas}
+            items={plantillas5S[revisionArea.familia] || CHECKLIST_OFICIAL_5S}
+            historial={historial}
+            usuario={usuarioActivo}
+            supervisoresDe={supervisoresDeArea}
+            onCancelar={() => setVista('MODULO_5S')}
+            onGuardado={alGuardarRevisionArea}
+          />
         )}
 
         {/* 4. VISTA DE EVALUACIÓN */}
@@ -3868,6 +3908,7 @@ export const App: React.FC = () => {
               </div>
               <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '2px' }}>
                 Auditoría guardada con {otContexto.hallazgos.length} hallazgo{otContexto.hallazgos.length === 1 ? '' : 's'}
+                {otCola.length > 0 && ` · después siguen ${otCola.length} máquina${otCola.length === 1 ? '' : 's'} más`}
               </div>
             </div>
 
