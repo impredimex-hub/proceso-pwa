@@ -154,6 +154,9 @@ const AuditoriaArea: React.FC<Props> = ({
     // lo mismo que sigue abierto o una desviación nueva.
     const previos: any[] = [];
     historial.forEach((aud) => {
+      // Solo auditorías de 5S: Proceso numera sus puntos aparte, y su punto 8
+      // no es el punto 8 de este checklist (SPEC-028).
+      if (aud.tipoAuditoria !== '5S') return;
       const esSuya = aud.maquinaId ? aud.maquinaId === maq.id : aud.maquinaNombre === maq.nombre;
       if (!esSuya || !Array.isArray(aud.hallazgos)) return;
       aud.hallazgos.forEach((h: any) => {

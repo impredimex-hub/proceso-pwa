@@ -421,7 +421,7 @@ export const App: React.FC = () => {
   const [cerradosAhora, setCerradosAhora] = useState<Set<string>>(new Set());
 
   const [puntoHistorial, setPuntoHistorial] = useState<
-    { maquinaId: string; puntoId?: number; texto: string; maquinaNombre: string } | null
+    { maquinaId: string; puntoId?: number; texto: string; maquinaNombre: string; tipo?: string } | null
   >(null);
   const [puntoSeleccionadoModal, setPuntoSeleccionadoModal] = useState<string>('');
   const [descNuevoHallazgoModal, setDescNuevoHallazgoModal] = useState('');
@@ -895,7 +895,11 @@ export const App: React.FC = () => {
       const item = itemsChecklistActivo.find((i) => i.id === puntoId);
       const hallazgosAnteriores: any[] = [];
       historial.forEach((aud) => {
-        if (aud.maquinaNombre === maquinaSeleccionada?.nombre && aud.hallazgos && Array.isArray(aud.hallazgos)) {
+        // Mismo tipo y misma máquina (SPEC-028): Proceso y 5S numeran sus
+        // puntos cada uno desde 1, así que el punto 8 de uno no es el del otro.
+        if (aud.tipoAuditoria !== tipoAuditoriaActiva) return;
+        const esSuya = aud.maquinaId ? aud.maquinaId === maquinaSeleccionada?.id : aud.maquinaNombre === maquinaSeleccionada?.nombre;
+        if (esSuya && aud.hallazgos && Array.isArray(aud.hallazgos)) {
           aud.hallazgos.forEach((h: any) => {
             if (h.puntoId === puntoId) {
               hallazgosAnteriores.push({ ...h, fechaAuditoria: aud.fechaAuditoria || 'Fecha no registrada', auditor: aud.auditor });
@@ -4396,7 +4400,7 @@ export const App: React.FC = () => {
           detección de reincidencia dejaría de funcionar el mismo día. */}
       {puntoHistorial && puntoHistorial.puntoId !== undefined && (() => {
         const linea: HallazgoPlano[] = historialDePunto(
-          hallazgosPlanos, puntoHistorial.maquinaId, puntoHistorial.puntoId
+          hallazgosPlanos, puntoHistorial.maquinaId, puntoHistorial.puntoId, puntoHistorial.tipo
         );
         return (
           <div

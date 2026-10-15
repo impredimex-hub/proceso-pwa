@@ -833,6 +833,25 @@ Todos se escriben en un solo lote: o se guardan todas las máquinas o ninguna.
 - La Validación de Proceso sigue siendo por máquina: lleva orden de trabajo y
   checklist propio por familia.
 
+## SPEC-028 — La reincidencia no mezcla Proceso con 5S
+
+### El problema
+
+Al contestar «No» en un punto de 5S salía «Este punto ya había fallado» con un
+hallazgo de una validación de **Proceso** («Burbuja de aire»). La búsqueda de
+reincidencia ligaba por máquina y número de punto, pero cada checklist numera
+sus puntos desde 1: el punto 8 de Proceso y el 8 de 5S no tienen relación.
+
+Si el auditor elegía «Es la misma, sigue abierta», el punto quedaba como
+pendiente de antes y **no se levantaba el hallazgo de 5S**.
+
+### La solución
+
+La llave es `(tipoAuditoria, máquina, punto)` en los tres lugares que la usan:
+la pregunta al capturar Proceso (SPEC-022), la de la revisión por área
+(SPEC-027) y la reincidencia del tablero (SPEC-009, `aplanarHallazgos`). La
+máquina se compara por `maquinaId` y, en documentos sin él, por nombre.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

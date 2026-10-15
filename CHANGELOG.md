@@ -6,6 +6,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.3.1] — 2026-10-15
+
+### Corregido
+
+- **«Este punto ya había fallado» mezclaba Proceso con 5S** (SPEC-028). Un
+  hallazgo de una validación de proceso aparecía como antecedente de un punto
+  de 5S con el mismo número. Ahora solo cuentan auditorías del mismo tipo, en
+  la captura y en el tablero.
+
+---
+
 ## [3.3.0] — 2026-10-14
 
 ### Cambiado

@@ -166,9 +166,11 @@ export const estaAbierto = (e: EstadoCumplimiento) => e !== 'TERMINADO';
  * Convierte las auditorías en una lista de hallazgos con su contexto, y marca
  * las reincidencias.
  *
- * **La llave de la reincidencia es `(maquinaId, puntoId)`.** Un hallazgo
- * reincide cuando ese mismo punto ya falló antes en esa misma máquina y aquel
- * hallazgo se cerró. Sustituye a la detección anterior, que buscaba la palabra
+ * **La llave de la reincidencia es `(tipoAuditoria, maquinaId, puntoId)`.** Un
+ * hallazgo reincide cuando ese mismo punto ya falló antes en esa misma máquina
+ * y aquel hallazgo se cerró. El tipo va en la llave porque Proceso y 5S
+ * numeran sus puntos cada uno desde 1: el punto 8 de Proceso y el 8 de 5S no
+ * tienen nada que ver (SPEC-028). Sustituye a la detección anterior, que buscaba la palabra
  * «reincidente» dentro del texto escrito a mano y fallaba en los dos sentidos.
  *
  * Los `esExtra` quedan fuera: sin `puntoId` no hay con qué ligarlos, y se
@@ -220,7 +222,7 @@ export const aplanarHallazgos = (
 
   for (const p of planos) {
     if (p.esExtra || p.puntoId === undefined || !p.maquinaId) continue;
-    const llave = `${p.maquinaId}|${p.puntoId}`;
+    const llave = `${p.tipoAuditoria}|${p.maquinaId}|${p.puntoId}`;
     const previos = historia.get(llave) || [];
 
     // Solo cuentan los **cerrados** anteriores: si el anterior sigue abierto, no
@@ -294,10 +296,13 @@ export const tableroAbiertos = (
 export const historialDePunto = (
   planos: HallazgoPlano[],
   maquinaId: string,
-  puntoId: number
+  puntoId: number,
+  /** Proceso o 5S: cada uno numera sus puntos por separado (SPEC-028). */
+  tipoAuditoria?: string
 ): HallazgoPlano[] =>
   planos
-    .filter(p => p.maquinaId === maquinaId && p.puntoId === puntoId && !p.esExtra)
+    .filter(p => p.maquinaId === maquinaId && p.puntoId === puntoId && !p.esExtra
+      && (!tipoAuditoria || p.tipoAuditoria === tipoAuditoria))
     .sort((a, b) => b.fechaAuditoria.localeCompare(a.fechaAuditoria));
 
 /** Resumen para las tarjetas del tablero. */
