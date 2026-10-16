@@ -22,6 +22,8 @@ export interface MaquinaArea {
   tipo: string;
   nombreManto?: string;
   naves?: string[];
+  /** Zona de trabajo, no máquina (SPEC-029). */
+  esZona?: boolean;
 }
 export interface PuntoChecklist {
   id: number;
@@ -112,6 +114,7 @@ const AuditoriaArea: React.FC<Props> = ({
   const [guardando, setGuardando] = useState(false);
 
   const activas = maquinas.filter((m) => marcadas.includes(m.id));
+  const sonZonas = maquinas.length > 0 && maquinas.every((m) => m.esZona);
   const fecha = hoy();
 
   // Supervisores de cualquiera de las máquinas del área, sin repetir.
@@ -268,7 +271,8 @@ const AuditoriaArea: React.FC<Props> = ({
           .filter(Boolean)
           .map((i) => `Sigue abierto: ${(i as PuntoChecklist).queObservar}`);
         const textos = suyos.map((h) => String(h.hallazgo || '').trim()).filter(Boolean).concat(textosReinc);
-        if (textos.length && m.tipo !== 'Área Auxiliar' && m.nombreManto) {
+        // Las zonas no llevan OT de Mantenimiento; solo las máquinas.
+        if (textos.length && !m.esZona && m.tipo !== 'Área Auxiliar' && m.nombreManto) {
           contextos.push({
             clave: m.id, equipo: m.nombreManto, naves: m.naves || [], nombre: m.nombre,
             tipo: '5S', fecha, auditor: auditor.trim(), hallazgos: textos
@@ -304,7 +308,7 @@ const AuditoriaArea: React.FC<Props> = ({
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#002060' }}>{familia}</div>
             <div style={{ fontSize: '11px', color: '#5A6A80', marginTop: '2px' }}>
-              {activas.length} de {maquinas.length} {familia === 'Área Auxiliar' ? 'áreas' : 'máquinas'} · {items.length} puntos de inspección
+              {activas.length} de {maquinas.length} {sonZonas ? (maquinas.length === 1 ? 'área' : 'áreas') : 'máquinas'} · {items.length} puntos de inspección
             </div>
           </div>
           {totalPuntos > 0 && (
@@ -316,9 +320,9 @@ const AuditoriaArea: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Qué máquinas entran en esta revisión */}
-        <div style={{ marginTop: '1rem', textAlign: 'left' }}>
-          <div style={ETIQUETA}>{familia === 'Área Auxiliar' ? 'Áreas' : 'Máquinas'} que revisas (desmarca las que no):</div>
+        {/* Qué máquinas entran en esta revisión. Con una sola no hay qué elegir. */}
+        {maquinas.length > 1 && <div style={{ marginTop: '1rem', textAlign: 'left' }}>
+          <div style={ETIQUETA}>{sonZonas ? 'Áreas' : 'Máquinas'} que revisas (desmarca las que no):</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {maquinas.map((m) => {
               const on = marcadas.includes(m.id);
@@ -341,7 +345,7 @@ const AuditoriaArea: React.FC<Props> = ({
               );
             })}
           </div>
-        </div>
+        </div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginTop: '1.2rem', textAlign: 'left' }}>
           <div>

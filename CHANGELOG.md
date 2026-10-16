@@ -6,6 +6,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.4.0] — 2026-10-16
+
+### Cambiado
+
+- **Cada zona de trabajo es su propia categoría** (SPEC-029), con su propia
+  lista de verificación de 5S. Antes todas compartían «Área Auxiliar». Varias
+  zonas se pueden agrupar con la «Categoría en Procesos» de Mantenimiento. Las
+  categorías nuevas arrancan con la lista que tenía «Área Auxiliar».
+
+---
+
 ## [3.3.1] — 2026-10-15
 
 ### Corregido

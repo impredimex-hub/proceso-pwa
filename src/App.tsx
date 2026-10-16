@@ -19,7 +19,7 @@ import {
   nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas,
   puedeCerrarHallazgo, laHizo
 } from './utils/comportamiento';
-import { catalogoGuardado } from './services/catalogo';
+import { catalogoGuardado, CATEGORIA_ZONAS_ANTERIOR } from './services/catalogo';
 import { otsAbiertasDe, levantarOT, etiquetaStatus } from './services/ot';
 import type { OTAbierta } from './services/ot';
 import AuditoriaArea from './components/AuditoriaArea';
@@ -113,6 +113,8 @@ interface Maquina {
    */
   nombreManto?: string;
   naves?: string[];
+  /** Zona de trabajo, no máquina (SPEC-029). */
+  esZona?: boolean;
 }
 
 const CATALOGO_LOCAL: Maquina[] = [
@@ -144,19 +146,22 @@ const CATALOGO_LOCAL: Maquina[] = [
   { id: 'COR1', nombre: 'COR1 (Cortadora 1)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR2', nombre: 'COR2 (Cortadora 2)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
   { id: 'COR3', nombre: 'COR3 (Cortadora 3)', tipo: 'Corte', moduloProceso: true, modulo5S: true },
-  { id: 'area-tintas', nombre: 'Área de Tintas', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
-  { id: 'area-banos', nombre: 'Baños de Producción', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
-  { id: 'area-mp', nombre: 'Almacén Materia Prima', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
-  { id: 'area-pt', nombre: 'Almacén Producto Terminado', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
-  { id: 'area-mant', nombre: 'Taller Mantenimiento', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
-  { id: 'area-prep', nombre: 'Área Pre-prensa', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true },
-  { id: 'area-cal', nombre: 'Laboratorio Calidad', tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true }
+  { id: 'area-tintas', nombre: 'Área de Tintas', tipo: 'Área de Tintas', moduloProceso: false, modulo5S: true, esZona: true },
+  { id: 'area-banos', nombre: 'Baños de Producción', tipo: 'Baños de Producción', moduloProceso: false, modulo5S: true, esZona: true },
+  { id: 'area-mp', nombre: 'Almacén Materia Prima', tipo: 'Almacén Materia Prima', moduloProceso: false, modulo5S: true, esZona: true },
+  { id: 'area-pt', nombre: 'Almacén Producto Terminado', tipo: 'Almacén Producto Terminado', moduloProceso: false, modulo5S: true, esZona: true },
+  { id: 'area-mant', nombre: 'Taller Mantenimiento', tipo: 'Taller Mantenimiento', moduloProceso: false, modulo5S: true, esZona: true },
+  { id: 'area-prep', nombre: 'Área Pre-prensa', tipo: 'Área Pre-prensa', moduloProceso: false, modulo5S: true, esZona: true },
+  { id: 'area-cal', nombre: 'Laboratorio Calidad', tipo: 'Laboratorio Calidad', moduloProceso: false, modulo5S: true, esZona: true }
 ];
 
 // Lo guardado manda sobre el respaldo. Es una lectura síncrona de
 // localStorage, así que las pantallas siguen recibiendo una lista ya armada al
 // cargar el módulo, igual que cuando estaba escrita aquí.
 const CATALOGO: Maquina[] = catalogoGuardado() ?? CATALOGO_LOCAL;
+
+/** ¿Esta categoría es de zonas de trabajo? (SPEC-029) */
+const esCategoriaDeZonas = (fam: string) => CATALOGO.some((m) => m.tipo === fam && m.esZona);
 
 const FAMILIAS_TODAS = Array.from(new Set(CATALOGO.map((m) => m.tipo)));
 const FAMILIAS_PROCESO = Array.from(new Set(CATALOGO.filter((m) => m.moduloProceso).map((m) => m.tipo)));
@@ -589,7 +594,13 @@ export const App: React.FC = () => {
       const docs = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
         const tipoCorregido = resolverTipoAuditoria(data);
-        return { id: docSnap.id, ...data, tipoAuditoria: tipoCorregido };
+        // Auditorías anteriores a la SPEC-029 guardaron las zonas como «Área
+        // Auxiliar». Se muestran con la categoría que la zona tiene hoy, para
+        // que los filtros y el ranking las encuentren. El documento no cambia.
+        const tipoMaquina = data.tipoMaquina === CATEGORIA_ZONAS_ANTERIOR
+          ? (CATALOGO.find((m) => m.id === data.maquinaId)?.tipo || data.tipoMaquina)
+          : data.tipoMaquina;
+        return { id: docSnap.id, ...data, tipoMaquina, tipoAuditoria: tipoCorregido };
       });
       docs.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setHistorial(docs);
@@ -626,9 +637,19 @@ export const App: React.FC = () => {
     };
   }, [auditoriaDetalleModal?.id]);
 
+  /**
+   * La lista de 5S de una categoría. Una zona sin lista propia arranca con la
+   * que tenía «Área Auxiliar», donde vivían todas antes de la SPEC-029, y si
+   * esa tampoco existe, con la oficial.
+   */
+  const plantilla5SDe = (fam: string): ItemChecklist[] =>
+    plantillas5S[fam]
+    || (esCategoriaDeZonas(fam) ? plantillas5S[CATEGORIA_ZONAS_ANTERIOR] : undefined)
+    || CHECKLIST_OFICIAL_5S;
+
   useEffect(() => {
     const fuente = moduloEditor === 'PROCESO' ? plantillasProceso : plantillas5S;
-    const baseDefault = moduloEditor === 'PROCESO' ? (tipoSeleccionadoEditor === 'Pegado' ? CHECKLIST_BASE_PEGADO : []) : CHECKLIST_OFICIAL_5S;
+    const baseDefault = moduloEditor === 'PROCESO' ? (tipoSeleccionadoEditor === 'Pegado' ? CHECKLIST_BASE_PEGADO : []) : plantilla5SDe(tipoSeleccionadoEditor);
     const items = fuente[tipoSeleccionadoEditor] || baseDefault;
     setChecklistEnEdicion(Array.isArray(items) ? [...items] : []);
     cancelarEdicionPregunta();
@@ -637,7 +658,7 @@ export const App: React.FC = () => {
   const itemsChecklistActivo: ItemChecklist[] = maquinaSeleccionada
     ? (tipoAuditoriaActiva === 'PROCESO'
         ? (plantillasProceso[maquinaSeleccionada.tipo] || (maquinaSeleccionada.tipo === 'Pegado' ? CHECKLIST_BASE_PEGADO : []))
-        : (plantillas5S[maquinaSeleccionada.tipo] || CHECKLIST_OFICIAL_5S))
+        : plantilla5SDe(maquinaSeleccionada.tipo))
     : [];
 
   const supervisoresDisponibles = obtenerSupervisoresPorMaquina(maquinaSeleccionada);
@@ -1086,7 +1107,7 @@ export const App: React.FC = () => {
       const ofrecerOT =
         (listaHallazgos.length > 0 || textosReincidentes.length > 0) &&
         !!maq &&
-        maq.tipo !== 'Área Auxiliar' &&
+        !maq.esZona && maq.tipo !== CATEGORIA_ZONAS_ANTERIOR &&
         !!maq.nombreManto;
 
       if (ofrecerOT && maq) {
@@ -2774,7 +2795,7 @@ export const App: React.FC = () => {
             familia={revisionArea.familia}
             maquinas={CATALOGO.filter((m) => m.modulo5S && m.tipo === revisionArea.familia)}
             marcadasInicial={revisionArea.marcadas}
-            items={plantillas5S[revisionArea.familia] || CHECKLIST_OFICIAL_5S}
+            items={plantilla5SDe(revisionArea.familia)}
             historial={historial}
             usuario={usuarioActivo}
             supervisoresDe={supervisoresDeArea}

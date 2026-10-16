@@ -852,6 +852,35 @@ la pregunta al capturar Proceso (SPEC-022), la de la revisión por área
 (SPEC-027) y la reincidencia del tablero (SPEC-009, `aplanarHallazgos`). La
 máquina se compara por `maquinaId` y, en documentos sin él, por nombre.
 
+## SPEC-029 — Cada zona de trabajo es su propia categoría
+
+### El problema
+
+Las zonas de trabajo sin máquinas (Tintas, Preprensa, Calidad, el taller de
+Mantenimiento…) llegaban todas a una sola categoría, «Área Auxiliar». Compartían
+una lista de verificación aunque cada una tiene preguntas distintas, y en la
+revisión por área (SPEC-027) salían todas como columnas.
+
+### La solución
+
+- Cada zona del catálogo de Mantenimiento es **su propia categoría**, con el
+  nombre de la zona y su propia lista de 5S en el editor.
+- En Mantenimiento la zona tiene un campo opcional **«Categoría en Procesos»**.
+  Si varias zonas escriben la misma, se revisan juntas en un formulario (por
+  ejemplo «Almacenes»).
+- Una categoría de zonas sin lista propia arranca con la que tenía «Área
+  Auxiliar» y, si no había, con la oficial de 5S.
+- Las zonas llevan `esZona: true`. No se ofrece OT de Mantenimiento para ellas.
+- Con una sola zona en la categoría no se muestran las fichas para desmarcar.
+
+### Lo que ya existía
+
+- **Auditorías anteriores**: guardaron `tipoMaquina: 'Área Auxiliar'`. Al
+  leerlas se muestran con la categoría actual de su zona (por `maquinaId`); el
+  documento no se modifica.
+- **Caché del catálogo**: una caché vieja se separa al arrancar. La versión de
+  la caché pasó a `v3` para bajar el catálogo una vez con la categoría nueva.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

@@ -43,7 +43,10 @@ import { suiteAuth } from './suite';
 // así que una caché vieja simplemente no se encuentra y se baja de nuevo. Es
 // más seguro que leer una ficha incompleta y escribir una OT mal armada.
 const LLAVE_CACHE = 'catalogoManto.v2';
-const LLAVE_VERSION = 'catalogoMantoVer.v2';
+// La versión va en v3 desde la SPEC-029: cambió cómo se traduce una zona, así
+// que hay que volver a bajar el catálogo una vez aunque Mantenimiento no lo
+// haya tocado.
+const LLAVE_VERSION = 'catalogoMantoVer.v3';
 
 /** La forma que esta app necesita. `tipo` es la `familia` de Mantenimiento. */
 export interface MaquinaCatalogo {
@@ -65,6 +68,11 @@ export interface MaquinaCatalogo {
   nombreManto?: string;
   /** Naves donde está. También la pide la OT. */
   naves?: string[];
+  /**
+   * Es una zona de trabajo, no una máquina (SPEC-029). Una zona no lleva
+   * validación de proceso ni OT de Mantenimiento.
+   */
+  esZona?: boolean;
 }
 
 /* ── Lo que manda Mantenimiento ────────────────────────────────────────── */
@@ -76,6 +84,8 @@ interface FichaManto {
   familia?: string;
   descripcion?: string;
   naves?: string[];
+  /** Solo zonas: categoría en Procesos. Vacía = la zona es su propia categoría. */
+  categoria?: string;
   usos?: { cincoS?: boolean; proceso?: boolean };
   activo?: boolean;
 }
@@ -116,16 +126,26 @@ const traducir = (f: FichaManto): MaquinaCatalogo | null => {
   };
 };
 
-/** Una zona siempre va a 5S y nunca a validación de proceso. */
+/**
+ * Una zona siempre va a 5S y nunca a validación de proceso.
+ *
+ * Cada zona es **su propia categoría** (SPEC-029): Tintas, Preprensa o
+ * Calidad tienen riesgos distintos y cada una lleva su lista de verificación.
+ * Antes todas caían en «Área Auxiliar» con una sola lista. Si en Mantenimiento
+ * varias zonas comparten `categoria`, se revisan juntas.
+ */
 const traducirZona = (f: FichaManto): MaquinaCatalogo | null => {
   const clave = (f.clave || '').trim();
   const nombre = (f.nombre || '').trim();
   if (!clave || !nombre || f.activo === false) return null;
   return {
-    id: clave, nombre, tipo: 'Área Auxiliar', moduloProceso: false, modulo5S: true,
-    nombreManto: nombre, naves: Array.isArray(f.naves) ? f.naves : []
+    id: clave, nombre, tipo: (f.categoria || '').trim() || nombre, moduloProceso: false, modulo5S: true,
+    nombreManto: nombre, naves: Array.isArray(f.naves) ? f.naves : [], esZona: true
   };
 };
+
+/** Categoría que agrupaba todas las zonas antes de la SPEC-029. */
+export const CATEGORIA_ZONAS_ANTERIOR = 'Área Auxiliar';
 
 /* ── Caché ─────────────────────────────────────────────────────────────── */
 
@@ -155,7 +175,11 @@ export const catalogoGuardado = (): MaquinaCatalogo[] | null => {
         typeof (m as MaquinaCatalogo).nombre === 'string' &&
         typeof (m as MaquinaCatalogo).tipo === 'string'
     );
-    return limpia.length ? limpia : null;
+    // Una caché anterior a la SPEC-029 trae las zonas en «Área Auxiliar». Se
+    // separan desde ya; el catálogo nuevo llega en la siguiente apertura.
+    return limpia.length
+      ? limpia.map((m) => m.tipo === CATEGORIA_ZONAS_ANTERIOR ? { ...m, tipo: m.nombre, esZona: true } : m)
+      : null;
   } catch {
     return null;
   }
