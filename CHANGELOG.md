@@ -6,6 +6,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.5.0] — 2026-10-19
+
+### Agregado
+
+- **Responsables por área** (SPEC-031): pantalla para administradores donde se
+  asigna el supervisor o responsable de cada máquina y zona. Antes estaban
+  escritos en el código y las zonas nuevas no tenían a nadie.
+- **Corregir datos de una revisión** (SPEC-032): en «Ver Check», un
+  administrador corrige supervisor, auditor, auditado, turno u OP. Se puede
+  aplicar a toda la revisión por área y queda registro de cada corrección.
+
+### Retirado
+
+- **«Como auditor · mis máquinas»** y «Me falta revisar» en Comportamiento
+  (SPEC-030): con auditorías cruzadas ya no aplican.
+
+---
+
 ## [3.4.0] — 2026-10-16
 
 ### Cambiado

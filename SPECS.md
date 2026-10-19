@@ -881,6 +881,54 @@ revisión por área (SPEC-027) salían todas como columnas.
 - **Caché del catálogo**: una caché vieja se separa al arrancar. La versión de
   la caché pasó a `v3` para bajar el catálogo una vez con la categoría nueva.
 
+## SPEC-030 — Se retira «Como auditor · mis máquinas»
+
+Desde el 19 de octubre de 2026 las auditorías son **cruzadas**: nadie tiene
+máquinas fijas que revisar. La tarjeta de Comportamiento que listaba «lo que me
+toca revisar y si ya lo revisé», y el indicador «Me falta revisar», marcaban
+todo como «Falta» y ya no significaban nada. Se retiran.
+
+Comportamiento conserva lo que sí aplica: lo que la persona levantó y sigue
+abierto, cómo salieron las auditorías que le hicieron y sus hallazgos por
+corregir. El administrador puede elegir a **cualquier persona con acceso a la
+app**, no solo a quien tiene máquinas asignadas.
+
+## SPEC-031 — Responsables por máquina o área, editables
+
+### El problema
+
+Los supervisores de cada máquina estaban escritos en el código (deuda técnica
+2). Las zonas nuevas no tenían a nadie, y al auditarlas salía «Sin supervisor
+asignado».
+
+### La solución
+
+- Pantalla **Responsables por área**, solo para administradores, en el inicio.
+  Se elige el proceso o área y a cada máquina se le agregan o quitan
+  responsables; «Agregar a todas» asigna a alguien en todo el proceso.
+- Se guarda en Firestore, `configuracion/responsables`:
+  `porMaquina: { <maquinaId>: [nóminas] }`. Cada cambio se guarda al momento.
+- `nominasDeMaquina` usa lo guardado; una máquina sin entrada sigue con la
+  regla fija de antes. Así nada cambia hasta que alguien edita.
+- Solo se ofrecen personas con acceso a la app (`procesos` en `apps`).
+- Los responsables aparecen en «Nombre del supervisor» al auditar y reciben
+  sus hallazgos en Comportamiento.
+
+## SPEC-032 — Corregir los datos de una revisión
+
+Un administrador, en «Ver Check», puede **corregir supervisor, auditor, nómina
+del auditado, turno y, en Proceso, la orden de trabajo**. Caso real: el 19 de
+octubre se capturó a Samuel como supervisor en lugar de Sergio.
+
+- Si la revisión se hizo por área (SPEC-027), se ofrece aplicar la corrección a
+  las demás máquinas de la misma revisión (marcado por omisión). La orden de
+  trabajo no se replica.
+- Solo se escriben los campos que cambiaron. Cada corrección se agrega a
+  `ediciones` con fecha, quién la hizo, los valores nuevos y los anteriores.
+- **Respuestas y hallazgos no se editan aquí**: cambiarían el cumplimiento y la
+  historia de cada punto. Para agregar una desviación sigue el botón de
+  siempre.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

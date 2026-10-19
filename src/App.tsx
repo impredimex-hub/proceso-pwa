@@ -16,13 +16,15 @@ import {
 } from './utils/merma';
 import type { Periodo } from './utils/merma';
 import {
-  nominasDeMaquina, maquinasDe, comoAuditor, comoAuditado, nominasConMaquinas,
+  nominasDeMaquina, comoAuditado, fijarResponsables,
   puedeCerrarHallazgo, laHizo
 } from './utils/comportamiento';
 import { catalogoGuardado, CATEGORIA_ZONAS_ANTERIOR } from './services/catalogo';
 import { otsAbiertasDe, levantarOT, etiquetaStatus } from './services/ot';
 import type { OTAbierta } from './services/ot';
 import AuditoriaArea from './components/AuditoriaArea';
+import ResponsablesEditor from './components/ResponsablesEditor';
+import EditarRevision from './components/EditarRevision';
 import type { ContextoOT } from './components/AuditoriaArea';
 
 (window as any).db = db;
@@ -361,7 +363,9 @@ export const App: React.FC = () => {
   const [entrando, setEntrando] = useState(false);
 
   // Estados de navegación
-  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'EVALUACION_AREA' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING' | 'COMPORTAMIENTO'>('LAUNCHER');
+  const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'EVALUACION_AREA' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING' | 'COMPORTAMIENTO' | 'RESPONSABLES'>('LAUNCHER');
+  /** Cambia cada que llegan los responsables guardados, para volver a pintar (SPEC-031). */
+  const [, setResponsablesVer] = useState(0);
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
   const [subVistaHistorial, setSubVistaHistorial] = useState<'AUDITORIAS' | 'GANTT'>('AUDITORIAS');
 
@@ -620,6 +624,13 @@ export const App: React.FC = () => {
       setPlantillasProceso(dataP);
     });
 
+    // SPEC-031: responsables por máquina o área, editables por un administrador.
+    const unsubResponsables = onSnapshot(doc(db, 'configuracion', 'responsables'), (snap) => {
+      const datos = snap.exists() ? snap.data() : null;
+      fijarResponsables(datos && datos.porMaquina && typeof datos.porMaquina === 'object' ? datos.porMaquina : null);
+      setResponsablesVer((v) => v + 1);
+    }, (error) => console.error('Responsables:', error));
+
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
       const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
@@ -634,6 +645,7 @@ export const App: React.FC = () => {
       unsubAuditorias();
       unsubPlantillasProceso();
       unsubPlantillas5S();
+      unsubResponsables();
     };
   }, [auditoriaDetalleModal?.id]);
 
@@ -1774,6 +1786,28 @@ export const App: React.FC = () => {
                 </span>
               </div>
 
+              {/* Responsables (SPEC-031). Solo administradores. */}
+              {esAdminTotal && (
+                <div onClick={() => setVista('RESPONSABLES')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
+                    <div style={{ width: '3px', height: '18px', background: '#003580', borderRadius: '2px' }}></div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.08em' }}>Configuración</div>
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Responsables por área</div>
+                  <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
+                    Quién es el supervisor o responsable de cada máquina y área. Aparece al auditar y recibe sus hallazgos.
+                  </p>
+                  {(() => {
+                    const sin = CATALOGO.filter((m) => nominasDeMaquina(m).length === 0).length;
+                    return (
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: sin ? '#C8102E' : '#003580', background: sin ? '#F9E8EB' : '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
+                        {sin ? `${sin} sin responsable` : 'Todas asignadas'}
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Comportamiento (SPEC-019). */}
               <div onClick={() => setVista('COMPORTAMIENTO')} style={{ ...STYLES.glassCard, cursor: 'pointer', transition: 'all 0.15s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', paddingBottom: '.75rem', borderBottom: '2px solid #E8EEF8' }}>
@@ -1782,11 +1816,11 @@ export const App: React.FC = () => {
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#002060', marginBottom: '6px' }}>Comportamiento</div>
                 <p style={{ fontSize: '12px', color: '#5A6A80', lineHeight: 1.5, margin: '0 0 14px' }}>
-                  Cómo vas tú: a cuáles de tus máquinas ya les hiciste su revisión, cómo salieron las
-                  auditorías que te hicieron, y qué hallazgos tuyos siguen abiertos.
+                  Cómo vas tú: qué hallazgos levantaste y siguen abiertos, cómo salieron las
+                  auditorías que te hicieron, y qué hallazgos tuyos faltan por corregir.
                 </p>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#003580', background: '#E8EEF8', padding: '3px 9px', borderRadius: '5px' }}>
-                  {esAdminTotal ? 'Puedes ver a cualquiera' : `${maquinasDe(usuarioActivo.nomina, CATALOGO).length} máquinas a tu cargo`}
+                  {esAdminTotal ? 'Puedes ver a cualquiera' : 'Tus hallazgos y resultados'}
                 </span>
               </div>
 
@@ -2085,9 +2119,7 @@ export const App: React.FC = () => {
           const nombre = perfil?.nombre || usuarioActivo.nombre;
           const corte = desdeComp || null;
 
-          const filas = comoAuditor(nomina, nombre, CATALOGO, historial, corte);
           const auditado = comoAuditado(nomina, historial, corte);
-          const pendientes = filas.filter((f) => f.pendiente).length;
 
           // Su Gantt: los hallazgos abiertos de las auditorías que le hicieron.
           const suyas = historial.filter((a: any) =>
@@ -2132,21 +2164,11 @@ export const App: React.FC = () => {
             );
           };
 
-          const conMaquinas = nominasConMaquinas(CATALOGO);
-
-          const Marca: React.FC<{ e: { aplica: boolean; hecha: boolean; fecha: string | null } }> = ({ e }) => {
-            if (!e.aplica) return <span style={{ color: '#8A9AB0', fontSize: '10px' }}>No aplica</span>;
-            if (!e.hecha) return (
-              <span style={{ display: 'inline-block', background: '#F9E8EB', color: '#C8102E', border: '1px solid #C8102E', fontSize: '9.5px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px' }}>
-                Falta
-              </span>
-            );
-            return (
-              <span title={`Última: ${e.fecha}`} style={{ display: 'inline-block', background: '#E0F2EC', color: '#085041', fontSize: '9.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px' }}>
-                ✓ {e.fecha}
-              </span>
-            );
-          };
+          // Con auditorías cruzadas cualquiera audita: el ADMIN puede mirar a
+          // toda la gente con acceso a la app, no solo a quien tiene máquinas.
+          const conMaquinas = USUARIOS_SISTEMA.map((u) => u.nomina)
+            .sort((a, b) => (USUARIOS_SISTEMA.find((u) => u.nomina === a)?.nombre || '')
+              .localeCompare(USUARIOS_SISTEMA.find((u) => u.nomina === b)?.nombre || ''));
 
           return (
             <div>
@@ -2201,10 +2223,6 @@ export const App: React.FC = () => {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '1.2rem' }}>
-                <div style={{ ...STYLES.metricCard, background: pendientes > 0 ? 'rgba(200,16,46,.92)' : 'rgba(15,122,85,.92)' }}>
-                  <div style={{ fontSize: '10px', opacity: .8, textTransform: 'uppercase', letterSpacing: '.06em' }}>Me falta revisar</div>
-                  <div style={{ fontSize: '24px', fontWeight: 700 }}>{pendientes}</div>
-                </div>
                 <div style={{ ...STYLES.metricCard }}>
                   <div style={{ fontSize: '10px', opacity: .75, textTransform: 'uppercase', letterSpacing: '.06em' }}>Me auditaron</div>
                   <div style={{ fontSize: '24px', fontWeight: 700 }}>{auditado.total}</div>
@@ -2219,44 +2237,8 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* ── Como auditor ─────────────────────────────────────────── */}
-              <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden', marginBottom: '1.2rem' }}>
-                <div style={{ padding: '.9rem 1.2rem', borderBottom: '2px solid #E8EEF8', textAlign: 'left' }}>
-                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#002060', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                    Como auditor · mis máquinas
-                  </div>
-                  <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
-                    Lo que me toca revisar y si ya lo revisé.
-                  </div>
-                </div>
-                {filas.length === 0 ? (
-                  <div style={{ padding: '22px', textAlign: 'center', color: '#5A6A80', fontSize: '12px' }}>
-                    {nombre} no tiene máquinas ni áreas asignadas.
-                    {esAdminTotal && !personaComp && <> Elige a alguien arriba para ver cómo va.</>}
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                      <thead>
-                        <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
-                          {['Máquina o área', 'Validación de proceso', 'Condiciones y 5S'].map((h, i) => (
-                            <th key={h} style={{ padding: '9px 12px', textAlign: i === 0 ? 'left' : 'center', fontSize: '10px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filas.map((f) => (
-                          <tr key={f.id} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)', background: f.pendiente ? '#FFFBFB' : 'transparent' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#002060', textAlign: 'left' }}>{f.nombre}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center' }}><Marca e={f.proceso} /></td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center' }}><Marca e={f.cincoS} /></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              {/* «Como auditor · mis máquinas» se retiró el 19/10/2026 (SPEC-030):
+                  con auditorías cruzadas nadie tiene máquinas fijas que revisar. */}
 
               {/* ── Como auditado ────────────────────────────────────────── */}
               <div style={{ ...STYLES.glassCard, padding: '0', overflow: 'hidden', marginBottom: '1.2rem' }}>
@@ -2786,6 +2768,17 @@ export const App: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* RESPONSABLES (SPEC-031) */}
+        {vista === 'RESPONSABLES' && esAdminTotal && usuarioActivo && (
+          <ResponsablesEditor
+            catalogo={CATALOGO}
+            usuarios={USUARIOS_SISTEMA}
+            responsablesDe={nominasDeMaquina}
+            editor={{ nomina: usuarioActivo.nomina, nombre: usuarioActivo.nombre }}
+            onVolver={() => setVista('LAUNCHER')}
+          />
         )}
 
         {/* 3b. REVISIÓN POR ÁREA (SPEC-027) */}
@@ -3545,6 +3538,26 @@ export const App: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* SPEC-032: corregir datos de captura. Solo administradores. */}
+              {esAdminTotal && usuarioActivo && (() => {
+                const a = auditoriaDetalleModal;
+                const hermanas = a.grupoArea?.id
+                  ? historial.filter((h: any) => h.id !== a.id && h.grupoArea?.id === a.grupoArea.id)
+                  : [];
+                const maq = CATALOGO.find((m) => m.id === a.maquinaId) || null;
+                return (
+                  <EditarRevision
+                    key={a.id}
+                    auditoria={a}
+                    hermanas={hermanas}
+                    usuarios={USUARIOS_SISTEMA}
+                    sugeridos={obtenerSupervisoresPorMaquina(maq)}
+                    editor={{ nomina: usuarioActivo.nomina, nombre: usuarioActivo.nombre }}
+                    onGuardado={(c) => setAuditoriaDetalleModal((prev: any) => prev ? { ...prev, ...c } : prev)}
+                  />
+                );
+              })()}
 
               {/* Botón para abrir formulario de nueva desviación */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

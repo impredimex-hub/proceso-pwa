@@ -45,7 +45,30 @@ export interface AuditoriaComp {
    Sigue siendo una lista fija en código, que es la deuda técnica 2 del
    proyecto: debería salir de datos. Al menos ahora está en un solo lugar. */
 
+/* ── Responsables editables (SPEC-031) ─────────────────────────────────
+   Un administrador asigna los responsables de cada máquina o área desde la
+   app; se guardan en `configuracion/responsables`. Lo que no se ha asignado
+   ahí sigue con la regla fija de abajo, así que nada cambia hasta que alguien
+   lo edita. Una lista vacía guardada significa «sin responsable», a propósito. */
+
+let asignados: Record<string, string[]> | null = null;
+
+/** La app la llama cada que cambia `configuracion/responsables`. */
+export const fijarResponsables = (porMaquina: Record<string, string[]> | null) => {
+  asignados = porMaquina;
+};
+
+/** ¿Esta máquina ya tiene responsables guardados en la app? */
+export const tieneAsignacionPropia = (id: string) =>
+  !!asignados && Array.isArray(asignados[id]);
+
 export const nominasDeMaquina = (m: MaquinaAsignable): string[] => {
+  if (asignados && Array.isArray(asignados[m.id])) return asignados[m.id].map(String);
+  return reglaFija(m);
+};
+
+/** La matriz que estaba escrita en el código; queda como respaldo. */
+const reglaFija = (m: MaquinaAsignable): string[] => {
   const { id, tipo } = m;
   if (tipo === 'Digital' || tipo === 'Suajado') return ['885'];
   if (tipo === 'Rotograbado' || tipo === 'Flexografía' || tipo === 'Laminado' || id === 'DEP1') {
