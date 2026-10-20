@@ -929,6 +929,40 @@ octubre se capturó a Samuel como supervisor en lugar de Sergio.
   historia de cada punto. Para agregar una desviación sigue el botón de
   siempre.
 
+## SPEC-033 — Captura más corta y la OT a nombre del supervisor
+
+### En la revisión por área (Condiciones y 5S)
+
+- **Hallazgos:** solo queda «Descripción del hallazgo», **vacía** para que el
+  auditor escriba lo que vio. Se retiran acción correctiva, responsable y fecha
+  de cierre. No se guarda hasta que todos los hallazgos tengan descripción.
+- Sin fecha compromiso, un hallazgo queda **pendiente**, nunca vencido
+  (`estadoReal` ya trataba así la fecha vacía). En las tablas se muestra «—».
+- **Se retiran «Nómina auditado» y «Turno».** El turno se calcula con la hora
+  en que se guarda; `nominaAuditado` se guarda vacío.
+- **El supervisor pasa a ser obligatorio**, porque es el único dueño de los
+  hallazgos. Si el área no tiene responsables, se pide asignarlos en
+  «Responsables por área» (SPEC-031).
+
+La Validación de Proceso no cambia.
+
+### La OT de Mantenimiento
+
+Hasta ahora la OT que nace de una auditoría (SPEC-021) quedaba a nombre de
+quien la levantaba, y en Mantenimiento el seguimiento lo hace el solicitante.
+Ahora queda **a nombre del supervisor auditado**: `solicitante` y `nomina` son
+los suyos, y quien la levantó queda en `levantadaPor` y en `auditor`.
+
+- Mantenimiento acepta la OT si `levantadaPor` es la nómina de la credencial
+  (regla nueva en su `database.rules.json`). Las versiones anteriores de esta
+  app, que no mandan `levantadaPor`, siguen pudiendo levantarla a su nombre.
+- Si las reglas nuevas aún no están publicadas, la app la levanta a nombre de
+  quien la levanta, como antes, y lo dice.
+- El texto que llega a Mantenimiento lleva el punto del checklist delante de
+  la descripción escrita.
+- El supervisor necesita acceso a la app de Mantenimiento para darle
+  seguimiento.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

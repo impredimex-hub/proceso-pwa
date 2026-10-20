@@ -6,6 +6,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.6.0] — 2026-10-20
+
+### Cambiado
+
+- **Revisión por área más corta** (SPEC-033): el hallazgo solo pide su
+  descripción, vacía para escribirla; ya no se capturan acción, responsable,
+  fecha de cierre, nómina del auditado ni turno (el turno se toma de la hora).
+  El supervisor es obligatorio.
+- **La OT de Mantenimiento queda a nombre del supervisor auditado**, que es
+  quien le da seguimiento. Quien la levanta queda registrado.
+
+---
+
 ## [3.5.0] — 2026-10-19
 
 ### Agregado

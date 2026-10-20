@@ -39,7 +39,17 @@ export interface PersonaArea {
 export interface ContextoOT {
   clave: string; equipo: string; naves: string[]; nombre: string;
   tipo: 'PROCESO' | '5S'; fecha: string; auditor: string; hallazgos: string[];
+  /** A nombre de quién queda la OT: el supervisor auditado (SPEC-033). */
+  responsable?: { nomina: string; nombre: string };
 }
+
+/** Turno según la hora en que se guarda (SPEC-033: ya no se captura). */
+export const turnoActual = (d: Date = new Date()): string => {
+  const min = d.getHours() * 60 + d.getMinutes();
+  if (min >= 360 && min < 840) return 'Matutino (6:00–14:00)';
+  if (min >= 840 && min < 1290) return 'Vespertino (14:00–21:30)';
+  return 'Nocturno (21:30–6:00)';
+};
 
 type Resp = 'SI' | 'NO';
 
@@ -102,9 +112,7 @@ const AuditoriaArea: React.FC<Props> = ({
     marcadasInicial && marcadasInicial.length ? marcadasInicial : maquinas.map((m) => m.id)
   );
   const [auditor, setAuditor] = useState(usuario?.nombre || '');
-  const [nominaAuditado, setNominaAuditado] = useState('');
   const [supervisorNomina, setSupervisorNomina] = useState('');
-  const [turno, setTurno] = useState('Matutino (6:00–14:00)');
   /** maquinaId → puntoId → respuesta */
   const [resp, setResp] = useState<Record<string, Record<number, Resp>>>({});
   /** maquinaId → puntos que siguen abiertos de antes (SPEC-022) */
@@ -135,8 +143,9 @@ const AuditoriaArea: React.FC<Props> = ({
       [llave(maq.id, item.id)]: {
         id: `punto_${item.id}`, maquinaId: maq.id, puntoId: item.id, esExtra: false,
         esReincidente: reincidente,
-        hallazgo: `${reincidente ? '(Reincidente) ' : ''}Desviación en: ${item.queObservar}`,
-        accion: '', responsable: '', fechaCierre: fecha, estadoSeguimiento: 'PENDIENTE'
+        // SPEC-033: la descripción la escribe el auditor; ya no se prellena.
+        hallazgo: '',
+        accion: '', responsable: '', fechaCierre: '', estadoSeguimiento: 'PENDIENTE'
       }
     }));
 
@@ -186,7 +195,7 @@ const AuditoriaArea: React.FC<Props> = ({
     setHallazgos((prev) => ({
       ...prev,
       [id]: { id, maquinaId: activas[0]?.id || '', esExtra: true, esReincidente: false,
-        hallazgo: '', accion: '', responsable: '', fechaCierre: fecha, estadoSeguimiento: 'PENDIENTE' }
+        hallazgo: '', accion: '', responsable: '', fechaCierre: '', estadoSeguimiento: 'PENDIENTE' }
     }));
   };
 
@@ -210,12 +219,13 @@ const AuditoriaArea: React.FC<Props> = ({
   const guardar = async () => {
     if (!activas.length) { alert('Marca al menos una máquina para revisar.'); return; }
     if (!auditor.trim()) { alert('Por favor ingrese el Nombre del Auditor.'); return; }
-    if (supervisores.length > 0 && !supervisorNomina) { alert('Por favor selecciona el Nombre del Supervisor de la lista.'); return; }
-    // SPEC-024: sin supervisor ni auditado, los hallazgos no tendrían dueño.
-    if (supervisores.length === 0 && !nominaAuditado.trim()) {
-      alert('Estas máquinas no tienen supervisores asignados, así que hace falta la nómina del auditado. Sin ella, los hallazgos no le aparecerían a nadie para cerrarlos.');
+    // SPEC-033: el supervisor es ahora el único dueño de los hallazgos (ya no
+    // se captura la nómina del auditado), así que es obligatorio.
+    if (supervisores.length === 0) {
+      alert('Estas máquinas no tienen supervisor o responsable asignado. Pide a un administrador que lo asigne en «Responsables por área»; sin él, los hallazgos no le aparecerían a nadie.');
       return;
     }
+    if (!supervisorNomina) { alert('Por favor selecciona el Nombre del Supervisor de la lista.'); return; }
     const faltan = activas
       .map((m) => ({ m, f: items.length - cuentaDe(m.id).respondidos }))
       .filter((x) => x.f > 0);
@@ -224,8 +234,9 @@ const AuditoriaArea: React.FC<Props> = ({
         + '\n\nSi una máquina no se revisó, desmárcala arriba.');
       return;
     }
-    if (listaHallazgos.some(([, h]) => h.esExtra && !h.hallazgo.trim())) {
-      alert('Describe los hallazgos extra o elimínalos.'); return;
+    const sinDescribir = listaHallazgos.filter(([, h]) => !h.hallazgo.trim()).length;
+    if (sinDescribir) {
+      alert(`Falta describir ${sinDescribir} hallazgo${sinDescribir === 1 ? '' : 's'}. Escribe qué encontraste en cada uno.`); return;
     }
 
     const sup = supervisores.find((s) => s.nomina === supervisorNomina);
@@ -248,10 +259,10 @@ const AuditoriaArea: React.FC<Props> = ({
           ordenTrabajo: 'N/A 5S',
           auditor: auditor.trim(),
           nominaAuditor: usuario?.nomina || '',
-          nominaAuditado: nominaAuditado.trim(),
+          nominaAuditado: '',
           nominaSupervisor: supervisorNomina || 'N/A',
           nombreSupervisor: sup ? sup.nombre : (supervisorNomina || 'N/A'),
-          turno,
+          turno: turnoActual(),
           cumplimiento: c.cumplimiento,
           totalSi: c.si,
           totalNo: c.no,
@@ -270,12 +281,18 @@ const AuditoriaArea: React.FC<Props> = ({
           .map((pid) => items.find((i) => i.id === pid))
           .filter(Boolean)
           .map((i) => `Sigue abierto: ${(i as PuntoChecklist).queObservar}`);
-        const textos = suyos.map((h) => String(h.hallazgo || '').trim()).filter(Boolean).concat(textosReinc);
+        // Para Mantenimiento, cada hallazgo con el punto del que salió.
+        const textos = suyos.map((h) => {
+          const pt = h.puntoId ? items.find((i) => i.id === h.puntoId) : null;
+          const t = String(h.hallazgo || '').trim();
+          return pt ? `${pt.queObservar}: ${t}` : t;
+        }).filter(Boolean).concat(textosReinc);
         // Las zonas no llevan OT de Mantenimiento; solo las máquinas.
         if (textos.length && !m.esZona && m.tipo !== 'Área Auxiliar' && m.nombreManto) {
           contextos.push({
             clave: m.id, equipo: m.nombreManto, naves: m.naves || [], nombre: m.nombre,
-            tipo: '5S', fecha, auditor: auditor.trim(), hallazgos: textos
+            tipo: '5S', fecha, auditor: auditor.trim(), hallazgos: textos,
+            responsable: sup ? { nomina: sup.nomina, nombre: sup.nombre } : undefined
           });
         }
       });
@@ -353,22 +370,10 @@ const AuditoriaArea: React.FC<Props> = ({
             <input type="text" value={auditor} onChange={(e) => setAuditor(e.target.value)} style={ESTILO_INPUT} />
           </div>
           <div>
-            <label style={ETIQUETA}>Nómina auditado:</label>
-            <input type="text" placeholder="Ej. 1045" value={nominaAuditado} onChange={(e) => setNominaAuditado(e.target.value)} style={ESTILO_INPUT} />
-          </div>
-          <div>
             <label style={ETIQUETA}>Nombre del supervisor:</label>
             <select value={supervisorNomina} onChange={(e) => setSupervisorNomina(e.target.value)} style={{ ...ESTILO_INPUT, fontWeight: 600 }}>
               <option value="">{supervisores.length > 0 ? '-- Selecciona el supervisor --' : '-- Sin supervisor asignado (Pendiente) --'}</option>
               {supervisores.map((s) => <option key={s.nomina} value={s.nomina}>{s.nombre} (Nóm. {s.nomina})</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={ETIQUETA}>Turno:</label>
-            <select value={turno} onChange={(e) => setTurno(e.target.value)} style={ESTILO_INPUT}>
-              <option>Matutino (6:00–14:00)</option>
-              <option>Vespertino (14:00–21:30)</option>
-              <option>Nocturno (21:30–6:00)</option>
             </select>
           </div>
         </div>
@@ -502,21 +507,9 @@ const AuditoriaArea: React.FC<Props> = ({
                   </div>
                   <div style={{ marginBottom: '8px' }}>
                     <label style={{ ...ETIQUETA, fontSize: '11px' }}>Descripción del Hallazgo:</label>
-                    <input type="text" value={h.hallazgo} onChange={(e) => cambiarHallazgo(k, 'hallazgo', e.target.value)} style={{ ...ESTILO_INPUT, fontSize: '12px', padding: '6px 10px' }} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
-                    <div>
-                      <label style={{ ...ETIQUETA, fontSize: '11px' }}>Acción Correctiva Inmediata:</label>
-                      <input type="text" value={h.accion} onChange={(e) => cambiarHallazgo(k, 'accion', e.target.value)} style={{ ...ESTILO_INPUT, fontSize: '12px', padding: '6px 10px' }} />
-                    </div>
-                    <div>
-                      <label style={{ ...ETIQUETA, fontSize: '11px' }}>Responsable:</label>
-                      <input type="text" value={h.responsable} onChange={(e) => cambiarHallazgo(k, 'responsable', e.target.value)} style={{ ...ESTILO_INPUT, fontSize: '12px', padding: '6px 10px' }} />
-                    </div>
-                    <div>
-                      <label style={{ ...ETIQUETA, fontSize: '11px' }}>Fecha de Cierre:</label>
-                      <input type="date" value={h.fechaCierre} onChange={(e) => cambiarHallazgo(k, 'fechaCierre', e.target.value)} style={{ ...ESTILO_INPUT, fontSize: '12px', padding: '6px 10px', background: '#fff' }} />
-                    </div>
+                    <input type="text" value={h.hallazgo} placeholder="Escribe qué encontraste"
+                      onChange={(e) => cambiarHallazgo(k, 'hallazgo', e.target.value)}
+                      style={{ ...ESTILO_INPUT, fontSize: '12px', padding: '6px 10px', borderColor: h.hallazgo.trim() ? 'rgba(0, 32, 96, 0.12)' : 'rgba(200,16,46,0.45)' }} />
                   </div>
                 </div>
               );

@@ -129,6 +129,11 @@ export interface DatosNuevaOT {
   prioridad: 'Normal' | 'Urgente';
   solicitante: string;
   nomina: string;
+  /**
+   * Nómina de quien la levanta desde Procesos (SPEC-033). `nomina` es la del
+   * supervisor auditado, a cuyo nombre queda la orden.
+   */
+  levantadaPor?: string;
   /** De qué auditoría salió, para poder medir el programa después. */
   auditoriaTipo: 'PROCESO' | '5S';
   auditoriaFecha: string;
@@ -292,6 +297,7 @@ export const levantarOT = async (d: DatosNuevaOT): Promise<ResultadoAlta> => {
     status: 'abierto',
     solicitante: d.solicitante,
     nomina: d.nomina,
+    levantadaPor: d.levantadaPor || d.nomina,
     tecnico: null,
     tecnicos: [],
     fechaAlta: new Date().toISOString(),

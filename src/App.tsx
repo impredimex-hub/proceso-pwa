@@ -490,6 +490,7 @@ export const App: React.FC = () => {
   const [otContexto, setOtContexto] = useState<{
     clave: string; equipo: string; naves: string[]; nombre: string;
     tipo: 'PROCESO' | '5S'; fecha: string; auditor: string; hallazgos: string[];
+    responsable?: { nomina: string; nombre: string };
   } | null>(null);
   const [otAbiertas, setOtAbiertas] = useState<OTAbierta[]>([]);
   const [otCargando, setOtCargando] = useState(false);
@@ -498,7 +499,7 @@ export const App: React.FC = () => {
   const [otNave, setOtNave] = useState('');
   const [otPrioridad, setOtPrioridad] = useState<'Normal' | 'Urgente'>('Normal');
   const [otEnviando, setOtEnviando] = useState(false);
-  const [otResultado, setOtResultado] = useState<{ folio: string; sinAviso: boolean; motivoAviso?: string } | null>(null);
+  const [otResultado, setOtResultado] = useState<{ folio: string; sinAviso: boolean; motivoAviso?: string; aTuNombre?: boolean } | null>(null);
   /** Máquinas que aún esperan su paso de OT tras una revisión por área (SPEC-027). */
   const [otCola, setOtCola] = useState<ContextoOT[]>([]);
 
@@ -552,21 +553,32 @@ export const App: React.FC = () => {
   const enviarOT = async () => {
     if (!otContexto || otEnviando) return;
     setOtEnviando(true);
-    const r = await levantarOT({
+    const base = {
       clave: otContexto.clave,
       equipo: otContexto.equipo,
       nave: otNave,
       desc: otDesc,
       prioridad: otPrioridad,
-      solicitante: usuarioActivo?.nombre || otContexto.auditor,
-      nomina: usuarioActivo?.nomina || '',
       auditoriaTipo: otContexto.tipo,
       auditoriaFecha: otContexto.fecha,
       auditor: otContexto.auditor,
       hallazgoTexto: otContexto.hallazgos.join(' | ')
-    });
+    };
+    const propia = { solicitante: usuarioActivo?.nombre || otContexto.auditor, nomina: usuarioActivo?.nomina || '' };
+    // SPEC-033: la OT queda a nombre del supervisor auditado, que es quien le
+    // da seguimiento en Mantenimiento; quien la levanta queda en `levantadaPor`.
+    let r = await levantarOT(otContexto.responsable
+      ? { ...base, solicitante: otContexto.responsable.nombre, nomina: otContexto.responsable.nomina, levantadaPor: propia.nomina }
+      : { ...base, ...propia });
+    // Si las reglas de Mantenimiento todavía no aceptan OT a nombre de otro,
+    // se levanta como antes, a nombre de quien la levanta, para no perderla.
+    let aTuNombre = !otContexto.responsable;
+    if (r.estado !== 'ok' && otContexto.responsable && /permission|permiso/i.test(r.motivo || '')) {
+      r = await levantarOT({ ...base, ...propia });
+      aTuNombre = true;
+    }
     setOtEnviando(false);
-    if (r.estado === 'ok') setOtResultado({ folio: r.folio || '', sinAviso: !!r.sinAviso, motivoAviso: r.motivoAviso });
+    if (r.estado === 'ok') setOtResultado({ folio: r.folio || '', sinAviso: !!r.sinAviso, motivoAviso: r.motivoAviso, aTuNombre });
     else alert('No se pudo levantar la orden: ' + (r.motivo || 'error desconocido') + '\n\nLa auditoría ya quedó guardada. Puedes levantarla desde la app de Mantenimiento.');
   };
   const [historial, setHistorial] = useState<any[]>([]);
@@ -1135,7 +1147,8 @@ export const App: React.FC = () => {
           // vieja lo guardó con otro nombre.
           hallazgos: listaHallazgos.map((x: any) =>
             String(x?.hallazgo || x?.descripcion || x?.texto || '').trim()
-          ).filter(Boolean).concat(textosReincidentes)
+          ).filter(Boolean).concat(textosReincidentes),
+          responsable: supObj ? { nomina: supObj.nomina, nombre: supObj.nombre } : undefined
         });
         setOtNave(maq.naves && maq.naves.length ? maq.naves[0] : '');
         setOtPaso('PREGUNTA');
@@ -2349,7 +2362,7 @@ export const App: React.FC = () => {
                             </td>
                             <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                               <span style={{ fontWeight: 700, color: x.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#7A4500' }}>
-                                {x.fechaCierre}
+                                {x.fechaCierre || '—'}
                               </span>
                               {x.estado === 'PENDIENTE_ATRASADO' && (
                                 <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{x.diasVencido} días tarde</div>
@@ -2406,7 +2419,7 @@ export const App: React.FC = () => {
                             </td>
                             <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                               <span style={{ fontWeight: 700, color: h.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#7A4500' }}>
-                                {h.fechaCierre}
+                                {h.fechaCierre || '—'}
                               </span>
                               {h.estado === 'PENDIENTE_ATRASADO' && (
                                 <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{h.diasVencido} días tarde</div>
@@ -4065,6 +4078,11 @@ export const App: React.FC = () => {
               {/* ── 3. El alta ── */}
               {otPaso === 'ALTA' && !otResultado && (
                 <div>
+                  {/* SPEC-033: a nombre de quién queda la orden. */}
+                  <div style={{ background: '#E8EEF8', borderRadius: '8px', padding: '8px 11px', marginBottom: '12px', fontSize: '12px', color: '#002060', lineHeight: 1.45 }}>
+                    La orden queda a nombre de <b>{otContexto.responsable?.nombre || usuarioActivo?.nombre || 'quien la levanta'}</b>
+                    {otContexto.responsable ? ', el supervisor auditado: él le da seguimiento en Mantenimiento.' : '.'}
+                  </div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#5A6A80', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                     Qué necesita atención
                   </div>
@@ -4146,7 +4164,11 @@ export const App: React.FC = () => {
                   </div>
                   <div style={{ fontSize: '12.5px', color: '#1F2937', lineHeight: 1.5, marginBottom: '14px' }}>
                     Quedó en Mantenimiento como {otContexto.equipo}, marcada como
-                    originada en auditoría.
+                    originada en auditoría, a nombre de{' '}
+                    <b>{otResultado.aTuNombre ? (usuarioActivo?.nombre || 'ti') : otContexto.responsable?.nombre}</b>.
+                    {otResultado.aTuNombre && otContexto.responsable && (
+                      <> Mantenimiento todavía no acepta órdenes a nombre del supervisor, así que quedó a tu nombre.</>
+                    )}
                   </div>
                   {otResultado.sinAviso && (
                     <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: '10px', padding: '12px 14px', marginBottom: '14px' }}>
