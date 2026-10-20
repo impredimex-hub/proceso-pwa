@@ -23,6 +23,8 @@ export interface HallazgoBase {
   fechaCierre: string;
   /** Cuándo se marcó terminado de verdad. Distinto del compromiso (SPEC-009). */
   cerradoEn?: string;
+  /** Lo que el auditado se compromete a hacer (SPEC-035). */
+  accionCorrectiva?: string;
   /** Nómina de quien fijó la fecha compromiso (SPEC-034). Vacía = sin fijar. */
   compromisoPor?: string;
   compromisoEn?: string;
@@ -163,6 +165,25 @@ export const estadoReal = (h: HallazgoBase, hoy: string): EstadoCumplimiento => 
 
 export const estaAbierto = (e: EstadoCumplimiento) => e !== 'TERMINADO';
 
+/**
+ * Hallazgos anteriores a la SPEC-033 con el texto armado «Desviación en:
+ * <punto>»: ahí el comentario real del auditor quedó en `accion`.
+ */
+const textoArmado = (h: { hallazgo?: string; accion?: string }) =>
+  /^(\(Reincidente\) )?Desviación en:/.test(String(h.hallazgo || '').trim()) && !!String(h.accion || '').trim();
+
+/** Lo que vio el auditor (SPEC-035). */
+export const descripcionDe = (h: { hallazgo?: string; accion?: string }) =>
+  textoArmado(h) ? String(h.accion).trim() : String(h.hallazgo || '').trim();
+
+/**
+ * La acción correctiva (SPEC-035): la que registró el auditado y, en los
+ * hallazgos anteriores, la que capturaba el auditor en `accion` — salvo que
+ * ahí haya quedado su comentario.
+ */
+export const accionDe = (h: { hallazgo?: string; accion?: string; accionCorrectiva?: string }) =>
+  String(h.accionCorrectiva || '').trim() || (textoArmado(h) ? '' : String(h.accion || '').trim());
+
 /* ── Aplanado y SPEC-009 · Reincidencia ──────────────────────────────────── */
 
 /**
@@ -238,7 +259,7 @@ export const aplanarHallazgos = (
       const ultimo = cerradosAntes[cerradosAntes.length - 1];
       p.reincidenciaDe = {
         fechaAuditoria: ultimo.fechaAuditoria,
-        accion: ultimo.accion || 'Sin registrar',
+        accion: accionDe(ultimo) || 'Sin registrar',
         responsable: ultimo.responsable || 'No asignado',
         cerradoEn: ultimo.cerradoEn || null,
         diasHastaVolver: ultimo.cerradoEn ? diasEntre(ultimo.cerradoEn, p.fechaAuditoria) : null

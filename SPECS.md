@@ -985,6 +985,26 @@ los suyos, y quien la levantó queda en `levantadaPor` y en `auditor`.
 Sustituye a la SPEC-024, donde también podía quien lo levantó.
 `puedeCerrarHallazgo` devuelve `esAdmin`.
 
+## SPEC-035 — La acción correctiva la registra el auditado
+
+En **«Mis hallazgos abiertos»** la columna de compromiso pasa a ser **«Acción
+correctiva · compromiso»**: el auditado registra **qué va a hacer y para
+cuándo**, juntos, con «Registrar». Se le pide confirmar, y una vez registrado
+queda bloqueado como la fecha de la SPEC-034: solo un administrador lo cambia.
+
+- **Para no amontonar el Gantt**, cada renglón muestra el compromiso en dos
+  líneas (acción recortada, fecha y 🔒). El formulario se despliega solo en el
+  renglón que se está llenando.
+- **Desviación** muestra el punto del checklist en chico y, debajo, lo que vio
+  el auditor.
+- Se guarda en `accionCorrectiva`, aparte de `accion`: en los hallazgos
+  anteriores a la SPEC-033, `hallazgo` trae «Desviación en: <punto>» y el
+  comentario del auditor quedó en `accion`. `descripcionDe` y `accionDe`
+  (utils/hallazgos) resuelven cuál es cuál.
+- En «Lo que levanté y sigue abierto» el auditor ve la acción del auditado
+  para verificarla en piso. También sale en el PDF, en «Ver Check» y en la
+  reincidencia («la acción fue…»).
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

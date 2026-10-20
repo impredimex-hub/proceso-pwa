@@ -5,7 +5,7 @@ import {
   traerColaborador, traerUsuariosDeLaApp, mensajeDeError, APP_ID,
 } from './services/suite';
 import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { aplanarHallazgos, tableroAbiertos, historialDePunto } from './utils/hallazgos';
+import { aplanarHallazgos, tableroAbiertos, historialDePunto, accionDe, descripcionDe } from './utils/hallazgos';
 import type { HallazgoPlano } from './utils/hallazgos';
 import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, UMBRAL_REVISIONES } from './utils/ranking';
 import type { FilaRanking } from './utils/ranking';
@@ -1363,7 +1363,7 @@ export const App: React.FC = () => {
 
   // --- SPEC-034: FECHA COMPROMISO ---
   // La fija el auditado una vez; después solo un administrador la cambia.
-  const handleFijarCompromiso = async (docId: string, hallazgoIdx: number, fecha: string) => {
+  const handleFijarCompromiso = async (docId: string, hallazgoIdx: number, fecha: string, accion: string) => {
     if (!fecha || !usuarioActivo) return;
     const docEncontrado = historial.find((h) => h.id === docId);
     if (!docEncontrado || !Array.isArray(docEncontrado.hallazgos)) return;
@@ -1372,6 +1372,9 @@ export const App: React.FC = () => {
       nuevos[hallazgoIdx] = {
         ...nuevos[hallazgoIdx],
         fechaCierre: fecha,
+        // SPEC-035: la acción del auditado va aparte de `accion`, que en los
+        // hallazgos viejos guarda el comentario del auditor.
+        accionCorrectiva: accion,
         compromisoPor: usuarioActivo.nomina,
         compromisoEn: new Date().toISOString()
       };
@@ -1500,7 +1503,7 @@ export const App: React.FC = () => {
         <td><b>${esc(item.maquinaNombre)}</b></td>
         <td>${item.seguridad ? '<span class="seg">SEGURIDAD</span> ' : ''}${
           item.reincidenciaDe ? '<span class="rei">REINCIDE</span> ' : ''}${esc(item.hallazgo)}</td>
-        <td>${esc(item.accion || 'Sin acción')}</td>
+        <td>${esc(accionDe(item) || 'Sin acción')}</td>
         <td>${esc(item.responsable || 'No asignado')}</td>
         <td class="num">${esc(item.fechaInicio)}</td>
         <td class="num">${esc(item.fechaFin)}</td>
@@ -2378,8 +2381,11 @@ export const App: React.FC = () => {
                               {x.vecesPrevias > 0 && (
                                 <span style={{ background: '#D4840A', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>REINCIDE</span>
                               )}
-                              {x.hallazgo}
-                              <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{x.accion || 'Sin acción'}</div>
+                              {x.textoPunto && <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{x.textoPunto}</div>}
+                              <div style={{ color: '#0D1A2E' }}>{descripcionDe(x)}</div>
+                              <div style={{ fontSize: '10px', color: accionDe(x) ? '#085041' : '#8A9AB0', marginTop: '2px' }}>
+                                {accionDe(x) ? `Acción del auditado: ${accionDe(x)}` : 'El auditado aún no registra su acción'}
+                              </div>
                             </td>
                             <td style={{ padding: '7px 10px', textAlign: 'left', fontSize: '10.5px', color: '#5A6A80', whiteSpace: 'nowrap' }}>
                               {x.responsable || '—'}
@@ -2424,7 +2430,7 @@ export const App: React.FC = () => {
                         <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #E8EEF8' }}>
                           <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Máquina</th>
                           <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase' }}>Desviación</th>
-                          <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Compromiso</th>
+                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap', minWidth: '230px' }}>Acción correctiva · compromiso</th>
                           <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Estatus</th>
                           {diasGantt.map((d, i) => (
                             <th key={i} style={{ padding: '2px', fontSize: '7.5px', color: '#8A9AB0', fontWeight: 600, width: '16px' }}>{d.diaNum}</th>
@@ -2439,12 +2445,14 @@ export const App: React.FC = () => {
                               {h.seguridad && (
                                 <span style={{ background: '#C8102E', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>SEGURIDAD</span>
                               )}
-                              {h.hallazgo}
-                              <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{h.accion || 'Sin acción'}</div>
+                              {/* SPEC-035: el punto, chico; lo que vio el auditor, normal. */}
+                              {h.textoPunto && <div style={{ fontSize: '9.5px', color: '#8A9AB0', lineHeight: 1.3 }}>{h.textoPunto}</div>}
+                              <div style={{ color: '#0D1A2E' }}>{descripcionDe(h)}</div>
                             </td>
-                            <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '7px 10px', textAlign: 'left', width: '250px', maxWidth: '280px' }}>
                               <CeldaCompromiso
-                                key={`${h.docId}-${h.hallazgoIdx}-${h.fechaCierre}-${h.compromisoPor || ''}`}
+                                key={`${h.docId}-${h.hallazgoIdx}-${h.fechaCierre}-${h.compromisoPor || ''}-${accionDe(h)}`}
+                                accion={accionDe(h)}
                                 fechaCierre={h.fechaCierre || ''}
                                 fijada={!!h.compromisoPor}
                                 quienFijo={h.compromisoPor ? (USUARIOS_SISTEMA.find((u) => u.nomina === h.compromisoPor)?.nombre || h.compromisoPor) : ''}
@@ -2453,7 +2461,7 @@ export const App: React.FC = () => {
                                 editable={puedeFijarCompromiso(h, soyElAuditado, esAdminTotal)}
                                 esAdmin={esAdminTotal}
                                 hoy={todayStr}
-                                onFijar={(f) => handleFijarCompromiso(h.docId, h.hallazgoIdx, f)}
+                                onFijar={(a, f) => handleFijarCompromiso(h.docId, h.hallazgoIdx, f, a)}
                               />
                             </td>
                             <td style={{ padding: '7px 10px', textAlign: 'center' }}><BotonCerrar h={h} /></td>
@@ -3850,7 +3858,7 @@ export const App: React.FC = () => {
                           <span>{h.hallazgo || 'Desviación no especificada'}</span>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '11px', color: '#4B5563' }}>
-                          <div><strong>Acción:</strong> <span>{h.accion || 'Sin registrar'}</span></div>
+                          <div><strong>Acción correctiva:</strong> <span>{accionDe(h) || 'Sin registrar'}</span></div>
                           <div><strong>Responsable:</strong> <span>{h.responsable || 'No asignado'}</span></div>
                           <div><strong>Fecha Compromiso:</strong> <span>{h.fechaCierre || 'N/A'}</span></div>
                           <div><strong>Estatus:</strong> <span>{h.estadoSeguimiento || 'PENDIENTE'}</span></div>
@@ -3923,9 +3931,9 @@ export const App: React.FC = () => {
                       {p.fechaAuditoria}{p.auditor ? ' · ' + p.auditor : ''}
                       {p.estadoSeguimiento ? ' · ' + p.estadoSeguimiento : ''}
                     </div>
-                    {p.accion && (
+                    {accionDe(p) && (
                       <div style={{ fontSize: '11.5px', color: '#5A6A80', marginTop: '3px' }}>
-                        Acción: {p.accion}
+                        Acción: {accionDe(p)}
                       </div>
                     )}
                   </div>
@@ -4523,7 +4531,7 @@ export const App: React.FC = () => {
                       </div>
                       <div style={{ fontSize: '11.5px', color: '#0D1A2E', marginTop: '3px' }}>{p.hallazgo}</div>
                       <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
-                        Acción: {p.accion || 'Sin registrar'} · {p.responsable || 'No asignado'}
+                        Acción: {accionDe(p) || 'Sin registrar'} · {p.responsable || 'No asignado'}
                       </div>
                       {i === 0 && p.reincidenciaDe?.diasHastaVolver !== null && p.reincidenciaDe && (
                         <div style={{ fontSize: '10.5px', color: '#7A4500', marginTop: '4px', fontWeight: 600 }}>

@@ -6,6 +6,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.8.0] — 2026-10-20
+
+### Agregado
+
+- **El auditado registra su acción correctiva** junto con la fecha compromiso
+  en «Mis hallazgos abiertos» (SPEC-035). Queda bloqueada al registrarla; solo
+  un administrador la cambia. La tabla sigue compacta: el formulario se abre
+  solo en el renglón que se llena.
+- La desviación muestra el punto del checklist y lo que vio el auditor por
+  separado.
+
+---
+
 ## [3.7.0] — 2026-10-20
 
 ### Cambiado
