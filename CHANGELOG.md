@@ -12,8 +12,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 - En «Mis hallazgos abiertos», la barra del Gantt pasa de naranja a azul
   marino al 60% (lo vencido sigue en rojo). «Registrar» y «Cerrar» quedan
-  centrados en su renglón, con contorno azul marino, fondo blanco y letra
-  normal.
+  centrados en su renglón, en azul marino con letra blanca normal.
 
 ---
 

@@ -53,7 +53,7 @@ const CeldaCompromiso: React.FC<Props> = ({ accion, fechaCierre, fijada, quienFi
         {resumen}
         <button type="button" onClick={() => setAbierto(true)}
           style={{ flexShrink: 0, fontSize: '10px', fontWeight: 400, padding: '3px 9px', borderRadius: '5px', cursor: 'pointer',
-            border: '1.5px solid #002060', background: '#fff', color: '#002060', whiteSpace: 'nowrap' }}>
+            border: '1.5px solid #002060', background: '#002060', color: '#fff', whiteSpace: 'nowrap' }}>
           {fijada ? 'Cambiar' : 'Registrar'}
         </button>
       </div>

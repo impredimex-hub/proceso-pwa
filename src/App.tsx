@@ -2194,8 +2194,8 @@ export const App: React.FC = () => {
               <button
                 onClick={() => handleToggleEstadoHallazgo(x.docId, x.hallazgoIdx, x.estadoSeguimiento)}
                 style={{
-                  background: terminado ? '#0F7A55' : '#ffffff',
-                  color: terminado ? '#ffffff' : '#002060',
+                  background: terminado ? '#0F7A55' : '#002060',
+                  color: '#ffffff',
                   border: '1.5px solid ' + (terminado ? '#0F7A55' : '#002060'),
                   borderRadius: '5px', padding: '3px 9px', fontSize: '10px',
                   fontWeight: 400, cursor: 'pointer', whiteSpace: 'nowrap'
