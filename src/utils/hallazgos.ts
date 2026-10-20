@@ -23,6 +23,9 @@ export interface HallazgoBase {
   fechaCierre: string;
   /** Cuándo se marcó terminado de verdad. Distinto del compromiso (SPEC-009). */
   cerradoEn?: string;
+  /** Nómina de quien fijó la fecha compromiso (SPEC-034). Vacía = sin fijar. */
+  compromisoPor?: string;
+  compromisoEn?: string;
   estadoSeguimiento?: EstadoCumplimiento;
 }
 

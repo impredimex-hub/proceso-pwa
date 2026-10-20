@@ -253,16 +253,28 @@ export const nominasConMaquinas = (catalogo: MaquinaAsignable[]): string[] =>
  * Los documentos anteriores a la SPEC-019 no traen `nominaAuditor`, así que
  * ahí se compara por el nombre escrito, que es lo único que hay.
  */
+/**
+ * SPEC-034: desde el 20/10/2026 **solo un administrador** cierra hallazgos.
+ * Antes también podía quien lo levantó (SPEC-024). Se conserva la firma para
+ * no tocar a quien la llama.
+ */
 export const puedeCerrarHallazgo = (
-  h: { nominaAuditor?: string; auditor?: string },
-  miNomina: string,
-  miNombre: string,
+  _h: { nominaAuditor?: string; auditor?: string },
+  _miNomina: string,
+  _miNombre: string,
   esAdmin: boolean
-): boolean => {
-  if (esAdmin) return true;
-  const mia = String(miNomina || '').trim();
-  if (!mia) return false;
-  if (h.nominaAuditor) return String(h.nominaAuditor).trim() === mia;
-  const n = norm(miNombre);
-  return !!n && norm(h.auditor || '') === n;
-};
+): boolean => esAdmin;
+
+/**
+ * ¿Puede esta persona poner o cambiar la fecha compromiso? (SPEC-034)
+ *
+ * La pone **el auditado**, una sola vez: en cuanto la fija, queda bloqueada y
+ * solo un administrador la cambia. Una fecha que no fijó el auditado (las que
+ * capturaba el auditor antes de esta spec, sin `compromisoPor`) cuenta como
+ * propuesta: el auditado todavía puede fijar la suya.
+ */
+export const puedeFijarCompromiso = (
+  h: { fechaCierre?: string; compromisoPor?: string },
+  soyElAuditado: boolean,
+  esAdmin: boolean
+): boolean => esAdmin || (soyElAuditado && !h.compromisoPor);

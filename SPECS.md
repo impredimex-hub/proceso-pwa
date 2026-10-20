@@ -963,6 +963,28 @@ los suyos, y quien la levantó queda en `levantadaPor` y en `auditor`.
 - El supervisor necesita acceso a la app de Mantenimiento para darle
   seguimiento.
 
+## SPEC-034 — La fecha compromiso la pone el auditado; el cierre, un administrador
+
+### Fecha compromiso
+
+- En **«Mis hallazgos abiertos»** (Comportamiento), el auditado —el
+  supervisor de la revisión— pone la fecha compromiso de cada hallazgo con
+  «Fijar». Se le pide confirmar, porque **una vez fijada solo un administrador
+  la cambia**.
+- Se guarda en el hallazgo: `fechaCierre` (la fecha), `compromisoPor` (su
+  nómina) y `compromisoEn`. Con `compromisoPor` la fecha queda bloqueada y se
+  muestra 🔒 con el nombre de quien la fijó.
+- Una fecha sin `compromisoPor` —las que capturaba el auditor antes de esta
+  spec— cuenta como propuesta: el auditado todavía puede fijar la suya.
+- El auditado no puede elegir una fecha anterior a hoy; el administrador sí.
+- Sin fecha, el hallazgo está pendiente y no vencido.
+
+### Cierre
+
+**Solo un administrador** cierra hallazgos, en cualquiera de las dos listas.
+Sustituye a la SPEC-024, donde también podía quien lo levantó.
+`puedeCerrarHallazgo` devuelve `esAdmin`.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

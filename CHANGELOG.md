@@ -6,6 +6,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.7.0] — 2026-10-20
+
+### Cambiado
+
+- **La fecha compromiso la pone el auditado** en «Mis hallazgos abiertos»
+  (SPEC-034). Una vez fijada, solo un administrador la cambia.
+- **Solo un administrador cierra hallazgos.** Antes también podía quien los
+  levantó.
+
+---
+
 ## [3.6.0] — 2026-10-20
 
 ### Cambiado

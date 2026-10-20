@@ -17,7 +17,7 @@ import {
 import type { Periodo } from './utils/merma';
 import {
   nominasDeMaquina, comoAuditado, fijarResponsables,
-  puedeCerrarHallazgo, laHizo
+  puedeCerrarHallazgo, puedeFijarCompromiso, laHizo
 } from './utils/comportamiento';
 import { catalogoGuardado, CATEGORIA_ZONAS_ANTERIOR } from './services/catalogo';
 import { otsAbiertasDe, levantarOT, etiquetaStatus } from './services/ot';
@@ -25,6 +25,7 @@ import type { OTAbierta } from './services/ot';
 import AuditoriaArea from './components/AuditoriaArea';
 import ResponsablesEditor from './components/ResponsablesEditor';
 import EditarRevision from './components/EditarRevision';
+import CeldaCompromiso from './components/CeldaCompromiso';
 import type { ContextoOT } from './components/AuditoriaArea';
 
 (window as any).db = db;
@@ -1360,6 +1361,27 @@ export const App: React.FC = () => {
     }
   };
 
+  // --- SPEC-034: FECHA COMPROMISO ---
+  // La fija el auditado una vez; después solo un administrador la cambia.
+  const handleFijarCompromiso = async (docId: string, hallazgoIdx: number, fecha: string) => {
+    if (!fecha || !usuarioActivo) return;
+    const docEncontrado = historial.find((h) => h.id === docId);
+    if (!docEncontrado || !Array.isArray(docEncontrado.hallazgos)) return;
+    try {
+      const nuevos = [...docEncontrado.hallazgos];
+      nuevos[hallazgoIdx] = {
+        ...nuevos[hallazgoIdx],
+        fechaCierre: fecha,
+        compromisoPor: usuarioActivo.nomina,
+        compromisoEn: new Date().toISOString()
+      };
+      await updateDoc(doc(db, 'evaluaciones_proceso', docId), { hallazgos: nuevos });
+    } catch (error) {
+      console.error('Error al fijar compromiso:', error);
+      alert('No se pudo guardar la fecha compromiso. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  };
+
   // --- ALTERNAR ESTADO EN GANTT ---
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
@@ -2153,11 +2175,13 @@ export const App: React.FC = () => {
           const puedoCerrar = (x: { nominaAuditor?: string; auditor?: string }) =>
             puedeCerrarHallazgo(x, usuarioActivo?.nomina || '', usuarioActivo?.nombre || '', esAdminTotal);
 
+          // SPEC-034: la fecha compromiso la pone el auditado, una vez.
+          const soyElAuditado = nomina === usuarioActivo.nomina;
           const BotonCerrar: React.FC<{ h: any }> = ({ h: x }) => {
             const terminado = x.estado === 'TERMINADO';
             if (!puedoCerrar(x)) {
               return (
-                <span title="Solo quien levantó el hallazgo o un administrador puede cerrarlo"
+                <span title="Solo un administrador puede cerrarlo"
                   style={{ fontSize: '9.5px', fontWeight: 700, color: '#8A9AB0', whiteSpace: 'nowrap' }}>
                   {terminado ? 'Cerrado' : 'Abierto'}
                 </span>
@@ -2312,8 +2336,8 @@ export const App: React.FC = () => {
                     Lo que levanté y sigue abierto
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
-                    Hallazgos de mis propias auditorías. Cerrarlos es darlos por corregidos,
-                    así que le toca a quien los encontró.
+                    Hallazgos de mis propias auditorías, para verificar en piso que se
+                    corrijan. El cierre lo hace un administrador.
                   </div>
                 </div>
                 {hallazgosQueLevanto.length > 0 && (
@@ -2385,7 +2409,8 @@ export const App: React.FC = () => {
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
                     Los que salieron en mis auditorías y siguen sin cerrarse. Seguridad primero, luego lo
-                    más vencido. Los cierra quien los levantó, no quien los atiende.
+                    más vencido. Pon tu fecha compromiso: una vez fijada, solo un administrador la cambia.
+                    El cierre lo hace un administrador.
                   </div>
                 </div>
                 {susHallazgos.length === 0 ? (
@@ -2418,12 +2443,18 @@ export const App: React.FC = () => {
                               <div style={{ fontSize: '9.5px', color: '#8A9AB0' }}>{h.accion || 'Sin acción'}</div>
                             </td>
                             <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontWeight: 700, color: h.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#7A4500' }}>
-                                {h.fechaCierre || '—'}
-                              </span>
-                              {h.estado === 'PENDIENTE_ATRASADO' && (
-                                <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{h.diasVencido} días tarde</div>
-                              )}
+                              <CeldaCompromiso
+                                key={`${h.docId}-${h.hallazgoIdx}-${h.fechaCierre}-${h.compromisoPor || ''}`}
+                                fechaCierre={h.fechaCierre || ''}
+                                fijada={!!h.compromisoPor}
+                                quienFijo={h.compromisoPor ? (USUARIOS_SISTEMA.find((u) => u.nomina === h.compromisoPor)?.nombre || h.compromisoPor) : ''}
+                                vencido={h.estado === 'PENDIENTE_ATRASADO'}
+                                diasVencido={h.diasVencido}
+                                editable={puedeFijarCompromiso(h, soyElAuditado, esAdminTotal)}
+                                esAdmin={esAdminTotal}
+                                hoy={todayStr}
+                                onFijar={(f) => handleFijarCompromiso(h.docId, h.hallazgoIdx, f)}
+                              />
                             </td>
                             <td style={{ padding: '7px 10px', textAlign: 'center' }}><BotonCerrar h={h} /></td>
                             {diasGantt.map((col, i) => {
