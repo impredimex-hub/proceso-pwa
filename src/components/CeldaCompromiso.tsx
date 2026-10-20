@@ -49,11 +49,11 @@ const CeldaCompromiso: React.FC<Props> = ({ accion, fechaCierre, fijada, quienFi
   // no se amontona. Solo se despliega el que se está llenando.
   if (!abierto) {
     return (
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
         {resumen}
         <button type="button" onClick={() => setAbierto(true)}
-          style={{ flexShrink: 0, fontSize: '9.5px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', cursor: 'pointer',
-            border: fijada ? '1px solid #003580' : 'none', background: fijada ? '#fff' : '#D4840A', color: fijada ? '#003580' : '#fff' }}>
+          style={{ flexShrink: 0, fontSize: '10px', fontWeight: 400, padding: '3px 9px', borderRadius: '5px', cursor: 'pointer',
+            border: '1.5px solid #002060', background: '#fff', color: '#002060', whiteSpace: 'nowrap' }}>
           {fijada ? 'Cambiar' : 'Registrar'}
         </button>
       </div>

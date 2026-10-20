@@ -2195,10 +2195,10 @@ export const App: React.FC = () => {
                 onClick={() => handleToggleEstadoHallazgo(x.docId, x.hallazgoIdx, x.estadoSeguimiento)}
                 style={{
                   background: terminado ? '#0F7A55' : '#ffffff',
-                  color: terminado ? '#ffffff' : '#C8102E',
-                  border: '1.5px solid ' + (terminado ? '#0F7A55' : '#C8102E'),
-                  borderRadius: '5px', padding: '3px 9px', fontSize: '9.5px',
-                  fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap'
+                  color: terminado ? '#ffffff' : '#002060',
+                  border: '1.5px solid ' + (terminado ? '#0F7A55' : '#002060'),
+                  borderRadius: '5px', padding: '3px 9px', fontSize: '10px',
+                  fontWeight: 400, cursor: 'pointer', whiteSpace: 'nowrap'
                 }}
               >{terminado ? 'Cerrado' : 'Cerrar'}</button>
             );
@@ -2449,7 +2449,7 @@ export const App: React.FC = () => {
                               {h.textoPunto && <div style={{ fontSize: '9.5px', color: '#8A9AB0', lineHeight: 1.3 }}>{h.textoPunto}</div>}
                               <div style={{ color: '#0D1A2E' }}>{descripcionDe(h)}</div>
                             </td>
-                            <td style={{ padding: '7px 10px', textAlign: 'left', width: '250px', maxWidth: '280px' }}>
+                            <td style={{ padding: '7px 10px', textAlign: 'left', width: '250px', maxWidth: '280px', verticalAlign: 'middle' }}>
                               <CeldaCompromiso
                                 key={`${h.docId}-${h.hallazgoIdx}-${h.fechaCierre}-${h.compromisoPor || ''}-${accionDe(h)}`}
                                 accion={accionDe(h)}
@@ -2464,13 +2464,13 @@ export const App: React.FC = () => {
                                 onFijar={(a, f) => handleFijarCompromiso(h.docId, h.hallazgoIdx, f, a)}
                               />
                             </td>
-                            <td style={{ padding: '7px 10px', textAlign: 'center' }}><BotonCerrar h={h} /></td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'middle' }}><BotonCerrar h={h} /></td>
                             {diasGantt.map((col, i) => {
                               const dentro = col.iso >= h.fechaAuditoria && col.iso <= (h.fechaCierre || todayStr);
                               return (
                                 <td key={i} style={{
                                   border: '1px solid rgba(0,32,96,0.05)', padding: 0, height: '22px',
-                                  background: dentro ? (h.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : '#D4840A') : 'transparent'
+                                  background: dentro ? (h.estado === 'PENDIENTE_ATRASADO' ? '#C8102E' : 'rgba(0, 32, 96, 0.6)') : 'transparent'
                                 }}></td>
                               );
                             })}
