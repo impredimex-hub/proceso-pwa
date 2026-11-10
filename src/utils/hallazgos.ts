@@ -28,6 +28,11 @@ export interface HallazgoBase {
   /** Nómina de quien fijó la fecha compromiso (SPEC-034). Vacía = sin fijar. */
   compromisoPor?: string;
   compromisoEn?: string;
+  /**
+   * Revisiones en piso donde el auditor encontró que seguía sin resolverse
+   * (SPEC-039). Cada una queda; el hallazgo sigue abierto y se marca «R».
+   */
+  rechazos?: { fecha: string; porNomina: string; porNombre: string; motivo: string }[];
   estadoSeguimiento?: EstadoCumplimiento;
 }
 

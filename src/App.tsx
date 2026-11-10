@@ -1398,6 +1398,37 @@ export const App: React.FC = () => {
   };
 
   // --- ALTERNAR ESTADO EN GANTT ---
+  // --- SPEC-039: RECHAZO ---
+  // El auditor revisó en piso y el hallazgo sigue sin resolverse. Queda
+  // abierto, con la revisión anotada; se marca «R» en las dos listas.
+  const handleRechazarHallazgo = async (docId: string, hallazgoIdx: number) => {
+    if (!usuarioActivo) return;
+    const motivo = window.prompt(
+      'Rechazo: revisaste en piso y el hallazgo aún NO está solucionado.\n\n' +
+      'Escribe qué encontraste (opcional) y acepta para confirmar el rechazo:', '');
+    if (motivo === null) return; // Canceló
+    const docEncontrado = historial.find((h) => h.id === docId);
+    if (!docEncontrado || !Array.isArray(docEncontrado.hallazgos)) return;
+    try {
+      const nuevos = [...docEncontrado.hallazgos];
+      const previos = Array.isArray(nuevos[hallazgoIdx].rechazos) ? nuevos[hallazgoIdx].rechazos : [];
+      nuevos[hallazgoIdx] = {
+        ...nuevos[hallazgoIdx],
+        estadoSeguimiento: nuevos[hallazgoIdx].estadoSeguimiento === 'TERMINADO' ? 'PENDIENTE' : nuevos[hallazgoIdx].estadoSeguimiento,
+        rechazos: [...previos, {
+          fecha: new Date().toISOString(),
+          porNomina: usuarioActivo.nomina,
+          porNombre: usuarioActivo.nombre,
+          motivo: motivo.trim()
+        }]
+      };
+      await updateDoc(doc(db, 'evaluaciones_proceso', docId), { hallazgos: nuevos });
+    } catch (error) {
+      console.error('Error al rechazar:', error);
+      alert('No se pudo guardar el rechazo. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  };
+
   const handleToggleEstadoHallazgo = async (docId: string, hallazgoIdx: number, estadoActual?: EstadoCumplimiento) => {
     try {
       let nuevoEstado: EstadoCumplimiento = 'PENDIENTE';
@@ -2225,6 +2256,45 @@ export const App: React.FC = () => {
             );
           };
 
+          // SPEC-039: la «R» de revisado y rechazado, con el detalle al pasar el cursor.
+          const MarcaRechazo: React.FC<{ h: any }> = ({ h: x }) => {
+            const lista: any[] = Array.isArray(x.rechazos) ? x.rechazos : [];
+            if (!lista.length) return null;
+            const detalle = lista.map((r) =>
+              `Rechazado el ${String(r.fecha || '').slice(0, 10)} por ${r.porNombre || r.porNomina}${r.motivo ? ': ' + r.motivo : ''}`
+            ).join('\n');
+            return (
+              <span title={detalle} style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '1px',
+                minWidth: '18px', height: '18px', padding: '0 4px', borderRadius: '9px', boxSizing: 'border-box',
+                background: '#C8102E', color: '#fff', fontSize: '10px', fontWeight: 800, cursor: 'help'
+              }}>
+                R{lista.length > 1 ? <sub style={{ fontSize: '7.5px' }}>{lista.length}</sub> : null}
+              </span>
+            );
+          };
+
+          const BotonRechazo: React.FC<{ h: any }> = ({ h: x }) => {
+            if (!puedoCerrar(x) || x.estado === 'TERMINADO') return null;
+            return (
+              <button onClick={() => handleRechazarHallazgo(x.docId, x.hallazgoIdx)}
+                title="Revisaste en piso y aún no está solucionado"
+                style={{
+                  background: '#fff', color: '#C8102E', border: '1.5px solid #C8102E',
+                  borderRadius: '5px', padding: '3px 9px', fontSize: '10px',
+                  fontWeight: 400, cursor: 'pointer', whiteSpace: 'nowrap'
+                }}>Rechazo</button>
+            );
+          };
+
+          const CeldaEstatus: React.FC<{ h: any; conRechazo: boolean }> = ({ h: x, conRechazo }) => (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+              <BotonCerrar h={x} />
+              {conRechazo && <BotonRechazo h={x} />}
+              <MarcaRechazo h={x} />
+            </div>
+          );
+
           // Con auditorías cruzadas cualquiera audita: el ADMIN puede mirar a
           // toda la gente con acceso a la app, no solo a quien tiene máquinas.
           const conMaquinas = USUARIOS_SISTEMA.map((u) => u.nomina)
@@ -2419,7 +2489,7 @@ export const App: React.FC = () => {
                                 <div style={{ fontSize: '9px', color: '#C8102E', fontWeight: 700 }}>{x.diasVencido} días tarde</div>
                               )}
                             </td>
-                            <td style={{ padding: '7px 10px', textAlign: 'center' }}><BotonCerrar h={x} /></td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'middle' }}><CeldaEstatus h={x} conRechazo={true} /></td>
                           </tr>
                         ))}
                       </tbody>
@@ -2511,7 +2581,7 @@ export const App: React.FC = () => {
                                 onFijar={(a, f) => handleFijarCompromiso(h.docId, h.hallazgoIdx, f, a)}
                               />
                             </td>
-                            <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'middle' }}><BotonCerrar h={h} /></td>
+                            <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'middle' }}><CeldaEstatus h={h} conRechazo={false} /></td>
                             {diasGantt.map((col, i) => {
                               const dentro = col.iso >= h.fechaAuditoria && col.iso <= (h.fechaCierre || todayStr);
                               return (

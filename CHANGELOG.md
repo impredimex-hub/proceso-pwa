@@ -6,6 +6,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.12.0] — 2026-11-10
+
+### Agregado
+
+- **Rechazo** (SPEC-039): el auditor marca que revisó en piso y el hallazgo
+  sigue sin resolverse. Queda abierto con una «R» roja que también ve el
+  auditado.
+
+---
+
 ## [3.11.0] — 2026-11-10
 
 ### Cambiado

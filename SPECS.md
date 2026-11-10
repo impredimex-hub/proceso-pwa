@@ -1041,6 +1041,22 @@ SPEC-034, que lo había dejado solo a administradores.
 - Los textos de «Lo que levanté y sigue abierto» y «Mis hallazgos abiertos»
   lo dicen así.
 
+## SPEC-039 — Rechazo: revisado en piso y sin resolver
+
+En «Lo que levanté y sigue abierto», debajo de «Cerrar», el botón
+**«Rechazo»**. Lo usa el auditor cuando, aunque le avisaron que ya quedó,
+revisa en piso y el hallazgo sigue sin resolverse.
+
+- Lo ven quienes pueden cerrar el hallazgo (quien lo levantó o un
+  administrador, SPEC-038), solo mientras está abierto.
+- Pide confirmar y deja escribir qué se encontró (opcional). Cancelar no
+  guarda nada.
+- Se agrega a `rechazos` del hallazgo: `{fecha, porNomina, porNombre,
+  motivo}`. El hallazgo sigue abierto; si estaba cerrado, se reabre.
+- Se marca con una **«R»** roja en el estatus, en las dos listas, así que el
+  auditado también la ve. Con más de un rechazo lleva el número (R₂). Al pasar
+  el cursor se ve cada rechazo con su fecha, quién y el motivo.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
