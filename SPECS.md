@@ -1016,6 +1016,19 @@ celda, así que no cambia el alto de los renglones ni el ancho de las columnas.
 - Sale del campo `auditor` de la revisión (corregible por un administrador,
   SPEC-032).
 
+## SPEC-037 — Filtro por desviación en «Mis hallazgos abiertos»
+
+Arriba de la tabla, un selector **Desviación** con los puntos del checklist que
+tienen hallazgos abiertos, cada uno con cuántos hay, del más repetido al menos.
+«Todas» muestra la lista completa. Los hallazgos extra salen como «Hallazgo
+fuera del checklist».
+
+- Solo aparece cuando hay más de una desviación distinta.
+- Filtra solo la tabla; el indicador de hallazgos abiertos sigue contando
+  todos.
+- Si la desviación elegida ya no tiene hallazgos (por ejemplo, se cerró el
+  último), el filtro vuelve solo a «Todas».
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

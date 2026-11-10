@@ -375,6 +375,8 @@ export const App: React.FC = () => {
 
   // Estados de navegación
   const [vista, setVista] = useState<'LAUNCHER' | 'MODULO_PROCESO' | 'MODULO_5S' | 'EVALUACION' | 'EVALUACION_AREA' | 'HISTORIAL' | 'EDITOR_PLANTILLAS' | 'COBERTURA' | 'RANKING' | 'COMPORTAMIENTO' | 'RESPONSABLES'>('LAUNCHER');
+  /** Filtro por desviación de «Mis hallazgos abiertos» (SPEC-037). Vacío = todas. */
+  const [filtroDesviacion, setFiltroDesviacion] = useState('');
   /** Cambia cada que llegan los responsables guardados, para volver a pintar (SPEC-031). */
   const [, setResponsablesVer] = useState(0);
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState<'PROCESO' | '5S'>('PROCESO');
@@ -2174,6 +2176,15 @@ export const App: React.FC = () => {
             String(a.nominaAuditado || '').trim() === nomina ||
             String(a.nominaSupervisor || '').trim() === nomina);
           const susHallazgos = tableroAbiertos(aplanarHallazgos(suyas as any, todayStr), cerradosAhora);
+          // SPEC-037: desviaciones (puntos del checklist) presentes, con cuántas hay
+          // de cada una, de la más repetida a la menos.
+          const opcionesDesviacion = Array.from(
+            susHallazgos.reduce((m, h) => m.set(h.textoPunto || 'Sin punto', (m.get(h.textoPunto || 'Sin punto') || 0) + 1), new Map<string, number>())
+          ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+          const filtroVigente = opcionesDesviacion.some(([t]) => t === filtroDesviacion) ? filtroDesviacion : '';
+          const ganttVisible = filtroVigente
+            ? susHallazgos.filter((h) => (h.textoPunto || 'Sin punto') === filtroVigente)
+            : susHallazgos;
 
           // Y lo que **él levantó** y sigue abierto (SPEC-024). Va aparte de lo
           // anterior a propósito: son dos papeles distintos. Aquí es donde se
@@ -2428,6 +2439,24 @@ export const App: React.FC = () => {
                     más vencido. Pon tu fecha compromiso: una vez fijada, solo un administrador la cambia.
                     El cierre lo hace un administrador.
                   </div>
+                  {opcionesDesviacion.length > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                      <label htmlFor="filtro-desviacion" style={{ fontSize: '10.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                        Desviación
+                      </label>
+                      <select id="filtro-desviacion" value={filtroVigente} onChange={(e) => setFiltroDesviacion(e.target.value)}
+                        style={{ ...STYLES.input, width: 'auto', maxWidth: '100%', minWidth: '220px', padding: '6px 10px', fontSize: '12px' }}>
+                        <option value="">Todas ({susHallazgos.length})</option>
+                        {opcionesDesviacion.map(([t, n]) => <option key={t} value={t}>{t} ({n})</option>)}
+                      </select>
+                      {filtroVigente && (
+                        <button type="button" onClick={() => setFiltroDesviacion('')}
+                          style={{ background: 'transparent', border: 'none', color: '#003580', fontSize: '11px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
+                          Quitar filtro
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {susHallazgos.length === 0 ? (
                   <div style={{ padding: '22px', textAlign: 'center', color: '#0F7A55', fontSize: '12px', fontWeight: 600 }}>
@@ -2448,7 +2477,7 @@ export const App: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {susHallazgos.map((h) => (
+                        {ganttVisible.map((h) => (
                           <tr key={`${h.docId}-${h.hallazgoIdx}`} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
                             <td style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#003580', whiteSpace: 'nowrap' }}>
                               {h.maquinaNombre}

@@ -6,6 +6,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.10.0] — 2026-11-09
+
+### Agregado
+
+- Filtro por desviación en «Mis hallazgos abiertos» (SPEC-037).
+
+---
+
 ## [3.9.0] — 2026-11-09
 
 ### Agregado
