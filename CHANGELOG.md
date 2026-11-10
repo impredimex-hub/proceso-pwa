@@ -6,6 +6,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.9.0] — 2026-11-09
+
+### Agregado
+
+- En «Mis hallazgos abiertos», el nombre de quien auditó cada hallazgo, bajo
+  la máquina (SPEC-036).
+
+---
+
 ## [3.8.1] — 2026-10-20
 
 ### Cambiado
@@ -13,15 +22,6 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - En «Mis hallazgos abiertos», la barra del Gantt pasa de naranja a azul
   marino al 60% (lo vencido sigue en rojo). «Registrar» y «Cerrar» quedan
   centrados en su renglón, en azul marino con letra blanca normal.
-
----
-
-## [3.9.0] — 2026-11-09
-
-### Agregado
-
-- En «Mis hallazgos abiertos», el nombre de quien auditó cada hallazgo, bajo
-  la máquina (SPEC-036).
 
 ---
 
