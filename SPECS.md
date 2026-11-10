@@ -1005,6 +1005,17 @@ queda bloqueado como la fecha de la SPEC-034: solo un administrador lo cambia.
   para verificarla en piso. También sale en el PDF, en «Ver Check» y en la
   reincidencia («la acción fue…»).
 
+## SPEC-036 — El auditor de cada hallazgo, bajo la máquina
+
+En «Mis hallazgos abiertos», debajo del nombre de la máquina va una línea gris
+chica: «Auditó: MAGALLANES ANGEL». Aprovecha el hueco que ya había en esa
+celda, así que no cambia el alto de los renglones ni el ancho de las columnas.
+
+- El nombre se acorta a primer apellido y primer nombre (`nombreCorto`); el
+  completo aparece al pasar el cursor.
+- Sale del campo `auditor` de la revisión (corregible por un administrador,
+  SPEC-032).
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

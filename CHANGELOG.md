@@ -16,6 +16,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.9.0] — 2026-11-09
+
+### Agregado
+
+- En «Mis hallazgos abiertos», el nombre de quien auditó cada hallazgo, bajo
+  la máquina (SPEC-036).
+
+---
+
 ## [3.8.0] — 2026-10-20
 
 ### Agregado

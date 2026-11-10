@@ -185,6 +185,16 @@ const obtenerSupervisoresPorMaquina = (maquina: Maquina | null): UserProfile[] =
   return USUARIOS_SISTEMA.filter((u) => nominas.includes(u.nomina));
 };
 
+/**
+ * «MAGALLANES LOPEZ ANGEL GAMALIEL» → «MAGALLANES ANGEL» (SPEC-036): primer
+ * apellido y primer nombre, para que quepa en una línea. Con menos de tres
+ * palabras no se puede saber cuál es cuál, y se deja igual.
+ */
+const nombreCorto = (n: string) => {
+  const p = String(n || '').trim().split(/\s+/);
+  return p.length >= 3 ? `${p[0]} ${p[2]}` : p.join(' ');
+};
+
 /** Lo mismo, para la revisión por área (SPEC-027). Fuera del componente para que no cambie en cada render. */
 const supervisoresDeArea = (m: { id: string }): UserProfile[] =>
   obtenerSupervisoresPorMaquina(CATALOGO.find((x) => x.id === m.id) || null);
@@ -2440,7 +2450,15 @@ export const App: React.FC = () => {
                       <tbody>
                         {susHallazgos.map((h) => (
                           <tr key={`${h.docId}-${h.hallazgoIdx}`} style={{ borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
-                            <td style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#003580', whiteSpace: 'nowrap' }}>{h.maquinaNombre}</td>
+                            <td style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#003580', whiteSpace: 'nowrap' }}>
+                              {h.maquinaNombre}
+                              {/* SPEC-036: quién levantó el hallazgo, en el hueco bajo la máquina. */}
+                              {h.auditor && (
+                                <div title={`Auditó: ${h.auditor}`} style={{ fontSize: '9.5px', fontWeight: 400, color: '#8A9AB0', marginTop: '3px' }}>
+                                  Auditó: {nombreCorto(h.auditor)}
+                                </div>
+                              )}
+                            </td>
                             <td style={{ padding: '7px 10px', textAlign: 'left' }}>
                               {h.seguridad && (
                                 <span style={{ background: '#C8102E', color: '#fff', fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', marginRight: '5px' }}>SEGURIDAD</span>
