@@ -2205,7 +2205,7 @@ export const App: React.FC = () => {
             const terminado = x.estado === 'TERMINADO';
             if (!puedoCerrar(x)) {
               return (
-                <span title="Solo un administrador puede cerrarlo"
+                <span title="Lo cierra quien levantó el hallazgo o un administrador"
                   style={{ fontSize: '9.5px', fontWeight: 700, color: '#8A9AB0', whiteSpace: 'nowrap' }}>
                   {terminado ? 'Cerrado' : 'Abierto'}
                 </span>
@@ -2361,7 +2361,7 @@ export const App: React.FC = () => {
                   </div>
                   <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
                     Hallazgos de mis propias auditorías, para verificar en piso que se
-                    corrijan. El cierre lo hace un administrador.
+                    corrijan. Al verificarlo, ciérralo tú.
                   </div>
                 </div>
                 {hallazgosQueLevanto.length > 0 && (
@@ -2437,7 +2437,7 @@ export const App: React.FC = () => {
                   <div style={{ fontSize: '10.5px', color: '#5A6A80', marginTop: '2px' }}>
                     Los que salieron en mis auditorías y siguen sin cerrarse. Seguridad primero, luego lo
                     más vencido. Pon tu fecha compromiso: una vez fijada, solo un administrador la cambia.
-                    El cierre lo hace un administrador.
+                    Lo cierra quien levantó el hallazgo, al verificarlo.
                   </div>
                   {opcionesDesviacion.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>

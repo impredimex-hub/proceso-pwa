@@ -1029,6 +1029,18 @@ fuera del checklist».
 - Si la desviación elegida ya no tiene hallazgos (por ejemplo, se cerró el
   último), el filtro vuelve solo a «Todas».
 
+## SPEC-038 — El auditor vuelve a cerrar lo que levantó
+
+Desde el 10/11/2026 un hallazgo lo cierra **quien lo levantó o un
+administrador**, como en la SPEC-024. Sustituye la parte de cierre de la
+SPEC-034, que lo había dejado solo a administradores.
+
+- El auditado sigue sin poder cerrarlo: cerrar es dar la corrección por buena.
+- La fecha compromiso y la acción correctiva no cambian: las registra el
+  auditado una vez y solo un administrador las modifica (SPEC-034 y 035).
+- Los textos de «Lo que levanté y sigue abierto» y «Mis hallazgos abiertos»
+  lo dicen así.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de

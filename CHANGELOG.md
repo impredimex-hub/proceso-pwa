@@ -6,6 +6,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.11.0] — 2026-11-10
+
+### Cambiado
+
+- El auditor vuelve a poder cerrar los hallazgos que levantó (SPEC-038). Los
+  administradores pueden cerrar cualquiera; el auditado, ninguno.
+
+---
+
 ## [3.10.0] — 2026-11-09
 
 ### Agregado

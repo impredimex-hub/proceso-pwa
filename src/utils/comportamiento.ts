@@ -254,16 +254,27 @@ export const nominasConMaquinas = (catalogo: MaquinaAsignable[]): string[] =>
  * ahí se compara por el nombre escrito, que es lo único que hay.
  */
 /**
- * SPEC-034: desde el 20/10/2026 **solo un administrador** cierra hallazgos.
- * Antes también podía quien lo levantó (SPEC-024). Se conserva la firma para
- * no tocar a quien la llama.
+ * Quién cierra un hallazgo (SPEC-038): **quien lo levantó o un
+ * administrador**. Es la regla de la SPEC-024, que la SPEC-034 había limitado
+ * a solo administradores y se restableció el 10/11/2026. El auditado no: cerrar
+ * es dar la corrección por buena.
+ *
+ * Se compara por nómina; las revisiones viejas sin `nominaAuditor` se comparan
+ * por nombre.
  */
 export const puedeCerrarHallazgo = (
-  _h: { nominaAuditor?: string; auditor?: string },
-  _miNomina: string,
-  _miNombre: string,
+  h: { nominaAuditor?: string; auditor?: string },
+  miNomina: string,
+  miNombre: string,
   esAdmin: boolean
-): boolean => esAdmin;
+): boolean => {
+  if (esAdmin) return true;
+  const mia = String(miNomina || '').trim();
+  if (!mia) return false;
+  if (h.nominaAuditor) return String(h.nominaAuditor).trim() === mia;
+  const n = norm(miNombre);
+  return !!n && norm(h.auditor || '') === n;
+};
 
 /**
  * ¿Puede esta persona poner o cambiar la fecha compromiso? (SPEC-034)
