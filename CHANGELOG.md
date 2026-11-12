@@ -6,6 +6,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.12.1] — 2026-11-12
+
+### Corregido
+
+- En «Puntos que más fallan», tocar un punto desplegaba también otros con el
+  mismo número de otra lista (SPEC-040). Ahora se abre solo el elegido, con el
+  detalle más compacto.
+
+---
+
 ## [3.12.0] — 2026-11-10
 
 ### Agregado

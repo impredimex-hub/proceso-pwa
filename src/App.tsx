@@ -399,7 +399,9 @@ export const App: React.FC = () => {
   /* ── Ranking de puntos (SPEC-007) ─────────────────────────────────────── */
   const [tipoRanking, setTipoRanking] = useState<'5S' | 'PROCESO'>('5S');
   const [familiaRanking, setFamiliaRanking] = useState('');
-  const [puntoAbierto, setPuntoAbierto] = useState<number | null>(null);
+  // Se identifica por `clave` (número + texto), no por número: cada lista de
+  // 5S numera desde 1 y abrir el punto 1 abría todos los «punto 1» (SPEC-040).
+  const [puntoAbierto, setPuntoAbierto] = useState<string | null>(null);
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   // Modal Layout 3D
@@ -2730,10 +2732,10 @@ export const App: React.FC = () => {
                     <tbody>
                       {conHistoria.map((f) => {
                         const d = dondeFalla(f);
-                        const abierto = puntoAbierto === f.puntoId;
+                        const abierto = puntoAbierto === f.clave;
                         return (
                           <React.Fragment key={f.clave}>
-                            <tr onClick={() => setPuntoAbierto(abierto ? null : f.puntoId)}
+                            <tr onClick={() => setPuntoAbierto(abierto ? null : f.clave)}
                               style={{ borderBottom: '1px solid rgba(0,32,96,0.06)', cursor: 'pointer', background: abierto ? '#f8f9ff' : 'transparent' }}>
                               <td style={{ padding: '8px 12px', textAlign: 'left' }}>
                                 {f.seguridad && (
@@ -2771,7 +2773,7 @@ export const App: React.FC = () => {
                             {abierto && (
                               <tr style={{ background: '#f8f9ff', borderBottom: '1px solid rgba(0,32,96,0.06)' }}>
                                 <td colSpan={4} style={{ padding: '10px 14px', textAlign: 'left' }}>
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '14px' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 360px))', gap: '14px 40px' }}>
                                     {[{ t: 'Por máquina', d: f.porMaquina }, { t: 'Por turno', d: f.porTurno }].map((bloque) => (
                                       <div key={bloque.t}>
                                         <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#003580', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '5px' }}>{bloque.t}</div>

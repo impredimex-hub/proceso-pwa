@@ -1057,6 +1057,16 @@ revisa en piso y el hallazgo sigue sin resolverse.
   auditado también la ve. Con más de un rechazo lleva el número (R₂). Al pasar
   el cursor se ve cada rechazo con su fecha, quién y el motivo.
 
+## SPEC-040 — En «Puntos que más fallan» se abre solo el punto elegido
+
+Al tocar un punto se desplegaban varios a la vez: el detalle se abría por
+número de punto, y cada lista de 5S numera desde 1, así que el punto 1 de una
+familia abría también el punto 1 de las otras. Ahora se abre por `clave`
+(número y texto, la misma identidad que usa el ranking).
+
+El detalle (por máquina y por turno) se limita a 360 px por bloque, para que
+cada porcentaje quede junto a su nombre y no al otro extremo de la pantalla.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
