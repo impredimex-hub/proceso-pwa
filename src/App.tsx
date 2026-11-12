@@ -7,7 +7,8 @@ import {
 import { collection, onSnapshot, addDoc, updateDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { aplanarHallazgos, tableroAbiertos, historialDePunto, accionDe, descripcionDe } from './utils/hallazgos';
 import type { HallazgoPlano } from './utils/hallazgos';
-import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, UMBRAL_REVISIONES } from './utils/ranking';
+import { calcularRanking, dondeFalla, familiasConProceso, seguridadPendiente, parecido, UMBRAL_REVISIONES } from './utils/ranking';
+import type { UnionRanking } from './utils/ranking';
 import type { FilaRanking } from './utils/ranking';
 import {
   mermaDe, defectosDe, participacionDe, maquinasDelOchenta, mesesDisponibles,
@@ -402,6 +403,18 @@ export const App: React.FC = () => {
   // Se identifica por `clave` (número + texto), no por número: cada lista de
   // 5S numera desde 1 y abrir el punto 1 abría todos los «punto 1» (SPEC-040).
   const [puntoAbierto, setPuntoAbierto] = useState<string | null>(null);
+  /** Redacciones que un administrador unió como la misma pregunta (SPEC-041). */
+  const [unionesRanking, setUnionesRanking] = useState<UnionRanking[]>([]);
+  const guardarUniones = async (nuevas: UnionRanking[]) => {
+    try {
+      await setDoc(doc(db, 'configuracion', 'ranking'), {
+        uniones: nuevas, actualizadoEn: serverTimestamp(), actualizadoPor: usuarioActivo?.nomina || ''
+      });
+    } catch (e) {
+      console.error('Uniones del ranking:', e);
+      alert('No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  };
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState<Maquina | null>(null);
 
   // Modal Layout 3D
@@ -658,6 +671,12 @@ export const App: React.FC = () => {
       setResponsablesVer((v) => v + 1);
     }, (error) => console.error('Responsables:', error));
 
+    // SPEC-041: redacciones unidas en «Puntos que más fallan».
+    const unsubUniones = onSnapshot(doc(db, 'configuracion', 'ranking'), (snap) => {
+      const u = snap.exists() ? snap.data().uniones : null;
+      setUnionesRanking(Array.isArray(u) ? u.filter((x: any) => x && typeof x.de === 'string' && typeof x.a === 'string') : []);
+    }, (error) => console.error('Uniones del ranking:', error));
+
     const unsubPlantillas5S = onSnapshot(collection(db, 'plantillas_5s'), (snapshot) => {
       const data5: Record<string, ItemChecklist[]> = {};
       snapshot.docs.forEach((d) => {
@@ -673,6 +692,7 @@ export const App: React.FC = () => {
       unsubPlantillasProceso();
       unsubPlantillas5S();
       unsubResponsables();
+      unsubUniones();
     };
   }, [auditoriaDetalleModal?.id]);
 
@@ -2616,7 +2636,21 @@ export const App: React.FC = () => {
         {vista === 'RANKING' && (() => {
           const familias = familiasConProceso(historial);
           const familiaUsada = tipoRanking === 'PROCESO' ? (familiaRanking || familias[0] || null) : null;
-          const filas: FilaRanking[] = calcularRanking(historial, tipoRanking, familiaUsada);
+          const filas: FilaRanking[] = calcularRanking(historial, tipoRanking, familiaUsada, UMBRAL_REVISIONES, unionesRanking);
+          // SPEC-041: unir dos redacciones de la misma pregunta. Manda la de
+          // menos revisiones a la de más, y arrastra lo que ya apuntaba a ella.
+          const unirPuntos = (x: FilaRanking, y: FilaRanking) => {
+            const [menor, mayor] = x.total <= y.total ? [x, y] : [y, x];
+            if (!window.confirm(`¿Contar como la misma pregunta?\n\n«${menor.texto}»\n\nse sumará a\n\n«${mayor.texto}»`)) return;
+            const mueve = [menor.clave, ...menor.variantes.map((v) => v.clave)];
+            guardarUniones([
+              ...unionesRanking.filter((u) => !mueve.includes(u.de)),
+              ...mueve.map((de) => ({ de, a: mayor.clave }))
+            ]);
+            setPuntoAbierto(mayor.clave);
+          };
+          const separarPunto = (claveVariante: string) =>
+            guardarUniones(unionesRanking.filter((u) => u.de !== claveVariante));
           const conHistoria = filas.filter((f) => !f.sinHistoria);
           const sinHistoria = filas.filter((f) => f.sinHistoria);
           // Seguridad que ya falló pero aún no llega al umbral (SPEC-010).
@@ -2674,8 +2708,9 @@ export const App: React.FC = () => {
               {/* Por qué no es un solo tablero. */}
               <div style={{ fontSize: '11px', color: '#5A6A80', lineHeight: 1.55, marginBottom: '12px', textAlign: 'left', padding: '0 4px' }}>
                 {tipoRanking === '5S'
-                  ? <>El checklist de 5S es el mismo para toda la planta, así que estos porcentajes
-                      son comparables entre máquinas.</>
+                  ? <>Cada punto junta todas las máquinas y áreas donde se pregunta <b>con el mismo texto</b>.
+                      Si una misma pregunta quedó redactada distinto en dos listas, sale en dos renglones;
+                      un administrador puede unirlas al abrir el punto.</>
                   : <>El checklist de proceso es <b>distinto en cada familia</b>, así que solo se compara
                       dentro de una. El «punto 4» de Pegado y el de Flexografía no son la misma pregunta,
                       y juntarlos daría un ranking sin significado.</>}
@@ -2788,6 +2823,39 @@ export const App: React.FC = () => {
                                       </div>
                                     ))}
                                   </div>
+
+                                  {/* SPEC-041: redacciones unidas y unir con otra. */}
+                                  {f.variantes.length > 0 && (
+                                    <div style={{ marginTop: '10px', fontSize: '10.5px', color: '#5A6A80' }}>
+                                      <b style={{ color: '#003580' }}>Incluye también:</b>
+                                      {f.variantes.map((v) => (
+                                        <div key={v.clave} style={{ display: 'flex', gap: '8px', alignItems: 'baseline', padding: '2px 0' }}>
+                                          <span>«{v.texto}»</span>
+                                          {esAdminTotal && (
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); separarPunto(v.clave); }}
+                                              style={{ background: 'none', border: 'none', color: '#003580', fontSize: '10.5px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                                              Separar
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {esAdminTotal && filas.length > 1 && (
+                                    <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <label htmlFor="unir-punto" style={{ fontSize: '10.5px', color: '#5A6A80' }}>
+                                        ¿Es la misma pregunta que otro punto?
+                                      </label>
+                                      <select id="unir-punto" value="" onClick={(e) => e.stopPropagation()}
+                                        onChange={(e) => { const y = filas.find((o) => o.clave === e.target.value); if (y) unirPuntos(f, y); }}
+                                        style={{ ...STYLES.input, width: 'auto', maxWidth: '100%', padding: '5px 8px', fontSize: '11px' }}>
+                                        <option value="">Unir con…</option>
+                                        {filas.filter((o) => o.clave !== f.clave)
+                                          .sort((p1, p2) => parecido(p2.texto, f.texto) - parecido(p1.texto, f.texto))
+                                          .map((o) => <option key={o.clave} value={o.clave}>{o.texto} ({o.total})</option>)}
+                                      </select>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}

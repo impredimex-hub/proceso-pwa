@@ -6,6 +6,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ---
 
+## [3.13.0] — 2026-11-12
+
+### Cambiado
+
+- **«Puntos que más fallan» agrupa por el texto de la pregunta** (SPEC-041),
+  no por su número: la misma pregunta en listas distintas ya sale junta, con
+  todas sus áreas.
+
+### Agregado
+
+- Un administrador puede **unir dos redacciones** de la misma pregunta al
+  abrir un punto, y separarlas después.
+
+---
+
 ## [3.12.1] — 2026-11-12
 
 ### Corregido

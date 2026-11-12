@@ -44,9 +44,27 @@ export interface Desglose {
   tasa: number;
 }
 
+/** Dos redacciones que un administrador declaró la misma pregunta (SPEC-041). */
+export interface UnionRanking { de: string; a: string }
+
+/** Llave de un punto: su texto sin acentos, mayúsculas ni espacios de más. */
+export const claveDeTexto = (texto: string) => normalizar(texto);
+
+/** Parecido entre dos textos, de 0 a 1, por palabras en común. Solo ordena sugerencias. */
+export const parecido = (a: string, b: string): number => {
+  const pal = (t: string) => new Set(normalizar(t).split(/[^a-z0-9ñ]+/).filter((w) => w.length > 2));
+  const x = pal(a), y = pal(b);
+  if (!x.size || !y.size) return 0;
+  let comunes = 0;
+  x.forEach((w) => { if (y.has(w)) comunes++; });
+  return comunes / (x.size + y.size - comunes);
+};
+
 export interface FilaRanking {
-  /** Identidad real de la fila: número de punto **y** texto (ver abajo). */
+  /** Identidad de la fila: el texto del punto, normalizado (ver abajo). */
   clave: string;
+  /** Otras redacciones unidas a esta fila (SPEC-041). */
+  variantes: { clave: string; texto: string }[];
   puntoId: number;
   texto: string;
   seccion: string;
@@ -91,24 +109,32 @@ export const calcularRanking = (
   auditorias: AuditoriaRk[],
   tipo: 'PROCESO' | '5S',
   familia: string | null,
-  umbral: number = UMBRAL_REVISIONES
+  umbral: number = UMBRAL_REVISIONES,
+  uniones: UnionRanking[] = []
 ): FilaRanking[] => {
   /**
-   * La llave agrupa por **número de punto y texto**, no solo por número.
+   * La llave agrupa por **el texto del punto**, no por su número (SPEC-041).
    *
-   * Los `id` son por plantilla: el punto 7 de la plantilla de Pegado y el 7 de
-   * la de Flexografía son preguntas distintas. Agrupando solo por número, en
-   * cuanto alguien edite una plantilla el ranking sumaría dos preguntas como si
-   * fueran la misma, y nadie lo notaría.
+   * Los `id` son por plantilla: el punto 7 de Pegado y el 7 de Flexografía son
+   * preguntas distintas, y desde que cada área tiene su lista de 5S la misma
+   * pregunta puede llevar números distintos. El texto es lo único que dice si
+   * dos puntos son la misma pregunta.
    *
-   * Incluir el texto cambia el modo de falla: dos preguntas distintas ya no se
-   * mezclan nunca, y una misma pregunta reescrita aparece partida en dos
-   * renglones —un error a la vista, no uno silencioso—.
+   * Una pregunta reescrita («herramientas» / «herramientas y utensilios»)
+   * aparece partida en dos renglones —un error a la vista, no uno silencioso—
+   * hasta que un administrador las une: `uniones` manda una redacción a otra.
    */
+  const destino = new Map(uniones.map((u) => [u.de, u.a]));
+  const canonica = (k: string) => {
+    for (let i = 0; i < 5 && destino.has(k); i++) k = destino.get(k) as string;
+    return k;
+  };
+
   const acumulado = new Map<string, {
     puntoId: number;
     texto: string;
     seccion: string;
+    textos: Map<string, string>;
     no: number;
     total: number;
     maquinas: Map<string, { no: number; total: number }>;
@@ -135,7 +161,8 @@ export const calcularRanking = (
 
       const item = items.find(i => i.id === puntoId);
       const texto = item?.queObservar || `Punto #${puntoId}`;
-      const llave = `${puntoId}::${normalizar(texto)}`;
+      const propia = claveDeTexto(texto);
+      const llave = canonica(propia);
 
       let acc = acumulado.get(llave);
       if (!acc) {
@@ -143,11 +170,14 @@ export const calcularRanking = (
           puntoId,
           texto,
           seccion: item?.seccion || '',
+          textos: new Map(),
           no: 0, total: 0,
           maquinas: new Map(), turnos: new Map()
         };
         acumulado.set(llave, acc);
       }
+
+      if (!acc.textos.has(propia)) acc.textos.set(propia, texto);
 
       const esNo = v === 'NO';
       acc.total++; if (esNo) acc.no++;
@@ -165,7 +195,9 @@ export const calcularRanking = (
   const filas: FilaRanking[] = [...acumulado.entries()].map(([clave, acc]) => ({
     clave,
     puntoId: acc.puntoId,
-    texto: acc.texto,
+    // El texto de la redacción a la que se unieron las demás.
+    texto: acc.textos.get(clave) || acc.texto,
+    variantes: [...acc.textos.entries()].filter(([k]) => k !== clave).map(([k, t]) => ({ clave: k, texto: t })),
     seccion: acc.seccion,
     // La misma regla que clasifica los hallazgos, no una copia (SPEC-010).
     seguridad: esPuntoDeSeguridad({ id: acc.puntoId, seccion: acc.seccion, queObservar: acc.texto }),

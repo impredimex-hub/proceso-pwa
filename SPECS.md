@@ -1067,6 +1067,34 @@ familia abría también el punto 1 de las otras. Ahora se abre por `clave`
 El detalle (por máquina y por turno) se limita a 360 px por bloque, para que
 cada porcentaje quede junto a su nombre y no al otro extremo de la pantalla.
 
+## SPEC-041 — El ranking agrupa por texto, y las redacciones se pueden unir
+
+### El problema
+
+«Puntos que más fallan» agrupaba por número de punto y texto. Desde que cada
+área tiene su lista de 5S (SPEC-029), una misma pregunta puede llevar números
+distintos o una redacción apenas distinta («herramientas» / «herramientas y
+utensilios»), y salía partida en dos renglones: al abrir uno parecía que
+faltaban inspecciones, cuando estaban en el otro.
+
+### La solución
+
+- **Se agrupa solo por el texto** del punto (sin acentos ni mayúsculas). El
+  mismo texto con otro número ya es el mismo renglón; dos preguntas distintas
+  con el mismo número siguen separadas.
+- **Unir redacciones**: al abrir un punto, un administrador elige «Unir con…»
+  otro punto (la lista sugiere primero los más parecidos) y confirma. La
+  redacción con menos revisiones se suma a la de más. El renglón dice «Incluye
+  también: …» y cada variante tiene «Separar».
+- Las uniones se guardan en `configuracion/ranking` → `uniones: [{de, a}]`
+  (llaves de texto). Solo afectan a esta pantalla; las auditorías no se tocan.
+- El texto de ayuda de 5S ya no dice que el checklist es el mismo en toda la
+  planta.
+
+Las auditorías guardan el texto con que se hicieron, así que igualar la
+redacción en el Editor de Plantillas solo arregla las revisiones futuras; para
+la historia sirve la unión.
+
 ## Lo que ya se captura y no se estaba usando
 
 Nada de lo que sigue necesita cambiar la captura. Ya está en cada documento de
